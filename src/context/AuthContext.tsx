@@ -25,7 +25,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) {
       // Profile may not exist yet (e.g., trigger hasn't fired on very first signup)
       // This is non-fatal — components should handle profile === null gracefully.
-      console.warn('[TMGL AuthContext] Could not load profile:', error.message);
+      if (import.meta.env.DEV) {
+        console.warn('[TMGL AuthContext] Could not load profile:', error.message);
+      }
       setProfile(null);
     } else {
       setProfile(data as Profile);
@@ -81,13 +83,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // -------------------------------------------------------------------
   const signIn = useCallback(async (email: string, password: string): Promise<AuthResult> => {
     setIsLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setIsLoading(false);
-
-    if (error) {
-      return { success: false, error: error.message };
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Unexpected error signing in' };
+    } finally {
+      setIsLoading(false);
     }
-    return { success: true };
   }, []);
 
   const signUp = useCallback(async (
@@ -96,31 +102,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     fullName: string
   ): Promise<AuthResult> => {
     setIsLoading(true);
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName }
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: fullName }
+        }
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
       }
-    });
-    setIsLoading(false);
 
-    if (error) {
-      return { success: false, error: error.message };
+      const requiresConfirmation = !data.session;
+      return { success: true, requiresConfirmation };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Unexpected error signing up' };
+    } finally {
+      setIsLoading(false);
     }
-
-    // If email confirmation is enabled, session will be null until confirmed
-    const requiresConfirmation = !data.session;
-    return { success: true, requiresConfirmation };
   }, []);
 
   const signOut = useCallback(async () => {
     setIsLoading(true);
-    await supabase.auth.signOut();
-    setSession(null);
-    setUser(null);
-    setProfile(null);
-    setIsLoading(false);
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      if (import.meta.env.DEV) {
+        console.warn('[TMGL AuthContext] Error during sign out');
+      }
+    } finally {
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setIsLoading(false);
+    }
   }, []);
 
   const value: AuthContextValue = {

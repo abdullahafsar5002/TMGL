@@ -172,7 +172,7 @@ export function MatchDetailPage() {
 
       {canManage && (
         <div className="flex flex-wrap gap-2">
-          <Button variant="primary" size="sm" onClick={() => navigate(`/scoring?match_id=${match.id}`)} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
+          <Button variant="primary" size="sm" onClick={() => navigate('/scoring')} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
             <Edit3 className="w-4 h-4 mr-1.5" /> Enter Scores
           </Button>
           <Button variant="outline" size="sm" onClick={startResultEntry}><CheckCircle className="w-3.5 h-3.5 mr-1.5" /> Set Result</Button>

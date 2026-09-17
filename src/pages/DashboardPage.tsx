@@ -43,17 +43,24 @@ export function DashboardPage() {
   const [dashStats, setDashStats] = useState<DashboardStats | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
-    const [lsResult, dsResult, actResult] = await Promise.all([
-      getLeagueStats(),
-      getDashboardStats(),
-      getRecentActivity(8),
-    ]);
-    if (lsResult.data) setLeagueStats(lsResult.data);
-    if (dsResult.data) setDashStats(dsResult.data);
-    if (actResult.data) setActivity(actResult.data);
+    setError(null);
+    try {
+      const [lsResult, dsResult, actResult] = await Promise.all([
+        getLeagueStats(),
+        getDashboardStats(),
+        getRecentActivity(8),
+      ]);
+      if (lsResult.data) setLeagueStats(lsResult.data);
+      if (dsResult.error) setError(lsResult.error);
+      if (dsResult.data) setDashStats(dsResult.data);
+      if (actResult.data) setActivity(actResult.data);
+    } catch {
+      setError('Failed to load dashboard');
+    }
     setIsLoading(false);
   }, []);
 
@@ -69,6 +76,17 @@ export function DashboardPage() {
 
   if (isLoading) {
     return <Container size="lg" className="py-4"><LoadingState message="Loading dashboard..." /></Container>;
+  }
+
+  if (error) {
+    return (
+      <Container size="lg" className="py-4">
+        <div className="flex items-start gap-2 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
+          <p className="font-semibold">Failed to load dashboard: {error}</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={load} className="mt-3">Retry</Button>
+      </Container>
+    );
   }
 
   const activityIconMap: Record<string, React.ComponentType<{ className?: string }>> = {

@@ -5,6 +5,7 @@ import { Container } from '@/components/common/Container';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
 import { canManageLeague } from '@/lib/roleGuards';
 import { getTeam, updateTeam, deleteTeam, getSeason, getDivisionsBySeason, getTeamMembers, addTeamMember, removeTeamMember, getPlayers, getAllTeams } from '@/lib/league';
@@ -39,6 +40,9 @@ export function TeamDetailPage() {
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [addMemberError, setAddMemberError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [removeTargetPlayerId, setRemoveTargetPlayerId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -95,7 +99,8 @@ export function TeamDetailPage() {
   };
 
   const handleDelete = async () => {
-    if (!id || !window.confirm('Delete this team and all its membership records?')) return;
+    if (!id) return;
+    setShowDeleteConfirm(false);
     const res = await deleteTeam(id);
     if (res.error) setError(res.error);
     else navigate(season ? `/seasons/${season.id}` : '/teams');
@@ -117,10 +122,18 @@ export function TeamDetailPage() {
   };
 
   const handleRemoveMember = async (playerId: string) => {
-    if (!id || !window.confirm('Remove this player from the team?')) return;
-    const res = await removeTeamMember(id, playerId);
+    if (!id) return;
+    setRemoveTargetPlayerId(playerId);
+    setShowRemoveConfirm(true);
+  };
+
+  const confirmRemoveMember = async () => {
+    if (!id || !removeTargetPlayerId) return;
+    setShowRemoveConfirm(false);
+    const res = await removeTeamMember(id, removeTargetPlayerId);
     if (res.error) setAddMemberError(res.error);
-    else setMembers(members.filter((m) => m.player_id !== playerId));
+    else setMembers(members.filter((m) => m.player_id !== removeTargetPlayerId));
+    setRemoveTargetPlayerId(null);
   };
 
   if (isLoading) {
@@ -164,7 +177,7 @@ export function TeamDetailPage() {
         {canManage && !isEditing && (
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}><Edit className="w-4 h-4 mr-1" />Edit</Button>
-            <Button variant="outline" size="sm" onClick={handleDelete} className="text-red-600 border-red-200 hover:bg-red-50"><Trash2 className="w-4 h-4 mr-1" />Delete</Button>
+            <Button variant="outline" size="sm" onClick={() => setShowDeleteConfirm(true)} className="text-red-600 border-red-200 hover:bg-red-50"><Trash2 className="w-4 h-4 mr-1" />Delete</Button>
           </div>
         )}
       </div>
@@ -350,6 +363,25 @@ export function TeamDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        title="Delete Team"
+        message="Delete this team and all its membership records?"
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
+      <ConfirmDialog
+        open={showRemoveConfirm}
+        title="Remove Player"
+        message="Remove this player from the team?"
+        confirmLabel="Remove"
+        variant="danger"
+        onConfirm={confirmRemoveMember}
+        onCancel={() => { setShowRemoveConfirm(false); setRemoveTargetPlayerId(null); }}
+      />
     </Container>
   );
 }

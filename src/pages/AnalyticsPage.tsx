@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TrendingUp, Trophy, Swords, Users, FileText, Shield, ArrowLeft, Activity } from 'lucide-react';
+import { TrendingUp, Trophy, Swords, Users, FileText, Shield, ArrowLeft, Activity, Flag, RefreshCw } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card, CardContent } from '@/components/common/Card';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
@@ -44,13 +44,16 @@ export function AnalyticsPage() {
         <div className="flex items-start gap-2 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
           <p className="font-semibold">Failed to load analytics: {error}</p>
         </div>
+        <button onClick={load} className="mt-3 flex items-center gap-1.5 text-sm text-tmgl-green-800 hover:underline">
+          <RefreshCw className="w-4 h-4" /> Retry
+        </button>
       </Container>
     );
   }
 
   const activityIconMap: Record<string, React.ComponentType<{ className?: string }>> = {
     tournament: Trophy,
-    round: Shield,
+    round: Flag,
     match: Swords,
     scorecard: FileText,
   };

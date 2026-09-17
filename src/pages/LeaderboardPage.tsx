@@ -24,11 +24,11 @@ export function LeaderboardPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { getTournaments().then((r) => { if (r.data) setTournaments(r.data); }); }, []);
+  useEffect(() => { getTournaments().then((r) => { if (r.error) setError(r.error); else if (r.data) setTournaments(r.data); }); }, []);
 
   useEffect(() => {
     if (selectedTournamentId) {
-      getRoundsByTournament(selectedTournamentId).then((r) => { if (r.data) setRounds(r.data); });
+      getRoundsByTournament(selectedTournamentId).then((r) => { if (r.error) setError(r.error); else if (r.data) setRounds(r.data); });
     } else {
       setRounds([]);
     }

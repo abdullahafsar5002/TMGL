@@ -5,6 +5,7 @@ import { Container } from '@/components/common/Container';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
 import { canManageLeague } from '@/lib/roleGuards';
 import { getSeason, updateSeason, deleteSeason, getDivisionsBySeason, getTeamsBySeason } from '@/lib/league';
@@ -38,6 +39,7 @@ export function SeasonDetailPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -96,7 +98,8 @@ export function SeasonDetailPage() {
   };
 
   const handleDelete = async () => {
-    if (!id || !window.confirm('Are you sure you want to delete this season? This cannot be undone.')) return;
+    if (!id) return;
+    setShowDeleteConfirm(false);
     const result = await deleteSeason(id);
     if (result.error) {
       setError(result.error);
@@ -147,7 +150,7 @@ export function SeasonDetailPage() {
             <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
               <Edit className="w-4 h-4 mr-1" /> Edit
             </Button>
-            <Button variant="outline" size="sm" onClick={handleDelete} className="text-red-600 border-red-200 hover:bg-red-50">
+            <Button variant="outline" size="sm" onClick={() => setShowDeleteConfirm(true)} className="text-red-600 border-red-200 hover:bg-red-50">
               <Trash2 className="w-4 h-4 mr-1" /> Delete
             </Button>
           </div>
@@ -279,6 +282,16 @@ export function SeasonDetailPage() {
           </Card>
         </>
       )}
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        title="Delete Season"
+        message="Are you sure you want to delete this season? This cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
     </Container>
   );
 }

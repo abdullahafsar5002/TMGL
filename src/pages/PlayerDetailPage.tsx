@@ -5,6 +5,7 @@ import { Container } from '@/components/common/Container';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
 import { canManageLeague } from '@/lib/roleGuards';
 import { getPlayer, updatePlayer, deletePlayer, getTeamsByPlayer, getTeamsByIds, getSeason, getPlayers } from '@/lib/league';
@@ -36,6 +37,7 @@ export function PlayerDetailPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -118,7 +120,8 @@ export function PlayerDetailPage() {
   };
 
   const handleDelete = async () => {
-    if (!id || !window.confirm('Delete this player? This cannot be undone.')) return;
+    if (!id) return;
+    setShowDeleteConfirm(false);
     const res = await deletePlayer(id);
     if (res.error) setError(res.error);
     else navigate('/players');
@@ -162,7 +165,7 @@ export function PlayerDetailPage() {
         {canManage && !isEditing && (
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}><Edit className="w-4 h-4 mr-1" />Edit</Button>
-            <Button variant="outline" size="sm" onClick={handleDelete} className="text-red-600 border-red-200 hover:bg-red-50"><Trash2 className="w-4 h-4 mr-1" />Delete</Button>
+            <Button variant="outline" size="sm" onClick={() => setShowDeleteConfirm(true)} className="text-red-600 border-red-200 hover:bg-red-50"><Trash2 className="w-4 h-4 mr-1" />Delete</Button>
           </div>
         )}
       </div>
@@ -411,6 +414,16 @@ export function PlayerDetailPage() {
           </Card>
         </>
       )}
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        title="Delete Player"
+        message="Delete this player? This cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
     </Container>
   );
 }
