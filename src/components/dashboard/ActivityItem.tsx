@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 
 interface ActivityItemProps {
@@ -23,9 +24,9 @@ export function ActivityItem({ description, timestamp, path, icon: Icon }: Activ
 
   if (path) {
     return (
-      <a href={path} className="block">
+      <Link to={path} className="block">
         {content}
-      </a>
+      </Link>
     );
   }
   return content;

@@ -4,32 +4,40 @@ import { Shield, Plus, Search, ChevronRight, Loader2, AlertCircle, Inbox, Calend
 import { Container } from '@/components/common/Container';
 import { Card, CardHeader, CardTitle } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
+import { Pagination } from '@/components/common/Pagination';
 import { useAuth } from '@/context/AuthContext';
 import { canManageLeague } from '@/lib/roleGuards';
-import { getAllTeams, getSeasons } from '@/lib/league';
+import { getTeamsPaginated, getSeasons } from '@/lib/league';
 import type { Team, Season } from '@/types/database';
+
+const PAGE_SIZE = 20;
 
 export function TeamsPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [teams, setTeams] = useState<Team[]>([]);
+  const [total, setTotal] = useState(0);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [seasonFilter, setSeasonFilter] = useState<string>('all');
+  const [page, setPage] = useState(1);
 
   const canManage = canManageLeague(profile?.role);
 
   const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    const [teamsRes, seasonsRes] = await Promise.all([getAllTeams(), getSeasons()]);
+    const [teamsRes, seasonsRes] = await Promise.all([getTeamsPaginated(page, PAGE_SIZE), getSeasons()]);
     if (teamsRes.error) setError(teamsRes.error);
-    else if (teamsRes.data) setTeams(teamsRes.data);
+    else if (teamsRes.data) {
+      setTeams(teamsRes.data.data);
+      setTotal(teamsRes.data.total);
+    }
     if (seasonsRes.data) setSeasons(seasonsRes.data);
     setIsLoading(false);
-  }, []);
+  }, [page]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -48,7 +56,7 @@ export function TeamsPage() {
           <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
             <Shield className="w-5 h-5 text-tmgl-green-800" /> Teams
           </h1>
-          <p className="text-sm text-tmgl-charcoal-500 mt-0.5">{teams.length} team{teams.length !== 1 ? 's' : ''}</p>
+          <p className="text-sm text-tmgl-charcoal-500 mt-0.5">{total} team{total !== 1 ? 's' : ''}</p>
         </div>
         {canManage && (
           <Button variant="primary" size="sm" onClick={() => navigate('/teams/new')} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
@@ -139,6 +147,10 @@ export function TeamsPage() {
             </button>
           ))}
         </div>
+      )}
+
+      {!isLoading && Math.ceil(total / PAGE_SIZE) > 1 && (
+        <Pagination currentPage={page} totalPages={Math.ceil(total / PAGE_SIZE)} onPageChange={setPage} />
       )}
     </Container>
   );

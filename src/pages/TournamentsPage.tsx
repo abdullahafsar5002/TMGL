@@ -7,33 +7,41 @@ import { Badge, type BadgeVariant } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { EmptyState } from '@/components/common/EmptyState';
 import { LoadingState } from '@/components/common/LoadingState';
+import { Pagination } from '@/components/common/Pagination';
 import { useAuth } from '@/context/AuthContext';
 import { canManageLeague } from '@/lib/roleGuards';
-import { getTournaments } from '@/lib/competition';
+import { getTournamentsPaginated } from '@/lib/competition';
 import type { Tournament, TournamentStatus } from '@/types/database';
 
 const STATUS_VARIANTS: Record<TournamentStatus, BadgeVariant> = {
   draft: 'warning', open: 'success', closed: 'info', live: 'danger', completed: 'info', cancelled: 'outline',
 };
 
+const PAGE_SIZE = 20;
+
 export function TournamentsPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   const canManage = canManageLeague(profile?.role);
 
   const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    const result = await getTournaments();
+    const result = await getTournamentsPaginated(page, PAGE_SIZE);
     if (result.error) setError(result.error);
-    else if (result.data) setTournaments(result.data);
+    else if (result.data) {
+      setTournaments(result.data.data);
+      setTotal(result.data.total);
+    }
     setIsLoading(false);
-  }, []);
+  }, [page]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -48,7 +56,7 @@ export function TournamentsPage() {
           <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
             <Trophy className="w-5 h-5 text-tmgl-green-800" /> Tournaments
           </h1>
-          <p className="text-sm text-tmgl-charcoal-500 mt-0.5">{tournaments.length} tournament{tournaments.length !== 1 ? 's' : ''}</p>
+          <p className="text-sm text-tmgl-charcoal-500 mt-0.5">{total} tournament{total !== 1 ? 's' : ''}</p>
         </div>
         {canManage && (
           <Button variant="primary" size="sm" onClick={() => navigate('/tournaments/new')} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
@@ -57,7 +65,7 @@ export function TournamentsPage() {
         )}
       </div>
 
-      {tournaments.length > 0 && (
+      {total > 0 && (
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tmgl-charcoal-400" />
           <input type="text" placeholder="Search tournaments..." value={search} onChange={(e) => setSearch(e.target.value)}
@@ -111,6 +119,10 @@ export function TournamentsPage() {
             </button>
           ))}
         </div>
+      )}
+
+      {!isLoading && Math.ceil(total / PAGE_SIZE) > 1 && (
+        <Pagination currentPage={page} totalPages={Math.ceil(total / PAGE_SIZE)} onPageChange={setPage} />
       )}
     </Container>
   );

@@ -19,12 +19,33 @@ import type {
   TournamentStatus,
   MatchStatus,
 } from '@/types/database';
-
-export type ServiceResult<T> = { data: T; error: null } | { data: null; error: string };
+import type { ServiceResult } from '@/types/service';
 
 // -------------------------------------------------------------------
 // Tournaments
 // -------------------------------------------------------------------
+
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+}
+
+export async function getTournamentsPaginated(
+  page: number,
+  pageSize: number
+): Promise<ServiceResult<PaginatedResult<Tournament>>> {
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const { data, error, count } = await supabase
+    .from('tournaments')
+    .select('*', { count: 'exact' })
+    .order('event_date', { ascending: false })
+    .range(from, to);
+
+  if (error) return { data: null, error: error.message };
+  return { data: { data: (data ?? []) as Tournament[], total: count ?? 0 }, error: null };
+}
 
 export async function getTournaments(seasonId?: string): Promise<ServiceResult<Tournament[]>> {
   let query = supabase
@@ -174,6 +195,23 @@ export async function deleteRound(id: string): Promise<ServiceResult<null>> {
 // Matches
 // -------------------------------------------------------------------
 
+export async function getMatchesPaginated(
+  page: number,
+  pageSize: number
+): Promise<ServiceResult<PaginatedResult<Match>>> {
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const { data, error, count } = await supabase
+    .from('matches')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  if (error) return { data: null, error: error.message };
+  return { data: { data: (data ?? []) as Match[], total: count ?? 0 }, error: null };
+}
+
 export async function getMatchesByRound(roundId: string): Promise<ServiceResult<Match[]>> {
   const { data, error } = await supabase
     .from('matches')
@@ -312,6 +350,17 @@ export async function createScorecard(
 
   if (error) return { data: null, error: error.message };
   return { data: data as Scorecard, error: null };
+}
+
+export async function verifyScorecard(scorecardId: string): Promise<ServiceResult<Scorecard>> {
+  return updateScorecard(scorecardId, { status: 'verified' });
+}
+
+export async function rejectScorecard(
+  scorecardId: string,
+  _reason?: string
+): Promise<ServiceResult<Scorecard>> {
+  return updateScorecard(scorecardId, { status: 'rejected' });
 }
 
 export async function updateScorecard(

@@ -7,9 +7,11 @@ import { Button } from '@/components/common/Button';
 import { createSeason } from '@/lib/league';
 import { validateSeason, type SeasonInput } from '@/lib/validation';
 import type { SeasonStatus } from '@/types/database';
+import { useToast } from '@/context/ToastContext';
 
 export function SeasonCreatePage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [form, setForm] = useState<SeasonInput>({ name: '', start_date: null, end_date: null });
   const [status, setStatus] = useState<SeasonStatus>('draft');
   const [isSaving, setIsSaving] = useState(false);
@@ -36,7 +38,9 @@ export function SeasonCreatePage() {
     setIsSaving(false);
     if (res.error || !res.data) {
       setError(res.error || 'Failed to create season');
+      toast.error(res.error || 'Failed to create season');
     } else {
+      toast.success('Season created successfully');
       navigate(`/seasons/${res.data.id}`);
     }
   };

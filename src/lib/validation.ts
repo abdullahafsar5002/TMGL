@@ -311,6 +311,97 @@ export function validateMatch(input: MatchInput): ValidationResult {
 }
 
 // -------------------------------------------------------------------
+// Course validation
+// -------------------------------------------------------------------
+
+export interface CourseInput {
+  name: string;
+  location: string | null;
+  description: string | null;
+  holes_count: 9 | 18;
+  course_rating: number | null;
+  slope_rating: number | null;
+}
+
+export interface CourseHoleInput {
+  hole_number: number;
+  par: number;
+  handicap_index: number | null;
+  yardage: number | null;
+}
+
+export function validateCourse(input: CourseInput): ValidationResult {
+  const errors: string[] = [];
+  const name = input.name.trim();
+
+  if (!name) {
+    errors.push('Course name is required.');
+  } else if (name.length < 2) {
+    errors.push('Course name must be at least 2 characters.');
+  } else if (name.length > 100) {
+    errors.push('Course name must be 100 characters or fewer.');
+  }
+
+  if (input.holes_count !== 9 && input.holes_count !== 18) {
+    errors.push('Holes count must be 9 or 18.');
+  }
+
+  if (input.course_rating !== null) {
+    if (input.course_rating < 0 || input.course_rating > 80) {
+      errors.push('Course rating must be between 0 and 80.');
+    }
+  }
+
+  if (input.slope_rating !== null) {
+    if (input.slope_rating < 0 || input.slope_rating > 200) {
+      errors.push('Slope rating must be between 0 and 200.');
+    }
+  }
+
+  if (errors.length > 0) return fail(errors);
+  return ok();
+}
+
+export function validateCourseHoles(holes: CourseHoleInput[], totalHoles: number): ValidationResult {
+  const errors: string[] = [];
+
+  if (holes.length === 0) {
+    errors.push('At least one hole definition is required.');
+  }
+
+  const holeNumbers = new Set<number>();
+  for (const hole of holes) {
+    if (!Number.isInteger(hole.hole_number) || hole.hole_number < 1 || hole.hole_number > totalHoles) {
+      errors.push(`Hole number must be between 1 and ${totalHoles}.`);
+    }
+
+    if (holeNumbers.has(hole.hole_number)) {
+      errors.push(`Duplicate entry for hole ${hole.hole_number}.`);
+    }
+    holeNumbers.add(hole.hole_number);
+
+    if (!Number.isInteger(hole.par) || hole.par < 3 || hole.par > 6) {
+      errors.push(`Par for hole ${hole.hole_number} must be between 3 and 6.`);
+    }
+
+    if (hole.handicap_index !== null) {
+      if (!Number.isInteger(hole.handicap_index) || hole.handicap_index < 1 || hole.handicap_index > 18) {
+        errors.push(`Handicap index for hole ${hole.hole_number} must be between 1 and 18.`);
+      }
+    }
+
+    if (hole.yardage !== null) {
+      if (!Number.isInteger(hole.yardage) || hole.yardage < 0) {
+        errors.push(`Yardage for hole ${hole.hole_number} must be a non-negative integer.`);
+      }
+    }
+  }
+
+  if (errors.length > 0) return fail(errors);
+  return ok();
+}
+
+// -------------------------------------------------------------------
 // Scorecard validation (Phase 3)
 // -------------------------------------------------------------------
 
@@ -347,6 +438,90 @@ export function validateScorecardHoles(
 
     if (!Number.isInteger(hole.strokes) || hole.strokes < 1 || hole.strokes > 20) {
       errors.push(`Strokes for hole ${hole.hole_number} must be between 1 and 20.`);
+    }
+  }
+
+  if (errors.length > 0) return fail(errors);
+  return ok();
+}
+
+// -------------------------------------------------------------------
+// Practice Round Validation
+// -------------------------------------------------------------------
+
+export interface PracticeRoundInput {
+  course_id: string;
+  round_type: 9 | 18;
+  tee_box?: string;
+  notes?: string;
+}
+
+export function validatePracticeRound(input: PracticeRoundInput): ValidationResult {
+  const errors: string[] = [];
+
+  if (!input.course_id || input.course_id.trim().length === 0) {
+    errors.push('Please select a golf course.');
+  }
+
+  if (input.round_type !== 9 && input.round_type !== 18) {
+    errors.push('Round type must be 9 or 18 holes.');
+  }
+
+  if (input.notes && input.notes.length > 500) {
+    errors.push('Notes must be 500 characters or less.');
+  }
+
+  if (errors.length > 0) return fail(errors);
+  return ok();
+}
+
+// -------------------------------------------------------------------
+// Practice Score Validation
+// -------------------------------------------------------------------
+
+export interface PracticeScoreInput {
+  hole_number: number;
+  par: number;
+  score: number;
+  putts?: number | null;
+  penalty_strokes?: number | null;
+}
+
+export function validatePracticeScores(
+  scores: PracticeScoreInput[],
+  totalHoles: number
+): ValidationResult {
+  const errors: string[] = [];
+
+  if (scores.length === 0) {
+    errors.push('At least one hole score is required.');
+  }
+
+  const holeNumbers = new Set<number>();
+  for (const s of scores) {
+    if (!Number.isInteger(s.hole_number) || s.hole_number < 1 || s.hole_number > totalHoles) {
+      errors.push(`Hole number must be between 1 and ${totalHoles}.`);
+    }
+
+    if (holeNumbers.has(s.hole_number)) {
+      errors.push(`Duplicate entry for hole ${s.hole_number}.`);
+    }
+    holeNumbers.add(s.hole_number);
+
+    if (!Number.isInteger(s.par) || s.par < 3 || s.par > 6) {
+      errors.push(`Par for hole ${s.hole_number} must be between 3 and 6.`);
+    }
+
+    if (!Number.isInteger(s.score) || s.score < 1 || s.score > 20) {
+      errors.push(`Score for hole ${s.hole_number} must be between 1 and 20.`);
+    }
+
+    if (s.putts !== null && s.putts !== undefined && (!Number.isInteger(s.putts) || s.putts < 0 || s.putts > 20)) {
+      errors.push(`Putts for hole ${s.hole_number} must be between 0 and 20.`);
+    }
+
+    if (s.penalty_strokes !== null && s.penalty_strokes !== undefined && (!Number.isInteger(s.penalty_strokes) || s.penalty_strokes < 0 || s.penalty_strokes > 10)) {
+      errors.push(`Penalty strokes for hole ${s.hole_number} must be between 0 and 10.`);
     }
   }
 

@@ -11,6 +11,7 @@ import { canManageLeague } from '@/lib/roleGuards';
 import { getSeason, updateSeason, deleteSeason, getDivisionsBySeason, getTeamsBySeason } from '@/lib/league';
 import { validateSeason, type SeasonInput } from '@/lib/validation';
 import type { Season, Division, Team, SeasonStatus } from '@/types/database';
+import { useToast } from '@/context/ToastContext';
 
 const STATUS_OPTIONS: SeasonStatus[] = ['draft', 'active', 'completed', 'archived'];
 
@@ -24,6 +25,7 @@ const STATUS_VARIANTS: Record<SeasonStatus, 'success' | 'info' | 'warning' | 'ou
 export function SeasonDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const toast = useToast();
   const { profile } = useAuth();
   const canManage = canManageLeague(profile?.role);
 
@@ -91,9 +93,11 @@ export function SeasonDetailPage() {
     setIsSaving(false);
     if (updateRes.error || !updateRes.data) {
       setSaveError(updateRes.error || 'Update failed');
+      toast.error(updateRes.error || 'Update failed');
     } else {
       setSeason(updateRes.data);
       setIsEditing(false);
+      toast.success('Season updated successfully');
     }
   };
 
@@ -103,7 +107,9 @@ export function SeasonDetailPage() {
     const result = await deleteSeason(id);
     if (result.error) {
       setError(result.error);
+      toast.error(result.error);
     } else {
+      toast.success('Season deleted successfully');
       navigate('/seasons');
     }
   };

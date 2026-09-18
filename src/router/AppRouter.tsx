@@ -1,49 +1,82 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { PublicLayout } from '@/components/layout/PublicLayout';
 import { AuthenticatedLayout } from '@/components/layout/AuthenticatedLayout';
+import { LoadingState } from '@/components/common/LoadingState';
 
-// Pages
+// Core pages (loaded eagerly for fast initial load)
 import { HomePage } from '@/pages/HomePage';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
-import { DashboardPage } from '@/pages/DashboardPage';
 import { UnauthorizedPage } from '@/pages/UnauthorizedPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
-// Phase 2 pages
-import { SeasonsPage } from '@/pages/SeasonsPage';
-import { SeasonDetailPage } from '@/pages/SeasonDetailPage';
-import { SeasonCreatePage } from '@/pages/SeasonCreatePage';
-import { DivisionDetailPage } from '@/pages/DivisionDetailPage';
-import { DivisionCreatePage } from '@/pages/DivisionCreatePage';
-import { PlayersPage } from '@/pages/PlayersPage';
-import { PlayerDetailPage } from '@/pages/PlayerDetailPage';
-import { PlayerCreatePage } from '@/pages/PlayerCreatePage';
-import { TeamsPage } from '@/pages/TeamsPage';
-import { TeamDetailPage } from '@/pages/TeamDetailPage';
-import { TeamCreatePage } from '@/pages/TeamCreatePage';
+// Lazy-loaded pages for code splitting
+const DashboardPage = lazy(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
+const SeasonsPage = lazy(() => import('@/pages/SeasonsPage').then(m => ({ default: m.SeasonsPage })));
+const SeasonDetailPage = lazy(() => import('@/pages/SeasonDetailPage').then(m => ({ default: m.SeasonDetailPage })));
+const SeasonCreatePage = lazy(() => import('@/pages/SeasonCreatePage').then(m => ({ default: m.SeasonCreatePage })));
+const DivisionDetailPage = lazy(() => import('@/pages/DivisionDetailPage').then(m => ({ default: m.DivisionDetailPage })));
+const DivisionCreatePage = lazy(() => import('@/pages/DivisionCreatePage').then(m => ({ default: m.DivisionCreatePage })));
+const PlayersPage = lazy(() => import('@/pages/PlayersPage').then(m => ({ default: m.PlayersPage })));
+const PlayerDetailPage = lazy(() => import('@/pages/PlayerDetailPage').then(m => ({ default: m.PlayerDetailPage })));
+const PlayerCreatePage = lazy(() => import('@/pages/PlayerCreatePage').then(m => ({ default: m.PlayerCreatePage })));
+const TeamsPage = lazy(() => import('@/pages/TeamsPage').then(m => ({ default: m.TeamsPage })));
+const TeamDetailPage = lazy(() => import('@/pages/TeamDetailPage').then(m => ({ default: m.TeamDetailPage })));
+const TeamCreatePage = lazy(() => import('@/pages/TeamCreatePage').then(m => ({ default: m.TeamCreatePage })));
+const TournamentsPage = lazy(() => import('@/pages/TournamentsPage').then(m => ({ default: m.TournamentsPage })));
+const TournamentDetailPage = lazy(() => import('@/pages/TournamentDetailPage').then(m => ({ default: m.TournamentDetailPage })));
+const TournamentCreatePage = lazy(() => import('@/pages/TournamentCreatePage').then(m => ({ default: m.TournamentCreatePage })));
+const RoundDetailPage = lazy(() => import('@/pages/RoundDetailPage').then(m => ({ default: m.RoundDetailPage })));
+const RoundCreatePage = lazy(() => import('@/pages/RoundCreatePage').then(m => ({ default: m.RoundCreatePage })));
+const MatchesPage = lazy(() => import('@/pages/MatchesPage').then(m => ({ default: m.MatchesPage })));
+const MatchDetailPage = lazy(() => import('@/pages/MatchDetailPage').then(m => ({ default: m.MatchDetailPage })));
+const MatchCreatePage = lazy(() => import('@/pages/MatchCreatePage').then(m => ({ default: m.MatchCreatePage })));
+const ScoringPage = lazy(() => import('@/pages/ScoringPage').then(m => ({ default: m.ScoringPage })));
+const ScorecardPage = lazy(() => import('@/pages/ScorecardPage').then(m => ({ default: m.ScorecardPage })));
+const ScorecardVerifyPage = lazy(() => import('@/pages/ScorecardVerifyPage').then(m => ({ default: m.ScorecardVerifyPage })));
+const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage').then(m => ({ default: m.LeaderboardPage })));
+const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })));
+const CoursesPage = lazy(() => import('@/pages/CoursesPage').then(m => ({ default: m.CoursesPage })));
+const CourseDetailPage = lazy(() => import('@/pages/CourseDetailPage').then(m => ({ default: m.CourseDetailPage })));
+const CourseCreatePage = lazy(() => import('@/pages/CourseCreatePage').then(m => ({ default: m.CourseCreatePage })));
 
-// Phase 3 pages
-import { TournamentsPage } from '@/pages/TournamentsPage';
-import { TournamentDetailPage } from '@/pages/TournamentDetailPage';
-import { TournamentCreatePage } from '@/pages/TournamentCreatePage';
-import { RoundDetailPage } from '@/pages/RoundDetailPage';
-import { MatchesPage } from '@/pages/MatchesPage';
-import { MatchDetailPage } from '@/pages/MatchDetailPage';
-import { MatchCreatePage } from '@/pages/MatchCreatePage';
-import { ScoringPage } from '@/pages/ScoringPage';
-import { ScorecardPage } from '@/pages/ScorecardPage';
-import { LeaderboardPage } from '@/pages/LeaderboardPage';
+// Phase 5: Practice + Player Hub
+const PracticeHubPage = lazy(() => import('@/pages/PracticeHubPage'));
+const PracticeCreatePage = lazy(() => import('@/pages/PracticeCreatePage'));
+const PracticeScorecardPage = lazy(() => import('@/pages/PracticeScorecardPage'));
+const PracticeDetailPage = lazy(() => import('@/pages/PracticeDetailPage'));
+const PracticeHistoryPage = lazy(() => import('@/pages/PracticeHistoryPage'));
+const MyTournamentsPage = lazy(() => import('@/pages/MyTournamentsPage'));
+const MyScoresPage = lazy(() => import('@/pages/MyScoresPage'));
+const MyStatisticsPage = lazy(() => import('@/pages/MyStatisticsPage'));
+const ProfileSettingsPage = lazy(() => import('@/pages/ProfileSettingsPage'));
 
-// Phase 6 pages
-import { AnalyticsPage } from '@/pages/AnalyticsPage';
+// Phase 6: Friendly Matches + Notifications + Announcements
+const FriendlyMatchesPage = lazy(() => import('@/pages/FriendlyMatchesPage'));
+const FriendlyMatchCreatePage = lazy(() => import('@/pages/FriendlyMatchCreatePage'));
+const FriendlyMatchDetailPage = lazy(() => import('@/pages/FriendlyMatchDetailPage'));
+const FriendlyMatchScorePage = lazy(() => import('@/pages/FriendlyMatchScorePage'));
+const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'));
+const AnnouncementsPage = lazy(() => import('@/pages/AnnouncementsPage'));
+const AnnouncementDetailPage = lazy(() => import('@/pages/AnnouncementDetailPage'));
+const AnnouncementManagePage = lazy(() => import('@/pages/AnnouncementManagePage'));
+
+function PageLoader() {
+  return (
+    <div className="min-h-[50vh] flex items-center justify-center">
+      <LoadingState message="Loading..." />
+    </div>
+  );
+}
 
 export function AppRouter() {
   const { isAuthenticated } = useAuth();
 
   return (
+    <Suspense fallback={<PageLoader />}>
     <Routes>
       {/* Public routes */}
       <Route path="/" element={<PublicLayout><HomePage /></PublicLayout>} />
@@ -59,6 +92,8 @@ export function AppRouter() {
       <Route path="/players/:id" element={<PublicLayout><PlayerDetailPage /></PublicLayout>} />
       <Route path="/teams" element={<PublicLayout><TeamsPage /></PublicLayout>} />
       <Route path="/teams/:id" element={<PublicLayout><TeamDetailPage /></PublicLayout>} />
+      <Route path="/courses" element={<PublicLayout><CoursesPage /></PublicLayout>} />
+      <Route path="/courses/:id" element={<PublicLayout><CourseDetailPage /></PublicLayout>} />
 
       {/* Public competition pages */}
       <Route path="/tournaments" element={<PublicLayout><TournamentsPage /></PublicLayout>} />
@@ -93,6 +128,11 @@ export function AppRouter() {
           <AuthenticatedLayout><TeamCreatePage /></AuthenticatedLayout>
         </ProtectedRoute>
       } />
+      <Route path="/courses/new" element={
+        <ProtectedRoute requiredRole="league_manager">
+          <AuthenticatedLayout><CourseCreatePage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
 
       {/* Phase 3 manager routes */}
       <Route path="/tournaments/new" element={
@@ -102,7 +142,7 @@ export function AppRouter() {
       } />
       <Route path="/tournaments/:id/rounds/new" element={
         <ProtectedRoute requiredRole="league_manager">
-          <AuthenticatedLayout><RoundCreatePageWrapper /></AuthenticatedLayout>
+          <AuthenticatedLayout><RoundCreatePage /></AuthenticatedLayout>
         </ProtectedRoute>
       } />
       <Route path="/rounds/:id" element={
@@ -113,6 +153,11 @@ export function AppRouter() {
       <Route path="/rounds/:roundId/matches/new" element={
         <ProtectedRoute requiredRole="league_manager">
           <AuthenticatedLayout><MatchCreatePage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/rounds/:id/verify" element={
+        <ProtectedRoute requiredRole="league_manager">
+          <AuthenticatedLayout><ScorecardVerifyPage /></AuthenticatedLayout>
         </ProtectedRoute>
       } />
 
@@ -142,6 +187,106 @@ export function AppRouter() {
         </ProtectedRoute>
       } />
 
+      {/* Phase 5: Practice routes */}
+      <Route path="/practice" element={
+        <ProtectedRoute requiredRole="player">
+          <AuthenticatedLayout><PracticeHubPage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/practice/new" element={
+        <ProtectedRoute requiredRole="player">
+          <AuthenticatedLayout><PracticeCreatePage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/practice/history" element={
+        <ProtectedRoute requiredRole="player">
+          <AuthenticatedLayout><PracticeHistoryPage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/practice/:id" element={
+        <ProtectedRoute requiredRole="player">
+          <AuthenticatedLayout><PracticeDetailPage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/practice/:id/score" element={
+        <ProtectedRoute requiredRole="player">
+          <AuthenticatedLayout><PracticeScorecardPage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+
+      {/* Phase 5: Player Hub routes */}
+      <Route path="/my-tournaments" element={
+        <ProtectedRoute requiredRole="player">
+          <AuthenticatedLayout><MyTournamentsPage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/my-scores" element={
+        <ProtectedRoute requiredRole="player">
+          <AuthenticatedLayout><MyScoresPage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/statistics" element={
+        <ProtectedRoute requiredRole="player">
+          <AuthenticatedLayout><MyStatisticsPage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/profile/settings" element={
+        <ProtectedRoute requiredRole="player">
+          <AuthenticatedLayout><ProfileSettingsPage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+
+      {/* Phase 6: Friendly Matches */}
+      <Route path="/friendly-matches" element={
+        <ProtectedRoute requiredRole="player">
+          <AuthenticatedLayout><FriendlyMatchesPage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/friendly-matches/new" element={
+        <ProtectedRoute requiredRole="player">
+          <AuthenticatedLayout><FriendlyMatchCreatePage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/friendly-matches/:id" element={
+        <ProtectedRoute requiredRole="player">
+          <AuthenticatedLayout><FriendlyMatchDetailPage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/friendly-matches/:id/score" element={
+        <ProtectedRoute requiredRole="player">
+          <AuthenticatedLayout><FriendlyMatchScorePage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+
+      {/* Phase 6: Notifications */}
+      <Route path="/notifications" element={
+        <ProtectedRoute requiredRole="player">
+          <AuthenticatedLayout><NotificationsPage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+
+      {/* Phase 6: Announcements */}
+      <Route path="/announcements" element={
+        <ProtectedRoute requiredRole="player">
+          <AuthenticatedLayout><AnnouncementsPage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/announcements/:id" element={
+        <ProtectedRoute requiredRole="player">
+          <AuthenticatedLayout><AnnouncementDetailPage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/announcements/manage" element={
+        <ProtectedRoute requiredRole="league_manager">
+          <AuthenticatedLayout><AnnouncementManagePage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/announcements/:id/edit" element={
+        <ProtectedRoute requiredRole="league_manager">
+          <AuthenticatedLayout><AnnouncementManagePage /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+
       {/* Unauthorized */}
       <Route path="/unauthorized" element={
         isAuthenticated ? (
@@ -154,92 +299,6 @@ export function AppRouter() {
       {/* 404 */}
       <Route path="*" element={<PublicLayout><NotFoundPage /></PublicLayout>} />
     </Routes>
-  );
-}
-
-// -------------------------------------------------------------------
-// Inline wrapper for RoundCreatePage to avoid creating a separate file
-// -------------------------------------------------------------------
-import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Flag, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
-import { Container } from '@/components/common/Container';
-import { Card } from '@/components/common/Card';
-import { Button } from '@/components/common/Button';
-import { createRound, getTournament } from '@/lib/competition';
-import { validateRound } from '@/lib/validation';
-
-function RoundCreatePageWrapper() {
-  const { id: tournamentId } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const [tournamentName, setTournamentName] = useState('');
-  const [roundNumber, setRoundNumber] = useState(1);
-  const [name, setName] = useState('');
-  const [date, setDate] = useState('');
-  const [errors, setErrors] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (tournamentId) {
-      getTournament(tournamentId).then((r) => { if (r.data) setTournamentName(r.data.name); });
-    }
-  }, [tournamentId]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!tournamentId) return;
-    setErrors([]);
-    setServerError(null);
-
-    const validation = validateRound({ tournament_id: tournamentId, round_number: roundNumber, name, date: date || null });
-    if (!validation.isValid) { setErrors(validation.errors); return; }
-
-    setIsSubmitting(true);
-    const result = await createRound({ tournament_id: tournamentId, round_number: roundNumber, name, date: date || null });
-    setIsSubmitting(false);
-
-    if (result.error) { setServerError(result.error); return; }
-    if (result.data) navigate(`/rounds/${result.data.id}`);
-  };
-
-  return (
-    <Container size="lg" className="space-y-4 py-4">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-sm text-tmgl-charcoal-500 hover:text-tmgl-green-800">
-        <ArrowLeft className="w-4 h-4" /> Back
-      </button>
-      <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
-        <Flag className="w-5 h-5 text-tmgl-green-800" /> New Round {tournamentName && <span className="text-sm font-normal text-tmgl-charcoal-500">for {tournamentName}</span>}
-      </h1>
-
-      <Card>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {errors.length > 0 && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">{errors.map((e, i) => <p key={i}>{e}</p>)}</div>}
-          {serverError && <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /><p>{serverError}</p></div>}
-
-          <div>
-            <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Round Number *</label>
-            <input type="number" min={1} value={roundNumber} onChange={(e) => setRoundNumber(parseInt(e.target.value, 10) || 1)}
-              className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700" />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Round Name *</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Round 1, Stroke Play"
-              className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700" />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Date</label>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-              className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700" />
-          </div>
-
-          <Button type="submit" variant="primary" fullWidth disabled={isSubmitting} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
-            {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...</> : 'Create Round'}
-          </Button>
-        </form>
-      </Card>
-    </Container>
+    </Suspense>
   );
 }

@@ -1,5 +1,5 @@
 /**
- * Database Types reflecting TMGL schema (migrations 0001-0005)
+ * Database Types reflecting TMGL schema (migrations 0001-0009)
  */
 
 export type UserRole = 'super_admin' | 'league_manager' | 'player' | 'public';
@@ -8,6 +8,7 @@ export type TournamentStatus = 'draft' | 'open' | 'closed' | 'live' | 'completed
 export type MatchStatus = 'draft' | 'scheduled' | 'live' | 'completed' | 'cancelled';
 export type ScorecardStatus = 'draft' | 'in_progress' | 'submitted' | 'verified' | 'rejected' | 'amended';
 export type MatchType = 'singles' | 'foursome' | 'fourball' | 'team';
+export type PracticeRoundStatus = 'draft' | 'in_progress' | 'completed' | 'cancelled';
 
 export interface Profile {
   id: string;
@@ -176,6 +177,125 @@ export interface TeamStanding {
   total_score_to_par: number;
 }
 
+export interface PracticeRound {
+  id: string;
+  player_id: string;
+  course_id: string;
+  round_type: 9 | 18;
+  tee_box: string | null;
+  status: PracticeRoundStatus;
+  started_at: string;
+  completed_at: string | null;
+  gross_score: number | null;
+  net_score: number | null;
+  total_to_par: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PracticeScore {
+  id: string;
+  practice_round_id: string;
+  hole_number: number;
+  par: number;
+  stroke_index: number | null;
+  score: number;
+  putts: number | null;
+  fairway_hit: boolean | null;
+  green_in_regulation: boolean | null;
+  penalty_strokes: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlayerStatistics {
+  id: string;
+  player_id: string;
+  rounds_played: number;
+  average_score: number | null;
+  best_score: number | null;
+  average_to_par: number | null;
+  birdies: number;
+  eagles: number;
+  pars: number;
+  bogeys: number;
+  double_bogeys: number;
+  average_putts: number | null;
+  fairways_hit_percentage: number | null;
+  greens_in_regulation_percentage: number | null;
+  last_round_at: string | null;
+  updated_at: string;
+}
+
+export type FriendlyMatchStatus = 'pending' | 'active' | 'completed' | 'cancelled';
+export type FriendlyMatchFormat = 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble';
+export type InvitationStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled';
+
+export interface FriendlyMatch {
+  id: string;
+  creator_id: string;
+  course_id: string;
+  title: string;
+  description: string | null;
+  match_format: FriendlyMatchFormat;
+  round_type: number;
+  status: FriendlyMatchStatus;
+  scheduled_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FriendlyMatchPlayer {
+  id: string;
+  match_id: string;
+  player_id: string;
+  invitation_status: InvitationStatus;
+  score: number | null;
+  to_par: number | null;
+  position: number | null;
+  joined_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FriendlyMatchScore {
+  id: string;
+  match_player_id: string;
+  hole_number: number;
+  par: number;
+  score: number;
+  stableford_points: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Notification {
+  id: string;
+  recipient_id: string;
+  type: string;
+  title: string;
+  message: string;
+  related_entity: string | null;
+  related_id: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface Announcement {
+  id: string;
+  author_id: string;
+  title: string;
+  content: string;
+  is_published: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -243,6 +363,46 @@ export interface Database {
         Row: ScorecardHole;
         Insert: Partial<ScorecardHole> & { scorecard_id: string; hole_number: number; par: number; strokes: number };
         Update: Partial<ScorecardHole>;
+      };
+      practice_rounds: {
+        Row: PracticeRound;
+        Insert: Partial<PracticeRound> & { player_id: string; course_id: string; round_type: 9 | 18 };
+        Update: Partial<PracticeRound>;
+      };
+      practice_scores: {
+        Row: PracticeScore;
+        Insert: Partial<PracticeScore> & { practice_round_id: string; hole_number: number; par: number; score: number };
+        Update: Partial<PracticeScore>;
+      };
+      player_statistics: {
+        Row: PlayerStatistics;
+        Insert: Partial<PlayerStatistics> & { player_id: string };
+        Update: Partial<PlayerStatistics>;
+      };
+      friendly_matches: {
+        Row: FriendlyMatch;
+        Insert: Partial<FriendlyMatch> & { creator_id: string; title: string; course_id: string };
+        Update: Partial<FriendlyMatch>;
+      };
+      friendly_match_players: {
+        Row: FriendlyMatchPlayer;
+        Insert: Partial<FriendlyMatchPlayer> & { match_id: string; player_id: string };
+        Update: Partial<FriendlyMatchPlayer>;
+      };
+      friendly_match_scores: {
+        Row: FriendlyMatchScore;
+        Insert: Partial<FriendlyMatchScore> & { match_player_id: string; hole_number: number; par: number; score: number };
+        Update: Partial<FriendlyMatchScore>;
+      };
+      notifications: {
+        Row: Notification;
+        Insert: Partial<Notification> & { recipient_id: string; type: string; title: string; message: string };
+        Update: Partial<Notification>;
+      };
+      announcements: {
+        Row: Announcement;
+        Insert: Partial<Announcement> & { author_id: string; title: string; content: string };
+        Update: Partial<Announcement>;
       };
     };
   };

@@ -8,10 +8,12 @@ import { createMatch } from '@/lib/competition';
 import { getPlayers, getAllTeams } from '@/lib/league';
 import { validateMatch } from '@/lib/validation';
 import type { Player, Team, MatchType } from '@/types/database';
+import { useToast } from '@/context/ToastContext';
 
 export function MatchCreatePage() {
   const { roundId } = useParams<{ roundId: string }>();
   const navigate = useNavigate();
+  const toast = useToast();
   const [matchType, setMatchType] = useState<MatchType>('singles');
   const [players, setPlayers] = useState<Player[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -52,8 +54,8 @@ export function MatchCreatePage() {
     });
     setIsSubmitting(false);
 
-    if (result.error) { setServerError(result.error); return; }
-    if (result.data) navigate(`/matches/${result.data.id}`);
+    if (result.error) { setServerError(result.error); toast.error(result.error); return; }
+    if (result.data) { toast.success('Match created successfully'); navigate(`/matches/${result.data.id}`); }
   }, [roundId, matchType, playerA, playerB, teamA, teamB, navigate]);
 
   return (

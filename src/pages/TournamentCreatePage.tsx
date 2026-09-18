@@ -9,9 +9,11 @@ import { createTournament } from '@/lib/competition';
 import { validateTournament } from '@/lib/validation';
 import type { Season, TournamentStatus } from '@/types/database';
 import { useEffect } from 'react';
+import { useToast } from '@/context/ToastContext';
 
 export function TournamentCreatePage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -41,8 +43,8 @@ export function TournamentCreatePage() {
     });
     setIsSubmitting(false);
 
-    if (result.error) { setServerError(result.error); return; }
-    if (result.data) navigate(`/tournaments/${result.data.id}`);
+    if (result.error) { setServerError(result.error); toast.error(result.error); return; }
+    if (result.data) { toast.success('Tournament created successfully'); navigate(`/tournaments/${result.data.id}`); }
   }, [name, description, seasonId, eventDate, status, navigate]);
 
   return (

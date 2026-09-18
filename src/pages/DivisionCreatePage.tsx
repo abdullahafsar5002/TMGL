@@ -6,9 +6,11 @@ import { Card, CardContent } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { createDivision } from '@/lib/league';
 import { validateDivision } from '@/lib/validation';
+import { useToast } from '@/context/ToastContext';
 
 export function DivisionCreatePage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [searchParams] = useSearchParams();
   const seasonId = searchParams.get('seasonId') ?? '';
 
@@ -25,8 +27,13 @@ export function DivisionCreatePage() {
     setError(null);
     const res = await createDivision({ name: name.trim(), season_id: seasonId });
     setIsSaving(false);
-    if (res.error || !res.data) setError(res.error || 'Failed to create division');
-    else navigate(`/seasons/${seasonId}`);
+    if (res.error || !res.data) {
+      setError(res.error || 'Failed to create division');
+      toast.error(res.error || 'Failed to create division');
+    } else {
+      toast.success('Division created successfully');
+      navigate(`/seasons/${seasonId}`);
+    }
   };
 
   if (!seasonId) {

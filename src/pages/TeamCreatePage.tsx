@@ -4,12 +4,15 @@ import { Shield, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card, CardContent } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
+import { ImageUpload } from '@/components/common/ImageUpload';
 import { createTeam, getSeasons, getDivisionsBySeason } from '@/lib/league';
 import { validateTeam } from '@/lib/validation';
 import type { Season, Division } from '@/types/database';
+import { useToast } from '@/context/ToastContext';
 
 export function TeamCreatePage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [searchParams] = useSearchParams();
   const presetSeasonId = searchParams.get('seasonId') ?? '';
 
@@ -22,6 +25,7 @@ export function TeamCreatePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   const loadSeasons = useCallback(async () => {
     setIsLoadingSeasons(true);
@@ -53,11 +57,16 @@ export function TeamCreatePage() {
       division_id: divisionId,
       captain_player_id: null,
       vice_captain_player_id: null,
-      logo_url: null,
+      logo_url: logoUrl,
     });
     setIsSaving(false);
-    if (res.error || !res.data) setError(res.error || 'Failed to create team');
-    else navigate(`/teams/${res.data.id}`);
+    if (res.error || !res.data) {
+      setError(res.error || 'Failed to create team');
+      toast.error(res.error || 'Failed to create team');
+    } else {
+      toast.success('Team created successfully');
+      navigate(`/teams/${res.data.id}`);
+    }
   };
 
   return (
@@ -115,6 +124,10 @@ export function TeamCreatePage() {
               </select>
             </div>
           )}
+          <div>
+            <label className="block text-sm font-semibold text-tmgl-charcoal-800 mb-1.5">Team Logo</label>
+            <ImageUpload value={logoUrl} onChange={setLogoUrl} folder="logos" />
+          </div>
           <div className="flex items-center gap-2 pt-2">
             <Button variant="primary" size="md" onClick={handleSave} disabled={isSaving} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
               {isSaving ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Creating...</> : 'Create Team'}

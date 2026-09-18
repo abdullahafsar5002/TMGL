@@ -15,6 +15,7 @@ import { validateTournament } from '@/lib/validation';
 import { getSeasons } from '@/lib/league';
 import { supabase } from '@/lib/supabase';
 import type { Tournament, Round, TournamentStatus, Season, Match, Scorecard } from '@/types/database';
+import { useToast } from '@/context/ToastContext';
 
 const STATUS_VARIANTS: Record<TournamentStatus, BadgeVariant> = {
   draft: 'warning', open: 'success', closed: 'info', live: 'danger', completed: 'info', cancelled: 'outline',
@@ -26,6 +27,7 @@ export function TournamentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
   const [participants, setParticipants] = useState<TournamentParticipant[]>([]);
@@ -102,10 +104,11 @@ export function TournamentDetailPage() {
     const result = await updateTournament(id, { name: editName, description: editDesc || null, event_date: editDate || null, status: editStatus });
     setIsSaving(false);
 
-    if (result.error) { setServerError(result.error); return; }
+    if (result.error) { setServerError(result.error); toast.error(result.error); return; }
     if (result.data) {
       setTournament(result.data);
       setShowEdit(false);
+      toast.success('Tournament updated successfully');
     }
   };
 
@@ -114,15 +117,19 @@ export function TournamentDetailPage() {
     setIsDeleting(true);
     const result = await deleteTournament(id);
     setIsDeleting(false);
-    if (result.error) { setError(result.error); setShowDelete(false); return; }
+    if (result.error) { setError(result.error); toast.error(result.error); setShowDelete(false); return; }
+    toast.success('Tournament deleted successfully');
     navigate('/tournaments');
   };
 
   const handleStatusChange = async (newStatus: TournamentStatus) => {
     if (!id || !tournament) return;
     const result = await updateTournament(id, { status: newStatus });
-    if (result.error) { setError(result.error); return; }
-    if (result.data) setTournament(result.data);
+    if (result.error) { setError(result.error); toast.error(result.error); return; }
+    if (result.data) {
+      setTournament(result.data);
+      toast.success(`Tournament status changed to ${newStatus}`);
+    }
   };
 
   if (isLoading) return <Container size="lg" className="py-4"><LoadingState /></Container>;

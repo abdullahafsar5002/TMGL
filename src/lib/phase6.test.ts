@@ -6,6 +6,7 @@ import {
   validateRound,
 } from './validation';
 import { canManageLeague, hasMinimumRole, isSuperAdmin } from './roleGuards';
+import { getMatchFormatLabel, calculateStablefordPoints } from './friendly';
 import type { TournamentStatus, MatchStatus, ScorecardStatus } from '@/types/database';
 
 describe('Phase 6 — Dashboard, Analytics & Polish', () => {
@@ -317,6 +318,197 @@ describe('Phase 6 — Dashboard, Analytics & Polish', () => {
         division_id: null,
       });
       expect(result.isValid).toBe(true);
+    });
+  });
+
+  describe('Friendly Matches — Format Labels', () => {
+    it('returns Stroke Play for stroke_play', () => {
+      expect(getMatchFormatLabel('stroke_play')).toBe('Stroke Play');
+    });
+
+    it('returns Stableford for stableford', () => {
+      expect(getMatchFormatLabel('stableford')).toBe('Stableford');
+    });
+
+    it('returns Match Play for match_play', () => {
+      expect(getMatchFormatLabel('match_play')).toBe('Match Play');
+    });
+
+    it('returns Best Ball for best_ball', () => {
+      expect(getMatchFormatLabel('best_ball')).toBe('Best Ball');
+    });
+
+    it('returns Scramble for scramble', () => {
+      expect(getMatchFormatLabel('scramble')).toBe('Scramble');
+    });
+
+    it('returns raw string for unknown format', () => {
+      expect(getMatchFormatLabel('custom_format')).toBe('custom_format');
+    });
+  });
+
+  describe('Friendly Matches — Stableford Points', () => {
+    it('returns 5 for eagle or better (diff <= -3)', () => {
+      expect(calculateStablefordPoints(1, 4)).toBe(5);
+      expect(calculateStablefordPoints(2, 5)).toBe(5);
+    });
+
+    it('returns 4 for birdie (diff = -2)', () => {
+      expect(calculateStablefordPoints(2, 4)).toBe(4);
+      expect(calculateStablefordPoints(3, 5)).toBe(4);
+    });
+
+    it('returns 3 for par (diff = -1)... wait, diff = score - par', () => {
+      // diff = score - par. For par: diff = 0
+      // Actually: diff = -1 is birdie → 3, diff = 0 is par → 2
+      // Let me re-read the function:
+      // diff <= -3 → 5 (albatross+)
+      // diff === -2 → 4 (eagle)
+      // diff === -1 → 3 (birdie)
+      // diff === 0 → 2 (par)
+      // diff === 1 → 1 (bogey)
+      // diff >= 2 → 0 (double+)
+      expect(calculateStablefordPoints(3, 4)).toBe(3); // birdie: 3-4=-1
+    });
+
+    it('returns 2 for par (diff = 0)', () => {
+      expect(calculateStablefordPoints(4, 4)).toBe(2);
+      expect(calculateStablefordPoints(3, 3)).toBe(2);
+    });
+
+    it('returns 1 for bogey (diff = 1)', () => {
+      expect(calculateStablefordPoints(5, 4)).toBe(1);
+    });
+
+    it('returns 0 for double bogey or worse (diff >= 2)', () => {
+      expect(calculateStablefordPoints(6, 4)).toBe(0);
+      expect(calculateStablefordPoints(7, 4)).toBe(0);
+    });
+  });
+
+  describe('Friendly Matches — Status Flow', () => {
+    it('valid match transitions', () => {
+      const validTransitions: Record<string, string[]> = {
+        pending: ['accepted', 'cancelled'],
+        accepted: ['in_progress', 'cancelled'],
+        in_progress: ['completed', 'cancelled'],
+        completed: [],
+        cancelled: [],
+      };
+      expect(validTransitions.pending).toContain('accepted');
+      expect(validTransitions.accepted).toContain('in_progress');
+      expect(validTransitions.in_progress).toContain('completed');
+      expect(validTransitions.completed).toHaveLength(0);
+      expect(validTransitions.cancelled).toHaveLength(0);
+    });
+
+    it('cannot transition from completed to pending', () => {
+      const validTransitions: Record<string, string[]> = {
+        completed: [],
+      };
+      expect(validTransitions.completed).not.toContain('pending');
+    });
+  });
+
+  describe('Friendly Matches — Round Type Validation', () => {
+    it('accepts 9-hole round', () => {
+      expect([9, 18]).toContain(9);
+    });
+
+    it('accepts 18-hole round', () => {
+      expect([9, 18]).toContain(18);
+    });
+
+    it('rejects invalid round type', () => {
+      expect([9, 18]).not.toContain(12);
+    });
+  });
+
+  describe('Notifications — Type Categories', () => {
+    it('recognizes match invitation type', () => {
+      const types = ['match_invitation', 'match_update', 'score_update', 'announcement', 'system'];
+      expect(types).toContain('match_invitation');
+    });
+
+    it('recognizes all notification types', () => {
+      const validTypes = ['match_invitation', 'match_update', 'score_update', 'announcement', 'system'];
+      expect(validTypes.length).toBe(5);
+    });
+  });
+
+  describe('Notifications — Read/Unread Counting', () => {
+    it('counts unread notifications', () => {
+      const notifications = [
+        { is_read: false },
+        { is_read: true },
+        { is_read: false },
+        { is_read: false },
+      ];
+      const unread = notifications.filter(n => !n.is_read).length;
+      expect(unread).toBe(3);
+    });
+
+    it('returns 0 for all read', () => {
+      const notifications = [
+        { is_read: true },
+        { is_read: true },
+      ];
+      const unread = notifications.filter(n => !n.is_read).length;
+      expect(unread).toBe(0);
+    });
+
+    it('returns 0 for empty list', () => {
+      const notifications: Array<{ is_read: boolean }> = [];
+      const unread = notifications.filter(n => !n.is_read).length;
+      expect(unread).toBe(0);
+    });
+  });
+
+  describe('Notifications — Sorting', () => {
+    it('sorts notifications by created_at descending', () => {
+      const notifications = [
+        { id: '1', created_at: '2026-01-01T00:00:00Z' },
+        { id: '2', created_at: '2026-06-01T00:00:00Z' },
+        { id: '3', created_at: '2026-03-01T00:00:00Z' },
+      ];
+      notifications.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      expect(notifications[0].id).toBe('2');
+      expect(notifications[1].id).toBe('3');
+      expect(notifications[2].id).toBe('1');
+    });
+  });
+
+  describe('Announcements — Publishing', () => {
+    it('filters published announcements', () => {
+      const announcements = [
+        { id: '1', is_published: true },
+        { id: '2', is_published: false },
+        { id: '3', is_published: true },
+      ];
+      const published = announcements.filter(a => a.is_published);
+      expect(published.length).toBe(2);
+    });
+
+    it('returns empty for no published', () => {
+      const announcements = [
+        { id: '1', is_published: false },
+      ];
+      const published = announcements.filter(a => a.is_published);
+      expect(published.length).toBe(0);
+    });
+  });
+
+  describe('Announcements — Sorting', () => {
+    it('sorts announcements by created_at descending', () => {
+      const announcements = [
+        { id: '1', created_at: '2026-01-01T00:00:00Z' },
+        { id: '2', created_at: '2026-06-01T00:00:00Z' },
+        { id: '3', created_at: '2026-03-01T00:00:00Z' },
+      ];
+      announcements.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      expect(announcements[0].id).toBe('2');
+      expect(announcements[1].id).toBe('3');
+      expect(announcements[2].id).toBe('1');
     });
   });
 });

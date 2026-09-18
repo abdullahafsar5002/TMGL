@@ -6,9 +6,11 @@ import { Card, CardContent } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { createPlayer } from '@/lib/league';
 import { validatePlayer, type PlayerInput } from '@/lib/validation';
+import { useToast } from '@/context/ToastContext';
 
 export function PlayerCreatePage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [form, setForm] = useState<PlayerInput>({
     full_name: '', phone: null, handicap_index: null, status: 'active',
   });
@@ -34,8 +36,13 @@ export function PlayerCreatePage() {
       player_code: playerCode || null,
     });
     setIsSaving(false);
-    if (res.error || !res.data) setError(res.error || 'Failed to create player');
-    else navigate(`/players/${res.data.id}`);
+    if (res.error || !res.data) {
+      setError(res.error || 'Failed to create player');
+      toast.error(res.error || 'Failed to create player');
+    } else {
+      toast.success('Player created successfully');
+      navigate(`/players/${res.data.id}`);
+    }
   };
 
   return (

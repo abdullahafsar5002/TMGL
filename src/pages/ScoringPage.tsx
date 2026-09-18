@@ -13,9 +13,11 @@ import { holeScoreToPar, computeScorecardSummary, type HoleEntry } from '@/lib/s
 import { formatToPar } from '@/utils/golf';
 import { validateScorecardHoles } from '@/lib/validation';
 import type { Tournament, Round, Player } from '@/types/database';
+import { useToast } from '@/context/ToastContext';
 
 export function ScoringPage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [searchParams] = useSearchParams();
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
@@ -78,7 +80,7 @@ export function ScoringPage() {
           .insert({ round_id: selectedRoundId, player_id: selectedPlayerId, course_id: courseId })
           .select('id')
           .single();
-        if (createErr) { setError(createErr.message); setIsLoading(false); return; }
+        if (createErr) { setError(createErr.message); toast.error(createErr.message); setIsLoading(false); return; }
         scId = newSc.id;
       }
 
@@ -108,6 +110,7 @@ export function ScoringPage() {
       }
     } catch {
       setError('Failed to load scorecard');
+      toast.error('Failed to load scorecard');
     }
     setIsLoading(false);
   }, [selectedRoundId, selectedPlayerId]);
@@ -158,7 +161,7 @@ export function ScoringPage() {
     if (!validation.isValid) { setValidationErrors(validation.errors); setIsSaving(false); return; }
 
     const result = await upsertScorecardHoles(holesToSave);
-    if (result.error) { setError(result.error); setIsSaving(false); return; }
+    if (result.error) { setError(result.error); toast.error(result.error); setIsSaving(false); return; }
 
     if (submit) {
       const scResult = await updateScorecard(scorecardId, {
@@ -166,16 +169,18 @@ export function ScoringPage() {
         total_strokes: summary.totalStrokes,
         total_score_to_par: summary.totalToPar,
       });
-      if (scResult.error) { setError(scResult.error); setIsSaving(false); return; }
+      if (scResult.error) { setError(scResult.error); toast.error(scResult.error); setIsSaving(false); return; }
       setSuccess('Scorecard submitted!');
+      toast.success('Scorecard submitted successfully');
     } else {
       const scResult = await updateScorecard(scorecardId, {
         status: 'in_progress',
         total_strokes: summary.totalStrokes,
         total_score_to_par: summary.totalToPar,
       });
-      if (scResult.error) { setError(scResult.error); setIsSaving(false); return; }
+      if (scResult.error) { setError(scResult.error); toast.error(scResult.error); setIsSaving(false); return; }
       setSuccess('Scorecard saved!');
+      toast.success('Scorecard saved successfully');
     }
     setIsSaving(false);
   };

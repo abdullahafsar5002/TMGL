@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Ca
 import { Button } from '@/components/common/Button';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { ImageUpload } from '@/components/common/ImageUpload';
 import { useAuth } from '@/context/AuthContext';
 import { canManageLeague } from '@/lib/roleGuards';
 import { getTeam, updateTeam, deleteTeam, getSeason, getDivisionsBySeason, getTeamMembers, addTeamMember, removeTeamMember, getPlayers, getAllTeams } from '@/lib/league';
@@ -32,6 +33,7 @@ export function TeamDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDivisionId, setEditDivisionId] = useState<string | null>(null);
+  const [editLogoUrl, setEditLogoUrl] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -63,6 +65,7 @@ export function TeamDetailPage() {
     setTeam(teamRes.data);
     setEditName(teamRes.data.name);
     setEditDivisionId(teamRes.data.division_id);
+    setEditLogoUrl(teamRes.data.logo_url);
     setMembers(membersRes.data ?? []);
     setPlayers(playersRes.data ?? []);
     setMatches(matchesRes.data ?? []);
@@ -88,7 +91,7 @@ export function TeamDetailPage() {
     setValidationErrors([]);
     setIsSaving(true);
     setSaveError(null);
-    const res = await updateTeam(id, { name: editName.trim(), division_id: editDivisionId });
+    const res = await updateTeam(id, { name: editName.trim(), division_id: editDivisionId, logo_url: editLogoUrl });
     setIsSaving(false);
     if (res.error || !res.data) {
       setSaveError(res.error || 'Update failed');
@@ -213,15 +216,22 @@ export function TeamDetailPage() {
                   </select>
                 </div>
               )}
+              <div>
+                <label className="block text-sm font-semibold text-tmgl-charcoal-800 mb-1.5">Team Logo</label>
+                <ImageUpload value={editLogoUrl} onChange={setEditLogoUrl} folder="logos" />
+              </div>
               <div className="flex items-center gap-2 pt-2">
                 <Button variant="primary" size="md" onClick={handleSave} disabled={isSaving} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
                   {isSaving ? 'Saving...' : 'Save'}
                 </Button>
-                <Button variant="outline" size="md" onClick={() => { setIsEditing(false); setValidationErrors([]); setSaveError(null); }}>Cancel</Button>
+                <Button variant="outline" size="md" onClick={() => { setIsEditing(false); setValidationErrors([]); setSaveError(null); setEditLogoUrl(team?.logo_url ?? null); }}>Cancel</Button>
               </div>
             </>
           ) : (
             <div className="text-sm text-tmgl-charcoal-700 space-y-1">
+              {team.logo_url && (
+                <img src={team.logo_url} alt={`${team.name} logo`} className="w-16 h-16 rounded-lg object-cover border border-tmgl-charcoal-200 mb-2" />
+              )}
               <p className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-tmgl-charcoal-400" /> <span className="font-medium text-tmgl-charcoal-500">Season:</span> {season?.name ?? '\u2014'}</p>
               <p><span className="font-medium text-tmgl-charcoal-500">Division:</span> {assignedDivision?.name ?? 'Unassigned'}</p>
               <p><span className="font-medium text-tmgl-charcoal-500">Members:</span> {members.length}</p>

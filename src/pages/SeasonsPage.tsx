@@ -5,9 +5,10 @@ import { Container } from '@/components/common/Container';
 import { Card, CardHeader, CardTitle } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
+import { Pagination } from '@/components/common/Pagination';
 import { useAuth } from '@/context/AuthContext';
 import { canManageLeague } from '@/lib/roleGuards';
-import { getSeasons } from '@/lib/league';
+import { getSeasonsPaginated } from '@/lib/league';
 import type { Season, SeasonStatus } from '@/types/database';
 
 const STATUS_VARIANTS: Record<SeasonStatus, 'success' | 'info' | 'warning' | 'outline'> = {
@@ -17,27 +18,32 @@ const STATUS_VARIANTS: Record<SeasonStatus, 'success' | 'info' | 'warning' | 'ou
   archived: 'outline',
 };
 
+const PAGE_SIZE = 20;
+
 export function SeasonsPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [seasons, setSeasons] = useState<Season[]>([]);
+  const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   const canManage = canManageLeague(profile?.role);
 
   const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    const result = await getSeasons();
+    const result = await getSeasonsPaginated(page, PAGE_SIZE);
     if (result.error) {
       setError(result.error);
     } else if (result.data) {
-      setSeasons(result.data);
+      setSeasons(result.data.data);
+      setTotal(result.data.total);
     }
     setIsLoading(false);
-  }, []);
+  }, [page]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -54,7 +60,7 @@ export function SeasonsPage() {
             Seasons
           </h1>
           <p className="text-sm text-tmgl-charcoal-500 mt-0.5">
-            {seasons.length} season{seasons.length !== 1 ? 's' : ''} total
+            {total} season{total !== 1 ? 's' : ''} total
           </p>
         </div>
         {canManage && (
@@ -70,7 +76,7 @@ export function SeasonsPage() {
         )}
       </div>
 
-      {seasons.length > 0 && (
+      {total > 0 && (
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tmgl-charcoal-400" />
           <input
@@ -146,6 +152,10 @@ export function SeasonsPage() {
             </button>
           ))}
         </div>
+      )}
+
+      {!isLoading && Math.ceil(total / PAGE_SIZE) > 1 && (
+        <Pagination currentPage={page} totalPages={Math.ceil(total / PAGE_SIZE)} onPageChange={setPage} />
       )}
     </Container>
   );

@@ -5,31 +5,46 @@ import { Container } from '@/components/common/Container';
 import { Card, CardHeader, CardTitle } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { Badge } from '@/components/common/Badge';
+import { Pagination } from '@/components/common/Pagination';
 import { useAuth } from '@/context/AuthContext';
 import { canManageLeague } from '@/lib/roleGuards';
-import { getPlayers } from '@/lib/league';
+import { getPlayersPaginated } from '@/lib/league';
 import type { Player } from '@/types/database';
+
+const PAGE_SIZE = 20;
 
 export function PlayersPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [players, setPlayers] = useState<Player[]>([]);
+  const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   const canManage = canManageLeague(profile?.role);
 
   const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    const result = await getPlayers(search);
+    const result = await getPlayersPaginated(page, PAGE_SIZE, search);
     if (result.error) setError(result.error);
-    else if (result.data) setPlayers(result.data);
+    else if (result.data) {
+      setPlayers(result.data.data);
+      setTotal(result.data.total);
+    }
     setIsLoading(false);
-  }, [search]);
+  }, [page, search]);
 
   useEffect(() => { load(); }, [load]);
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
 
   return (
     <Container size="lg" className="space-y-4 py-4">
@@ -38,7 +53,7 @@ export function PlayersPage() {
           <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
             <Users className="w-5 h-5 text-tmgl-green-800" /> Players
           </h1>
-          <p className="text-sm text-tmgl-charcoal-500 mt-0.5">{players.length} player{players.length !== 1 ? 's' : ''}</p>
+          <p className="text-sm text-tmgl-charcoal-500 mt-0.5">{total} player{total !== 1 ? 's' : ''}</p>
         </div>
         {canManage && (
           <Button variant="primary" size="sm" onClick={() => navigate('/players/new')} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
@@ -49,7 +64,7 @@ export function PlayersPage() {
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tmgl-charcoal-400" />
-        <input type="text" placeholder="Search players by name..." value={search} onChange={(e) => setSearch(e.target.value)}
+        <input type="text" placeholder="Search players by name..." value={search} onChange={(e) => handleSearchChange(e.target.value)}
           className="w-full pl-10 pr-4 py-3 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm text-tmgl-charcoal-900 placeholder-tmgl-charcoal-400 focus:outline-none focus:ring-2 focus:ring-tmgl-green-700 focus:border-transparent" />
       </div>
 
@@ -110,6 +125,10 @@ export function PlayersPage() {
             </button>
           ))}
         </div>
+      )}
+
+      {!isLoading && totalPages > 1 && (
+        <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
       )}
     </Container>
   );

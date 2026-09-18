@@ -55,9 +55,10 @@ export function DashboardPage() {
         getRecentActivity(8),
       ]);
       if (lsResult.data) setLeagueStats(lsResult.data);
-      if (dsResult.error) setError(lsResult.error);
       if (dsResult.data) setDashStats(dsResult.data);
       if (actResult.data) setActivity(actResult.data);
+      const firstError = lsResult.error || dsResult.error || actResult.error;
+      if (firstError) setError(firstError);
     } catch {
       setError('Failed to load dashboard');
     }
@@ -214,11 +215,12 @@ export function DashboardPage() {
           <DashboardSection title="Quick Links">
             <div className="space-y-2">
               {[
-                { label: 'Score Entry', path: '/scoring', icon: FileText, color: 'text-blue-600' },
+                { label: 'Practice Hub', path: '/practice', icon: FileText, color: 'text-green-600' },
+                { label: 'My Scores', path: '/my-scores', icon: Medal, color: 'text-blue-600' },
+                { label: 'My Statistics', path: '/statistics', icon: TrendingUp, color: 'text-purple-600' },
+                { label: 'My Tournaments', path: '/my-tournaments', icon: Trophy, color: 'text-amber-600' },
                 { label: 'Leaderboard', path: '/leaderboard', icon: Medal, color: 'text-emerald-600' },
-                { label: 'Tournaments', path: '/tournaments', icon: Trophy, color: 'text-purple-600' },
-                { label: 'Matches', path: '/matches', icon: Swords, color: 'text-red-600' },
-                { label: 'Players', path: '/players', icon: Users, color: 'text-blue-600' },
+                { label: 'Profile Settings', path: '/profile/settings', icon: Users, color: 'text-gray-600' },
               ].map((link) => {
                 const Icon = link.icon;
                 return (

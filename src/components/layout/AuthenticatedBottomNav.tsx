@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Home, Trophy, Edit3, Medal, Swords } from 'lucide-react';
+import { Home, Trophy, Target, Medal, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import React from 'react';
 
@@ -17,9 +17,9 @@ interface AuthenticatedBottomNavProps {
 const NAV_ITEMS: NavItem[] = [
   { id: 'home', label: 'Home', path: '/dashboard', icon: Home },
   { id: 'tournaments', label: 'Events', path: '/tournaments', icon: Trophy },
-  { id: 'scoring', label: 'Score', path: '/scoring', icon: Edit3 },
+  { id: 'practice', label: 'Practice', path: '/practice', icon: Target },
   { id: 'leaderboard', label: 'Board', path: '/leaderboard', icon: Medal },
-  { id: 'matches', label: 'Matches', path: '/matches', icon: Swords },
+  { id: 'profile', label: 'Profile', path: '/profile/settings', icon: User },
 ];
 
 export function AuthenticatedBottomNav({ currentPath }: AuthenticatedBottomNavProps) {
