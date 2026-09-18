@@ -222,8 +222,34 @@ export async function getPlayerByProfileId(profileId: string): Promise<ServiceRe
     .maybeSingle();
 
   if (error) return { data: null, error: error.message };
-  if (!data) return { data: null, error: 'Player profile not found' };
-  return { data: data as Player, error: null };
+  if (data) return { data: data as Player, error: null };
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', profileId)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    return { data: null, error: 'Player profile not found' };
+  }
+
+  const fullName = (profile as { full_name: string | null }).full_name || 'TMGL Player';
+
+  const { data: newPlayer, error: insertError } = await supabase
+    .from('players')
+    .insert({
+      profile_id: profileId,
+      full_name: fullName,
+      status: 'active',
+      join_date: new Date().toISOString().split('T')[0],
+    })
+    .select()
+    .maybeSingle();
+
+  if (insertError) return { data: null, error: insertError.message };
+  if (!newPlayer) return { data: null, error: 'Failed to create player profile' };
+  return { data: newPlayer as Player, error: null };
 }
 
 export async function createPlayer(

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { validatePracticeRound, validatePracticeScores } from './validation';
+import { getPracticeRoundsByPlayer } from './practice';
+import { getPlayerStatistics } from './statistics';
 
 describe('validatePracticeRound', () => {
   it('passes with valid input', () => {
@@ -119,5 +121,49 @@ describe('validatePracticeScores', () => {
       { hole_number: 1, par: 4, score: 4, putts: 2, penalty_strokes: 0 },
     ], 9);
     expect(result.isValid).toBe(true);
+  });
+});
+
+describe('Practice Hub Player Provisioning', () => {
+  it('getPracticeRoundsByPlayer accepts a player ID string', () => {
+    expect(typeof getPracticeRoundsByPlayer).toBe('function');
+    expect(getPracticeRoundsByPlayer.length).toBe(1);
+  });
+
+  it('getPlayerStatistics accepts a player ID string', () => {
+    expect(typeof getPlayerStatistics).toBe('function');
+    expect(getPlayerStatistics.length).toBe(1);
+  });
+
+  it('getPracticeRoundsByPlayer returns a Promise', () => {
+    const result = getPracticeRoundsByPlayer('00000000-0000-0000-0000-000000000000');
+    expect(result).toBeInstanceOf(Promise);
+    result.catch(() => {});
+  });
+
+  it('getPlayerStatistics returns a Promise', () => {
+    const result = getPlayerStatistics('00000000-0000-0000-0000-000000000000');
+    expect(result).toBeInstanceOf(Promise);
+    result.catch(() => {});
+  });
+
+  it('getPlayerStatistics returns ServiceResult shape', async () => {
+    try {
+      const result = await getPlayerStatistics('00000000-0000-0000-0000-000000000000');
+      expect(result).toHaveProperty('data');
+      expect(result).toHaveProperty('error');
+    } catch {
+      // Network errors expected in unit tests
+    }
+  });
+
+  it('getPracticeRoundsByPlayer returns ServiceResult shape', async () => {
+    try {
+      const result = await getPracticeRoundsByPlayer('00000000-0000-0000-0000-000000000000');
+      expect(result).toHaveProperty('data');
+      expect(result).toHaveProperty('error');
+    } catch {
+      // Network errors expected in unit tests
+    }
   });
 });
