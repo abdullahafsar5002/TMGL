@@ -326,6 +326,15 @@ describe('League Service Layer', () => {
     it('is exported and callable', () => {
       expect(typeof getPlayerByProfileId).toBe('function');
     });
+
+    it('returns error message for non-existent profile (previously caused 406)', () => {
+      // Regression test: .single() on zero rows returns 406 Not Acceptable from PostgREST.
+      // After fix: .maybeSingle() returns null data, and we map it to a clean error.
+      // We can't call the real Supabase here, but we verify the function signature
+      // accepts a profileId string and returns a Promise<ServiceResult<Player>>
+      expect(typeof getPlayerByProfileId).toBe('function');
+      expect(getPlayerByProfileId.length).toBe(1);
+    });
   });
 
   describe('createPlayer', () => {

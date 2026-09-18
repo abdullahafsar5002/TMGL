@@ -219,9 +219,10 @@ export async function getPlayerByProfileId(profileId: string): Promise<ServiceRe
     .from('players')
     .select('*')
     .eq('profile_id', profileId)
-    .single();
+    .maybeSingle();
 
   if (error) return { data: null, error: error.message };
+  if (!data) return { data: null, error: 'Player profile not found' };
   return { data: data as Player, error: null };
 }
 
