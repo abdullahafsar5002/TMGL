@@ -18,10 +18,6 @@ function AdminPage({ children }: { children: React.ReactNode }) {
   return <ProtectedRoute requiredRole="league_manager"><AuthenticatedLayout>{children}</AuthenticatedLayout></ProtectedRoute>;
 }
 
-function SuperAdminPage({ children }: { children: React.ReactNode }) {
-  return <ProtectedRoute requiredRole="super_admin"><AuthenticatedLayout>{children}</AuthenticatedLayout></ProtectedRoute>;
-}
-
 function PageLoader() {
   return (
     <div className="min-h-[50vh] flex items-center justify-center">
@@ -30,65 +26,67 @@ function PageLoader() {
   );
 }
 
-function lazyPage<T>(importFn: () => Promise<{ default: T }>) {
-  return lazy(importFn);
+// Lazy loaders for named exports
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function lazyNamed(importFn: () => Promise<any>, name: string) {
+  return lazy(() => importFn().then((m: { [k: string]: React.ComponentType }) => ({ default: m[name] })));
 }
 
-// Public pages (lazy)
-const TournamentsPage = lazyPage(() => import('@/pages/TournamentsPage').then(m => ({ default: m.TournamentsPage })));
-const TournamentDetailPage = lazyPage(() => import('@/pages/TournamentDetailPage').then(m => ({ default: m.TournamentDetailPage })));
-const LeaderboardPage = lazyPage(() => import('@/pages/LeaderboardPage').then(m => ({ default: m.LeaderboardPage })));
-const ForgotPasswordPage = lazyPage(() => import('@/pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
-const AboutPage = lazyPage(() => import('@/pages/AboutPage').then(m => ({ default: m.AboutPage })));
-const ContactPage = lazyPage(() => import('@/pages/ContactPage').then(m => ({ default: m.ContactPage })));
-const NewsPage = lazyPage(() => import('@/pages/NewsPage').then(m => ({ default: m.NewsPage })));
-const GalleryPage = lazyPage(() => import('@/pages/GalleryPage').then(m => ({ default: m.GalleryPage })));
+// Public pages
+const TournamentsPage = lazyNamed(() => import('@/pages/TournamentsPage'), 'TournamentsPage');
+const TournamentDetailPage = lazyNamed(() => import('@/pages/TournamentDetailPage'), 'TournamentDetailPage');
+const LeaderboardPage = lazyNamed(() => import('@/pages/LeaderboardPage'), 'LeaderboardPage');
+const ForgotPasswordPage = lazyNamed(() => import('@/pages/ForgotPasswordPage'), 'ForgotPasswordPage');
+const AboutPage = lazyNamed(() => import('@/pages/AboutPage'), 'AboutPage');
+const ContactPage = lazyNamed(() => import('@/pages/ContactPage'), 'ContactPage');
+const NewsPage = lazyNamed(() => import('@/pages/NewsPage'), 'NewsPage');
+const GalleryPage = lazyNamed(() => import('@/pages/GalleryPage'), 'GalleryPage');
 
-// Authenticated pages (lazy)
-const DashboardPage = lazyPage(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
-const ProfileSettingsPage = lazyPage(() => import('@/pages/ProfileSettingsPage').then(m => ({ default: m.ProfileSettingsPage })));
-const PlayersPage = lazyPage(() => import('@/pages/PlayersPage').then(m => ({ default: m.PlayersPage })));
-const PlayerDetailPage = lazyPage(() => import('@/pages/PlayerDetailPage').then(m => ({ default: m.PlayerDetailPage })));
-const PlayerCreatePage = lazyPage(() => import('@/pages/PlayerCreatePage').then(m => ({ default: m.PlayerCreatePage })));
-const TeamsPage = lazyPage(() => import('@/pages/TeamsPage').then(m => ({ default: m.TeamsPage })));
-const TeamDetailPage = lazyPage(() => import('@/pages/TeamDetailPage').then(m => ({ default: m.TeamDetailPage })));
-const TeamCreatePage = lazyPage(() => import('@/pages/TeamCreatePage').then(m => ({ default: m.TeamCreatePage })));
-const SeasonsPage = lazyPage(() => import('@/pages/SeasonsPage').then(m => ({ default: m.SeasonsPage })));
-const SeasonDetailPage = lazyPage(() => import('@/pages/SeasonDetailPage').then(m => ({ default: m.SeasonDetailPage })));
-const SeasonCreatePage = lazyPage(() => import('@/pages/SeasonCreatePage').then(m => ({ default: m.SeasonCreatePage })));
-const DivisionDetailPage = lazyPage(() => import('@/pages/DivisionDetailPage').then(m => ({ default: m.DivisionDetailPage })));
-const DivisionCreatePage = lazyPage(() => import('@/pages/DivisionCreatePage').then(m => ({ default: m.DivisionCreatePage })));
-const CoursesPage = lazyPage(() => import('@/pages/CoursesPage').then(m => ({ default: m.CoursesPage })));
-const CourseDetailPage = lazyPage(() => import('@/pages/CourseDetailPage').then(m => ({ default: m.CourseDetailPage })));
-const CourseCreatePage = lazyPage(() => import('@/pages/CourseCreatePage').then(m => ({ default: m.CourseCreatePage })));
-const MatchesPage = lazyPage(() => import('@/pages/MatchesPage').then(m => ({ default: m.MatchesPage })));
-const MatchDetailPage = lazyPage(() => import('@/pages/MatchDetailPage').then(m => ({ default: m.MatchDetailPage })));
-const MatchCreatePage = lazyPage(() => import('@/pages/MatchCreatePage').then(m => ({ default: m.MatchCreatePage })));
-const RoundDetailPage = lazyPage(() => import('@/pages/RoundDetailPage').then(m => ({ default: m.RoundDetailPage })));
-const RoundCreatePage = lazyPage(() => import('@/pages/RoundCreatePage').then(m => ({ default: m.RoundCreatePage })));
-const ScorecardPage = lazyPage(() => import('@/pages/ScorecardPage').then(m => ({ default: m.ScorecardPage })));
-const ScorecardVerifyPage = lazyPage(() => import('@/pages/ScorecardVerifyPage').then(m => ({ default: m.ScorecardVerifyPage })));
-const ScoringPage = lazyPage(() => import('@/pages/ScoringPage').then(m => ({ default: m.ScoringPage })));
-const MyScoresPage = lazyPage(() => import('@/pages/MyScoresPage').then(m => ({ default: m.MyScoresPage })));
-const MyStatisticsPage = lazyPage(() => import('@/pages/MyStatisticsPage').then(m => ({ default: m.MyStatisticsPage })));
-const MyTournamentsPage = lazyPage(() => import('@/pages/MyTournamentsPage').then(m => ({ default: m.MyTournamentsPage })));
-const PracticeHubPage = lazyPage(() => import('@/pages/PracticeHubPage').then(m => ({ default: m.PracticeHubPage })));
-const PracticeCreatePage = lazyPage(() => import('@/pages/PracticeCreatePage').then(m => ({ default: m.PracticeCreatePage })));
-const PracticeDetailPage = lazyPage(() => import('@/pages/PracticeDetailPage').then(m => ({ default: m.PracticeDetailPage })));
-const PracticeHistoryPage = lazyPage(() => import('@/pages/PracticeHistoryPage').then(m => ({ default: m.PracticeHistoryPage })));
-const PracticeScorecardPage = lazyPage(() => import('@/pages/PracticeScorecardPage').then(m => ({ default: m.PracticeScorecardPage })));
-const FriendlyMatchesPage = lazyPage(() => import('@/pages/FriendlyMatchesPage').then(m => ({ default: m.FriendlyMatchesPage })));
-const FriendlyMatchCreatePage = lazyPage(() => import('@/pages/FriendlyMatchCreatePage').then(m => ({ default: m.FriendlyMatchCreatePage })));
-const FriendlyMatchDetailPage = lazyPage(() => import('@/pages/FriendlyMatchDetailPage').then(m => ({ default: m.FriendlyMatchDetailPage })));
-const FriendlyMatchScorePage = lazyPage(() => import('@/pages/FriendlyMatchScorePage').then(m => ({ default: m.FriendlyMatchScorePage })));
-const AnnouncementsPage = lazyPage(() => import('@/pages/AnnouncementsPage').then(m => ({ default: m.AnnouncementsPage })));
-const AnnouncementDetailPage = lazyPage(() => import('@/pages/AnnouncementDetailPage').then(m => ({ default: m.AnnouncementDetailPage })));
-const AnnouncementManagePage = lazyPage(() => import('@/pages/AnnouncementManagePage').then(m => ({ default: m.AnnouncementManagePage })));
-const NotificationsPage = lazyPage(() => import('@/pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
-const AdminDashboardPage = lazyPage(() => import('@/pages/AdminDashboardPage').then(m => ({ default: m.AdminDashboardPage })));
-const OrganizerDashboardPage = lazyPage(() => import('@/pages/OrganizerDashboardPage').then(m => ({ default: m.OrganizerDashboardPage })));
-const AnalyticsPage = lazyPage(() => import('@/pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })));
-const UnauthorizedPage = lazyPage(() => import('@/pages/UnauthorizedPage').then(m => ({ default: m.UnauthorizedPage })));
+// Authenticated pages
+const DashboardPage = lazyNamed(() => import('@/pages/DashboardPage'), 'DashboardPage');
+const ProfileSettingsPage = lazyNamed(() => import('@/pages/ProfileSettingsPage'), 'ProfileSettingsPage');
+const PlayersPage = lazyNamed(() => import('@/pages/PlayersPage'), 'PlayersPage');
+const PlayerDetailPage = lazyNamed(() => import('@/pages/PlayerDetailPage'), 'PlayerDetailPage');
+const PlayerCreatePage = lazyNamed(() => import('@/pages/PlayerCreatePage'), 'PlayerCreatePage');
+const TeamsPage = lazyNamed(() => import('@/pages/TeamsPage'), 'TeamsPage');
+const TeamDetailPage = lazyNamed(() => import('@/pages/TeamDetailPage'), 'TeamDetailPage');
+const TeamCreatePage = lazyNamed(() => import('@/pages/TeamCreatePage'), 'TeamCreatePage');
+const SeasonsPage = lazyNamed(() => import('@/pages/SeasonsPage'), 'SeasonsPage');
+const SeasonDetailPage = lazyNamed(() => import('@/pages/SeasonDetailPage'), 'SeasonDetailPage');
+const SeasonCreatePage = lazyNamed(() => import('@/pages/SeasonCreatePage'), 'SeasonCreatePage');
+const DivisionDetailPage = lazyNamed(() => import('@/pages/DivisionDetailPage'), 'DivisionDetailPage');
+const DivisionCreatePage = lazyNamed(() => import('@/pages/DivisionCreatePage'), 'DivisionCreatePage');
+const CoursesPage = lazyNamed(() => import('@/pages/CoursesPage'), 'CoursesPage');
+const CourseDetailPage = lazyNamed(() => import('@/pages/CourseDetailPage'), 'CourseDetailPage');
+const CourseCreatePage = lazyNamed(() => import('@/pages/CourseCreatePage'), 'CourseCreatePage');
+const MatchesPage = lazyNamed(() => import('@/pages/MatchesPage'), 'MatchesPage');
+const MatchDetailPage = lazyNamed(() => import('@/pages/MatchDetailPage'), 'MatchDetailPage');
+const MatchCreatePage = lazyNamed(() => import('@/pages/MatchCreatePage'), 'MatchCreatePage');
+const RoundDetailPage = lazyNamed(() => import('@/pages/RoundDetailPage'), 'RoundDetailPage');
+const RoundCreatePage = lazyNamed(() => import('@/pages/RoundCreatePage'), 'RoundCreatePage');
+const ScorecardPage = lazyNamed(() => import('@/pages/ScorecardPage'), 'ScorecardPage');
+const ScorecardVerifyPage = lazyNamed(() => import('@/pages/ScorecardVerifyPage'), 'ScorecardVerifyPage');
+const ScoringPage = lazyNamed(() => import('@/pages/ScoringPage'), 'ScoringPage');
+const MyScoresPage = lazyNamed(() => import('@/pages/MyScoresPage'), 'MyScoresPage');
+const MyStatisticsPage = lazyNamed(() => import('@/pages/MyStatisticsPage'), 'MyStatisticsPage');
+const MyTournamentsPage = lazyNamed(() => import('@/pages/MyTournamentsPage'), 'MyTournamentsPage');
+const PracticeHubPage = lazyNamed(() => import('@/pages/PracticeHubPage'), 'PracticeHubPage');
+const PracticeCreatePage = lazyNamed(() => import('@/pages/PracticeCreatePage'), 'PracticeCreatePage');
+const PracticeDetailPage = lazyNamed(() => import('@/pages/PracticeDetailPage'), 'PracticeDetailPage');
+const PracticeHistoryPage = lazyNamed(() => import('@/pages/PracticeHistoryPage'), 'PracticeHistoryPage');
+const PracticeScorecardPage = lazyNamed(() => import('@/pages/PracticeScorecardPage'), 'PracticeScorecardPage');
+const FriendlyMatchesPage = lazyNamed(() => import('@/pages/FriendlyMatchesPage'), 'FriendlyMatchesPage');
+const FriendlyMatchCreatePage = lazyNamed(() => import('@/pages/FriendlyMatchCreatePage'), 'FriendlyMatchCreatePage');
+const FriendlyMatchDetailPage = lazyNamed(() => import('@/pages/FriendlyMatchDetailPage'), 'FriendlyMatchDetailPage');
+const FriendlyMatchScorePage = lazyNamed(() => import('@/pages/FriendlyMatchScorePage'), 'FriendlyMatchScorePage');
+const AnnouncementsPage = lazyNamed(() => import('@/pages/AnnouncementsPage'), 'AnnouncementsPage');
+const AnnouncementDetailPage = lazyNamed(() => import('@/pages/AnnouncementDetailPage'), 'AnnouncementDetailPage');
+const AnnouncementManagePage = lazyNamed(() => import('@/pages/AnnouncementManagePage'), 'AnnouncementManagePage');
+const NotificationsPage = lazyNamed(() => import('@/pages/NotificationsPage'), 'NotificationsPage');
+const AdminDashboardPage = lazyNamed(() => import('@/pages/AdminDashboardPage'), 'AdminDashboardPage');
+const OrganizerDashboardPage = lazyNamed(() => import('@/pages/OrganizerDashboardPage'), 'OrganizerDashboardPage');
+const AnalyticsPage = lazyNamed(() => import('@/pages/AnalyticsPage'), 'AnalyticsPage');
+const UnauthorizedPage = lazyNamed(() => import('@/pages/UnauthorizedPage'), 'UnauthorizedPage');
 
 export function AppRouter() {
   return (
