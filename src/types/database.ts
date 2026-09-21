@@ -15,6 +15,15 @@ export interface Profile {
   full_name: string | null;
   avatar_url: string | null;
   role: UserRole;
+  membership_tier: 'free' | 'pro';
+  membership_expires_at: string | null;
+  stripe_customer_id: string | null;
+  club_name: string | null;
+  club_logo_url: string | null;
+  club_primary_color: string | null;
+  club_accent_color: string | null;
+  certified_club: boolean;
+  partner_since: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -76,6 +85,8 @@ export interface Course {
   holes_count: 9 | 18;
   course_rating: number | null;
   slope_rating: number | null;
+  latitude: number | null;
+  longitude: number | null;
   created_at: string;
   updated_at: string;
 }

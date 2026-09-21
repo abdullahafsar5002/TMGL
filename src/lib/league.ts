@@ -527,7 +527,7 @@ export async function getCourseHoles(courseId: string): Promise<ServiceResult<Co
 }
 
 export async function createCourse(
-  course: Pick<Course, 'name' | 'location' | 'description' | 'holes_count' | 'course_rating' | 'slope_rating'>,
+  course: Pick<Course, 'name' | 'location' | 'description' | 'holes_count' | 'course_rating' | 'slope_rating' | 'latitude' | 'longitude'>,
   holes: Array<Pick<CourseHole, 'hole_number' | 'par' | 'handicap_index' | 'yardage'>>
 ): Promise<ServiceResult<Course>> {
   const { data: courseData, error: courseError } = await supabase
@@ -539,6 +539,8 @@ export async function createCourse(
       holes_count: course.holes_count,
       course_rating: course.course_rating,
       slope_rating: course.slope_rating,
+      latitude: course.latitude ?? null,
+      longitude: course.longitude ?? null,
     })
     .select()
     .single();
@@ -566,7 +568,7 @@ export async function createCourse(
 
 export async function updateCourse(
   id: string,
-  updates: Partial<Pick<Course, 'name' | 'location' | 'description' | 'holes_count' | 'course_rating' | 'slope_rating'>>
+  updates: Partial<Pick<Course, 'name' | 'location' | 'description' | 'holes_count' | 'course_rating' | 'slope_rating' | 'latitude' | 'longitude'>>
 ): Promise<ServiceResult<Course>> {
   const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (updates.name !== undefined) payload.name = updates.name.trim();
@@ -575,6 +577,8 @@ export async function updateCourse(
   if (updates.holes_count !== undefined) payload.holes_count = updates.holes_count;
   if (updates.course_rating !== undefined) payload.course_rating = updates.course_rating;
   if (updates.slope_rating !== undefined) payload.slope_rating = updates.slope_rating;
+  if (updates.latitude !== undefined) payload.latitude = updates.latitude ?? null;
+  if (updates.longitude !== undefined) payload.longitude = updates.longitude ?? null;
 
   const { data, error } = await supabase
     .from('courses')

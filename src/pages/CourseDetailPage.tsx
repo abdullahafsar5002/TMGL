@@ -60,6 +60,8 @@ export function CourseDetailPage() {
     holes_count: 18,
     course_rating: null,
     slope_rating: null,
+    latitude: null,
+    longitude: null,
   });
   const [editHoles, setEditHoles] = useState<CourseHoleInput[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -89,6 +91,8 @@ export function CourseDetailPage() {
         holes_count: courseRes.data.holes_count,
         course_rating: courseRes.data.course_rating,
         slope_rating: courseRes.data.slope_rating,
+        latitude: courseRes.data.latitude ?? null,
+        longitude: courseRes.data.longitude ?? null,
       });
       setEditHoles(holesFromDb(holesRes.data ?? [], courseRes.data.holes_count));
     }
@@ -126,6 +130,8 @@ export function CourseDetailPage() {
       holes_count: editForm.holes_count,
       course_rating: editForm.course_rating,
       slope_rating: editForm.slope_rating,
+      latitude: editForm.latitude,
+      longitude: editForm.longitude,
     });
 
     if (updateRes.error || !updateRes.data) {
@@ -280,6 +286,20 @@ export function CourseDetailPage() {
                     onChange={(e) => setEditForm({ ...editForm, slope_rating: e.target.value ? Number(e.target.value) : null })}
                     className="w-full px-4 py-3 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 text-sm text-tmgl-charcoal-900 focus:outline-none focus:ring-2 focus:ring-tmgl-green-700 focus:border-transparent"
                     placeholder="e.g. 130" />
+                </div>
+                <div>
+                  <label htmlFor="edit-lat" className="block text-sm font-semibold text-tmgl-charcoal-800 mb-1.5">Latitude</label>
+                  <input id="edit-lat" type="number" step="any" value={editForm.latitude ?? ''}
+                    onChange={(e) => setEditForm({ ...editForm, latitude: e.target.value ? Number(e.target.value) : null })}
+                    className="w-full px-4 py-3 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 text-sm text-tmgl-charcoal-900 focus:outline-none focus:ring-2 focus:ring-tmgl-green-700 focus:border-transparent"
+                    placeholder="e.g. 33.6844" />
+                </div>
+                <div>
+                  <label htmlFor="edit-lng" className="block text-sm font-semibold text-tmgl-charcoal-800 mb-1.5">Longitude</label>
+                  <input id="edit-lng" type="number" step="any" value={editForm.longitude ?? ''}
+                    onChange={(e) => setEditForm({ ...editForm, longitude: e.target.value ? Number(e.target.value) : null })}
+                    className="w-full px-4 py-3 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 text-sm text-tmgl-charcoal-900 focus:outline-none focus:ring-2 focus:ring-tmgl-green-700 focus:border-transparent"
+                    placeholder="e.g. 73.0479" />
                 </div>
               </div>
               <div className="flex items-center gap-2 pt-2">

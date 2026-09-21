@@ -321,6 +321,8 @@ export interface CourseInput {
   holes_count: 9 | 18;
   course_rating: number | null;
   slope_rating: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface CourseHoleInput {

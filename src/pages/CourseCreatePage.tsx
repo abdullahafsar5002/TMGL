@@ -32,6 +32,8 @@ export function CourseCreatePage() {
     holes_count: 18,
     course_rating: null,
     slope_rating: null,
+    latitude: null,
+    longitude: null,
   });
   const [holes, setHoles] = useState<CourseHoleInput[]>(createEmptyHoles(18));
   const [isSaving, setIsSaving] = useState(false);
@@ -71,6 +73,8 @@ export function CourseCreatePage() {
         holes_count: form.holes_count,
         course_rating: form.course_rating,
         slope_rating: form.slope_rating,
+        latitude: form.latitude ?? null,
+        longitude: form.longitude ?? null,
       },
       holes
     );
@@ -150,6 +154,20 @@ export function CourseCreatePage() {
                 onChange={(e) => setForm({ ...form, slope_rating: e.target.value ? Number(e.target.value) : null })}
                 className="w-full px-4 py-3 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 text-sm text-tmgl-charcoal-900 focus:outline-none focus:ring-2 focus:ring-tmgl-green-700 focus:border-transparent"
                 placeholder="e.g. 130" />
+            </div>
+            <div>
+              <label htmlFor="latitude" className="block text-sm font-semibold text-tmgl-charcoal-800 mb-1.5">Latitude</label>
+              <input id="latitude" type="number" step="any" value={form.latitude ?? ''}
+                onChange={(e) => setForm({ ...form, latitude: e.target.value ? Number(e.target.value) : null })}
+                className="w-full px-4 py-3 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 text-sm text-tmgl-charcoal-900 focus:outline-none focus:ring-2 focus:ring-tmgl-green-700 focus:border-transparent"
+                placeholder="e.g. 33.6844" />
+            </div>
+            <div>
+              <label htmlFor="longitude" className="block text-sm font-semibold text-tmgl-charcoal-800 mb-1.5">Longitude</label>
+              <input id="longitude" type="number" step="any" value={form.longitude ?? ''}
+                onChange={(e) => setForm({ ...form, longitude: e.target.value ? Number(e.target.value) : null })}
+                className="w-full px-4 py-3 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 text-sm text-tmgl-charcoal-900 focus:outline-none focus:ring-2 focus:ring-tmgl-green-700 focus:border-transparent"
+                placeholder="e.g. 73.0479" />
             </div>
           </div>
           <div className="flex items-center gap-2 pt-2">

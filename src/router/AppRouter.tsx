@@ -88,6 +88,9 @@ const OrganizerDashboardPage = lazyNamed(() => import('@/pages/OrganizerDashboar
 const AnalyticsPage = lazyNamed(() => import('@/pages/AnalyticsPage'), 'AnalyticsPage');
 const UnauthorizedPage = lazyNamed(() => import('@/pages/UnauthorizedPage'), 'UnauthorizedPage');
 
+// Membership
+const MembershipPage = lazyNamed(() => import('@/components/membership/MembershipPage'), 'MembershipPage');
+
 export function AppRouter() {
   return (
     <Suspense fallback={<PageLoader />}>
@@ -170,6 +173,9 @@ export function AppRouter() {
       <Route path="/admin" element={<AdminPage><AdminDashboardPage /></AdminPage>} />
       <Route path="/organizer" element={<AuthPage><OrganizerDashboardPage /></AuthPage>} />
       <Route path="/analytics" element={<AdminPage><AnalyticsPage /></AdminPage>} />
+
+      {/* Membership */}
+      <Route path="/membership" element={<AuthPage><MembershipPage /></AuthPage>} />
 
       {/* 404 */}
       <Route path="*" element={<PublicLayout><NotFoundPage /></PublicLayout>} />
