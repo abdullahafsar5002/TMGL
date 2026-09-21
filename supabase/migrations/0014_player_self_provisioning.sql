@@ -6,6 +6,7 @@
 -- 1. Allow authenticated users to insert a player linked to their own profile
 --    The WITH CHECK ensures profile_id = auth.uid() so users can only create
 --    their own player record. The UNIQUE constraint on profile_id prevents duplicates.
+DROP POLICY IF EXISTS "players: authenticated can self-provision" ON public.players;
 CREATE POLICY "players: authenticated can self-provision"
   ON public.players
   FOR INSERT
@@ -16,6 +17,7 @@ CREATE POLICY "players: authenticated can self-provision"
 
 -- 2. Allow authenticated users to update their own player record (for profile linking)
 --    This enables fixing existing players that were created with profile_id: null
+DROP POLICY IF EXISTS "players: owner can update own" ON public.players;
 CREATE POLICY "players: owner can update own"
   ON public.players
   FOR UPDATE

@@ -39,7 +39,7 @@ export async function markAllAsRead(profileId: string): Promise<ServiceResult<nu
   return { data: null, error: null };
 }
 
-export async function createNotification(notification: { recipient_id: string; type: string; title: string; message: string; related_entity?: string; related_id?: string }): Promise<ServiceResult<Notification>> {
+export async function createNotification(notification: { recipient_id: string; type: string; title: string; message: string; metadata?: Record<string, unknown> }): Promise<ServiceResult<Notification>> {
   const { data, error } = await supabase
     .from('notifications')
     .insert({
@@ -47,8 +47,7 @@ export async function createNotification(notification: { recipient_id: string; t
       type: notification.type,
       title: notification.title,
       message: notification.message,
-      related_entity: notification.related_entity ?? null,
-      related_id: notification.related_id ?? null,
+      metadata: notification.metadata ?? {},
     })
     .select()
     .single();

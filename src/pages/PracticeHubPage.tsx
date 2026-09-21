@@ -123,7 +123,7 @@ export default function PracticeHubPage() {
                   <span className="text-xs">History</span>
                 </Button>
               </Link>
-              <Link to="/statistics">
+              <Link to="/my-statistics">
                 <Button variant="outline" fullWidth className="h-16 flex-col gap-1">
                   <BarChart3 className="h-5 w-5" />
                   <span className="text-xs">Statistics</span>

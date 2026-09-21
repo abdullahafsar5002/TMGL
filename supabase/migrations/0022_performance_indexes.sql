@@ -1,4 +1,4 @@
--- 0022: Performance indexes for hole_scores and related tables
+-- 0022: Performance indexes for scorecard holes and related tables
 -- As tables grow to millions of rows, these indexes keep
 -- leaderboards, analytics, and player stats fast.
 
@@ -42,9 +42,8 @@ CREATE INDEX IF NOT EXISTS idx_notifications_recipient_unread
   ON notifications (recipient_id, is_read)
   WHERE is_read = false;
 
--- Player statistics: lookup by player
-CREATE INDEX IF NOT EXISTS idx_player_statistics_player_id
-  ON player_statistics (player_id);
+-- player_statistics is a VIEW (migration 0020), not a table — cannot be indexed.
+-- Underlying query performance is covered by idx_scorecards_player_id above.
 
 -- Friendly match scores
 CREATE INDEX IF NOT EXISTS idx_friendly_match_scores_player

@@ -3,20 +3,14 @@
 
 -- 1. Performance indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_practice_scores_round_id ON practice_scores(practice_round_id);
-CREATE INDEX IF NOT EXISTS idx_practice_scores_player_id ON practice_scores(player_id);
 CREATE INDEX IF NOT EXISTS idx_practice_rounds_player_id ON practice_rounds(player_id);
 CREATE INDEX IF NOT EXISTS idx_practice_rounds_completed_at ON practice_rounds(completed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_practice_rounds_status ON practice_rounds(status);
-CREATE INDEX IF NOT EXISTS idx_tournament_players_tournament_id ON tournament_players(tournament_id);
-CREATE INDEX IF NOT EXISTS idx_tournament_players_player_id ON tournament_players(player_id);
-CREATE INDEX IF NOT EXISTS idx_tournament_rounds_tournament_id ON tournament_rounds(tournament_id);
-CREATE INDEX IF NOT EXISTS idx_scorecards_tournament_id ON scorecards(tournament_id);
+-- scorecards has round_id (not tournament_id); idx_scorecards_round_id in migration 0022 covers this path.
 CREATE INDEX IF NOT EXISTS idx_scorecards_player_id ON scorecards(player_id);
 CREATE INDEX IF NOT EXISTS idx_scorecard_holes_scorecard_id ON scorecard_holes(scorecard_id);
-CREATE INDEX IF NOT EXISTS idx_head_to_head_player_a ON head_to_head_matches(player_a_id);
-CREATE INDEX IF NOT EXISTS idx_head_to_head_player_b ON head_to_head_matches(player_b_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_player_id ON notifications(player_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
+CREATE INDEX IF NOT EXISTS idx_notifications_recipient_id ON notifications(recipient_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
 
 -- 2. Course GPS fields
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;

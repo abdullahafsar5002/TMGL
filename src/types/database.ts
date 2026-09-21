@@ -314,8 +314,7 @@ export interface Notification {
   type: string;
   title: string;
   message: string;
-  related_entity: string | null;
-  related_id: string | null;
+  metadata: Record<string, unknown> | null;
   is_read: boolean;
   created_at: string;
 }

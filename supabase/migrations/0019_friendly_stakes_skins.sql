@@ -28,41 +28,61 @@ CREATE TABLE IF NOT EXISTS public.hole_skins (
 -- Enable RLS on match_stakes
 ALTER TABLE public.match_stakes ENABLE ROW LEVEL SECURITY;
 
+-- RLS for match_stakes:
+-- matches.player_a_id / player_b_id reference players(id), NOT profiles(id).
+-- auth.uid() is a profiles(id), so we must JOIN through players.profile_id.
+
+DROP POLICY IF EXISTS "Players can view stakes for their matches" ON public.match_stakes;
 CREATE POLICY "Players can view stakes for their matches" 
 ON public.match_stakes FOR SELECT 
 USING (
     EXISTS (
-        SELECT 1 FROM public.matches 
-        WHERE id = match_id AND (player_a_id = auth.uid() OR player_b_id = auth.uid())
+        SELECT 1 FROM public.matches m
+        JOIN public.players pa ON pa.id = m.player_a_id
+        JOIN public.players pb ON pb.id = m.player_b_id
+        WHERE m.id = match_id 
+          AND (pa.profile_id = auth.uid() OR pb.profile_id = auth.uid())
     )
 );
 
+DROP POLICY IF EXISTS "Players can manage stakes for their matches" ON public.match_stakes;
 CREATE POLICY "Players can manage stakes for their matches" 
 ON public.match_stakes FOR ALL 
 USING (
     EXISTS (
-        SELECT 1 FROM public.matches 
-        WHERE id = match_id AND (player_a_id = auth.uid() OR player_b_id = auth.uid())
+        SELECT 1 FROM public.matches m
+        JOIN public.players pa ON pa.id = m.player_a_id
+        JOIN public.players pb ON pb.id = m.player_b_id
+        WHERE m.id = match_id 
+          AND (pa.profile_id = auth.uid() OR pb.profile_id = auth.uid())
     )
 );
 
 -- Enable RLS on hole_skins
 ALTER TABLE public.hole_skins ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Players can view skins for their matches" ON public.hole_skins;
 CREATE POLICY "Players can view skins for their matches" 
 ON public.hole_skins FOR SELECT 
 USING (
     EXISTS (
-        SELECT 1 FROM public.matches 
-        WHERE id = match_id AND (player_a_id = auth.uid() OR player_b_id = auth.uid())
+        SELECT 1 FROM public.matches m
+        JOIN public.players pa ON pa.id = m.player_a_id
+        JOIN public.players pb ON pb.id = m.player_b_id
+        WHERE m.id = match_id 
+          AND (pa.profile_id = auth.uid() OR pb.profile_id = auth.uid())
     )
 );
 
+DROP POLICY IF EXISTS "Players can manage skins for their matches" ON public.hole_skins;
 CREATE POLICY "Players can manage skins for their matches" 
 ON public.hole_skins FOR ALL 
 USING (
     EXISTS (
-        SELECT 1 FROM public.matches 
-        WHERE id = match_id AND (player_a_id = auth.uid() OR player_b_id = auth.uid())
+        SELECT 1 FROM public.matches m
+        JOIN public.players pa ON pa.id = m.player_a_id
+        JOIN public.players pb ON pb.id = m.player_b_id
+        WHERE m.id = match_id 
+          AND (pa.profile_id = auth.uid() OR pb.profile_id = auth.uid())
     )
 );

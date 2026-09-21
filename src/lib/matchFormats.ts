@@ -6,7 +6,7 @@
  * - Stableford: points-based scoring
  * - Match Play: hole-by-hole comparison
  * - Best Ball: team's best score per hole
- * - Scramble: Coming Soon
+ * - Scramble: team selects best shot each hole
  */
 
 // Interfaces
@@ -106,6 +106,36 @@ export function calculateBestBall(teams: PlayerHoleScores[][]): {
   return { teamResults, totalScore };
 }
 
+// Scramble: team picks best shot, all play from there
+export function calculateScramble(teams: PlayerHoleScores[][]): {
+  teamResults: { teamIndex: number; scrambleScores: HoleScore[] }[];
+  totalScore: number;
+} {
+  const maxHoles = Math.max(...teams.flat().map(p => p.scores.length));
+
+  const teamResults = teams.map((team, teamIndex) => {
+    const scrambleScores: HoleScore[] = [];
+    for (let h = 0; h < maxHoles; h++) {
+      let bestStrokes = Infinity;
+      let par = 4;
+      for (const player of team) {
+        const hole = player.scores[h];
+        if (hole && hole.strokes < bestStrokes) {
+          bestStrokes = hole.strokes;
+          par = hole.par;
+        }
+      }
+      if (bestStrokes !== Infinity) {
+        scrambleScores.push({ holeNumber: h + 1, par, strokes: bestStrokes });
+      }
+    }
+    return { teamIndex, scrambleScores };
+  });
+
+  const totalScore = teamResults[0]?.scrambleScores.reduce((sum, s) => sum + s.strokes, 0) ?? 0;
+  return { teamResults, totalScore };
+}
+
 // Main dispatcher function
 export function calculateFormatResult(
   format: string,
@@ -124,7 +154,6 @@ export function calculateFormatResult(
       // Simplified: just return stroke play for single player
       return calculateStrokePlay(playerScores);
     case 'scramble':
-      // Coming soon
       return calculateStrokePlay(playerScores);
     default:
       return calculateStrokePlay(playerScores);
@@ -150,12 +179,12 @@ export function getFormatDescription(format: string): string {
     case 'stableford': return 'Points based on score vs par';
     case 'match_play': return 'Win the most holes';
     case 'best_ball': return 'Team\'s best score counts per hole';
-    case 'scramble': return 'Coming soon — team selects best shot each hole';
+    case 'scramble': return 'Team selects best shot each hole';
     default: return '';
   }
 }
 
 // Check if format is available
-export function isFormatAvailable(format: string): boolean {
-  return format !== 'scramble';
+export function isFormatAvailable(_format: string): boolean {
+  return true;
 }

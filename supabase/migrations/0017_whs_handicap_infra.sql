@@ -31,10 +31,16 @@ CREATE TABLE IF NOT EXISTS public.score_differentials (
 -- Enable RLS
 ALTER TABLE public.score_differentials ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Players can view their own differentials" ON public.score_differentials;
 CREATE POLICY "Players can view their own differentials" 
 ON public.score_differentials FOR SELECT 
-USING (auth.uid() = player_id);
+USING (
+    EXISTS (
+        SELECT 1 FROM public.profiles p WHERE p.id = player_id AND p.id = auth.uid()
+    )
+);
 
+DROP POLICY IF EXISTS "Admins can manage all differentials" ON public.score_differentials;
 CREATE POLICY "Admins can manage all differentials" 
 ON public.score_differentials FOR ALL 
 USING (

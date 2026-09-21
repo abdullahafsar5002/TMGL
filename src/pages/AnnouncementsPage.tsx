@@ -57,10 +57,10 @@ export default function AnnouncementsPage() {
           <p className="text-gray-500 mt-1">{announcements.length} announcement{announcements.length !== 1 ? 's' : ''}</p>
         </div>
         {isManager && (
-          <Link to="/announcements/new">
+          <Link to="/announcements/manage">
             <Button variant="primary">
               <Plus className="h-4 w-4 mr-2" />
-              New Announcement
+              Manage Announcements
             </Button>
           </Link>
         )}

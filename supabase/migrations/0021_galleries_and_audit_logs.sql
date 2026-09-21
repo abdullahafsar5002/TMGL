@@ -63,20 +63,24 @@ ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 -- RLS POLICIES: galleries
 -- ============================================================
 
-CREATE POLICY IF NOT EXISTS "galleries: public can read"
+DROP POLICY IF EXISTS "galleries: public can read" ON public.galleries;
+CREATE POLICY "galleries: public can read"
   ON public.galleries FOR SELECT
   USING (true);
 
-CREATE POLICY IF NOT EXISTS "galleries: managers can insert"
+DROP POLICY IF EXISTS "galleries: managers can insert" ON public.galleries;
+CREATE POLICY "galleries: managers can insert"
   ON public.galleries FOR INSERT
   WITH CHECK (get_user_role() IN ('super_admin', 'league_manager'));
 
-CREATE POLICY IF NOT EXISTS "galleries: managers can update"
+DROP POLICY IF EXISTS "galleries: managers can update" ON public.galleries;
+CREATE POLICY "galleries: managers can update"
   ON public.galleries FOR UPDATE
   USING (get_user_role() IN ('super_admin', 'league_manager'))
   WITH CHECK (get_user_role() IN ('super_admin', 'league_manager'));
 
-CREATE POLICY IF NOT EXISTS "galleries: managers can delete"
+DROP POLICY IF EXISTS "galleries: managers can delete" ON public.galleries;
+CREATE POLICY "galleries: managers can delete"
   ON public.galleries FOR DELETE
   USING (get_user_role() IN ('super_admin', 'league_manager'));
 
@@ -84,20 +88,24 @@ CREATE POLICY IF NOT EXISTS "galleries: managers can delete"
 -- RLS POLICIES: gallery_images
 -- ============================================================
 
-CREATE POLICY IF NOT EXISTS "gallery_images: public can read"
+DROP POLICY IF EXISTS "gallery_images: public can read" ON public.gallery_images;
+CREATE POLICY "gallery_images: public can read"
   ON public.gallery_images FOR SELECT
   USING (true);
 
-CREATE POLICY IF NOT EXISTS "gallery_images: authenticated can insert"
+DROP POLICY IF EXISTS "gallery_images: authenticated can insert" ON public.gallery_images;
+CREATE POLICY "gallery_images: authenticated can insert"
   ON public.gallery_images FOR INSERT
   WITH CHECK (auth.uid() IS NOT NULL);
 
-CREATE POLICY IF NOT EXISTS "gallery_images: authenticated can update own"
+DROP POLICY IF EXISTS "gallery_images: authenticated can update own" ON public.gallery_images;
+CREATE POLICY "gallery_images: authenticated can update own"
   ON public.gallery_images FOR UPDATE
   USING (uploaded_by = auth.uid())
   WITH CHECK (uploaded_by = auth.uid());
 
-CREATE POLICY IF NOT EXISTS "gallery_images: authenticated can delete own"
+DROP POLICY IF EXISTS "gallery_images: authenticated can delete own" ON public.gallery_images;
+CREATE POLICY "gallery_images: authenticated can delete own"
   ON public.gallery_images FOR DELETE
   USING (uploaded_by = auth.uid());
 
@@ -105,11 +113,13 @@ CREATE POLICY IF NOT EXISTS "gallery_images: authenticated can delete own"
 -- RLS POLICIES: audit_logs
 -- ============================================================
 
-CREATE POLICY IF NOT EXISTS "audit_logs: managers can read"
+DROP POLICY IF EXISTS "audit_logs: managers can read" ON public.audit_logs;
+CREATE POLICY "audit_logs: managers can read"
   ON public.audit_logs FOR SELECT
   USING (get_user_role() IN ('super_admin', 'league_manager'));
 
-CREATE POLICY IF NOT EXISTS "audit_logs: authenticated can insert"
+DROP POLICY IF EXISTS "audit_logs: authenticated can insert" ON public.audit_logs;
+CREATE POLICY "audit_logs: authenticated can insert"
   ON public.audit_logs FOR INSERT
   WITH CHECK (auth.uid() IS NOT NULL);
 

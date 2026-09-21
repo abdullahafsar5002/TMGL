@@ -114,8 +114,7 @@ export async function processSkinsForScorecard(
         type: 'skin_won',
         title: `Hole ${skin.holeNumber} Skin Won!`,
         message: `You won the skin on Hole ${skin.holeNumber} with a ${skin.score} (${skin.score === skin.par ? 'Par' : skin.score < skin.par ? `${skin.score - skin.par} under` : `${skin.score - skin.par} over`})!`,
-        related_entity: 'scorecard',
-        related_id: scorecardId,
+        metadata: { entity: 'scorecard', id: scorecardId },
       });
     }
   }

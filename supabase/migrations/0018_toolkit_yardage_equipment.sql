@@ -16,10 +16,12 @@ CREATE TABLE IF NOT EXISTS public.course_notes (
 -- Enable RLS on course_notes
 ALTER TABLE public.course_notes ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Players can manage their own course notes" ON public.course_notes;
 CREATE POLICY "Players can manage their own course notes" 
 ON public.course_notes FOR ALL 
 USING (auth.uid() = player_id);
 
+DROP POLICY IF EXISTS "Admins can view all course notes" ON public.course_notes;
 CREATE POLICY "Admins can view all course notes" 
 ON public.course_notes FOR SELECT 
 USING (
@@ -43,10 +45,12 @@ CREATE TABLE IF NOT EXISTS public.player_equipment (
 -- Enable RLS on player_equipment
 ALTER TABLE public.player_equipment ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Players can manage their own equipment" ON public.player_equipment;
 CREATE POLICY "Players can manage their own equipment" 
 ON public.player_equipment FOR ALL 
 USING (auth.uid() = player_id);
 
+DROP POLICY IF EXISTS "Admins can view all equipment" ON public.player_equipment;
 CREATE POLICY "Admins can view all equipment" 
 ON public.player_equipment FOR SELECT 
 USING (

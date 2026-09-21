@@ -152,8 +152,8 @@ describe('Match Formats', () => {
       expect(isFormatAvailable('match_play')).toBe(true);
       expect(isFormatAvailable('best_ball')).toBe(true);
     });
-    it('returns false for scramble', () => {
-      expect(isFormatAvailable('scramble')).toBe(false);
+    it('returns true for scramble (now implemented)', () => {
+      expect(isFormatAvailable('scramble')).toBe(true);
     });
   });
 });

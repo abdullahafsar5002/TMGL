@@ -68,7 +68,7 @@ export function LeaderboardPage() {
         { 
           event: '*', 
           schema: 'public', 
-          table: 'hole_scores' 
+          table: 'scorecard_holes' 
         },
         () => {
           loadLeaderboard();

@@ -25,11 +25,23 @@ export interface FinalizeResult {
  * 4. Recalculate handicaps for all participants
  */
 export async function finalizeTournament(tournamentId: string): Promise<ServiceResult<FinalizeResult>> {
-  // 1. Get all scorecards for this tournament
+  // 1. Get round IDs for this tournament
+  const { data: rounds, error: roundError } = await supabase
+    .from('rounds')
+    .select('id')
+    .eq('tournament_id', tournamentId);
+
+  if (roundError) return { data: null, error: roundError.message };
+  const roundIds = (rounds ?? []).map(r => r.id);
+  if (roundIds.length === 0) {
+    return { data: null, error: 'No rounds found for this tournament.' };
+  }
+
+  // 2. Get all scorecards for these rounds
   const { data: scorecards, error: scError } = await supabase
     .from('scorecards')
     .select('id, player_id, total_strokes, status')
-    .eq('tournament_id', tournamentId)
+    .in('round_id', roundIds)
     .order('total_strokes', { ascending: true });
 
   if (scError) return { data: null, error: scError.message };
@@ -37,7 +49,7 @@ export async function finalizeTournament(tournamentId: string): Promise<ServiceR
     return { data: null, error: 'No scorecards found for this tournament.' };
   }
 
-  // 2. Auto-verify any submitted scorecards
+  // 3. Auto-verify any submitted scorecards
   const submittedIds = scorecards
     .filter(sc => sc.status === 'submitted' || sc.status === 'in_progress')
     .map(sc => sc.id);
@@ -49,14 +61,14 @@ export async function finalizeTournament(tournamentId: string): Promise<ServiceR
       .in('id', submittedIds);
   }
 
-  // 3. Determine winner (lowest strokes, skip nulls)
+  // 4. Determine winner (lowest strokes, skip nulls)
   const validScorecards = scorecards
     .filter(sc => sc.total_strokes != null)
     .sort((a, b) => (a.total_strokes ?? Infinity) - (b.total_strokes ?? Infinity));
 
   const winner = validScorecards[0] ?? null;
 
-  // 4. Award trophy if winner exists
+  // 5. Award trophy if winner exists
   if (winner) {
     // Upsert a trophy record
     await supabase
@@ -69,7 +81,7 @@ export async function finalizeTournament(tournamentId: string): Promise<ServiceR
       }, { onConflict: 'tournament_id,trophy_type' });
   }
 
-  // 5. Get winner name
+  // 6. Get winner name
   let winnerName: string | null = null;
   if (winner) {
     const { data: player } = await supabase
@@ -80,7 +92,7 @@ export async function finalizeTournament(tournamentId: string): Promise<ServiceR
     winnerName = player?.full_name ?? null;
   }
 
-  // 6. Recalculate handicaps for all participants
+  // 7. Recalculate handicaps for all participants
   const playerIds = [...new Set(scorecards.map(sc => sc.player_id))];
   let handicapsUpdated = 0;
 
@@ -116,7 +128,7 @@ export async function finalizeTournament(tournamentId: string): Promise<ServiceR
     handicapsUpdated++;
   }
 
-  // 7. Mark tournament as completed
+  // 8. Mark tournament as completed
   await supabase
     .from('tournaments')
     .update({ status: 'completed', updated_at: new Date().toISOString() })

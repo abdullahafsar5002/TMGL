@@ -217,7 +217,7 @@ export function DashboardPage() {
               {[
                 { label: 'Practice Hub', path: '/practice', icon: FileText, color: 'text-green-600' },
                 { label: 'My Scores', path: '/my-scores', icon: Medal, color: 'text-blue-600' },
-                { label: 'My Statistics', path: '/statistics', icon: TrendingUp, color: 'text-purple-600' },
+                { label: 'My Statistics', path: '/my-statistics', icon: TrendingUp, color: 'text-purple-600' },
                 { label: 'My Tournaments', path: '/my-tournaments', icon: Trophy, color: 'text-amber-600' },
                 { label: 'Leaderboard', path: '/leaderboard', icon: Medal, color: 'text-emerald-600' },
                 { label: 'Profile Settings', path: '/profile/settings', icon: Users, color: 'text-gray-600' },
