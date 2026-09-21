@@ -43,3 +43,5 @@ local.properties
 *.aab
 build/
 .gradle/
+
+.vercel

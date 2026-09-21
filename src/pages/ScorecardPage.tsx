@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Ca
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { LoadingState } from '@/components/common/LoadingState';
+import { RoundSummaryExport } from '@/components/scorecard/RoundSummaryExport';
 import { useAuth } from '@/context/AuthContext';
 import { canManageLeague } from '@/lib/roleGuards';
 import { getScorecard, getScorecardHoles, getRound, getTournament } from '@/lib/competition';
@@ -174,6 +175,17 @@ export function ScorecardPage() {
             </p>
           </Card>
         </div>
+      )}
+
+      {holes.length > 0 && (
+        <RoundSummaryExport
+          data={{
+            playerName: playerName || 'Player',
+            courseName: roundName || 'Course',
+            roundDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+            holes,
+          }}
+        />
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

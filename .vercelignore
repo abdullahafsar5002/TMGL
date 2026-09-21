@@ -1,0 +1,10 @@
+node_modules
+android
+ios
+TMGL_AI_Build_Pack
+docs
+.git
+.github
+*.apk
+*.aab
+supabase

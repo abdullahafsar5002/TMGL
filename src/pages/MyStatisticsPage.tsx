@@ -9,6 +9,7 @@ import { StatsCard } from '@/components/common/StatsCard';
 import { StatPieChart } from '@/components/common/StatPieChart';
 import { PerformanceChart } from '@/components/common/PerformanceChart';
 import { StatsChart } from '@/components/common/StatsChart';
+import { AdvancedAnalytics } from '@/components/analytics/AdvancedAnalytics';
 import { getPlayerByProfileId } from '@/lib/league';
 import { getPlayerStatistics } from '@/lib/statistics';
 import { supabase } from '@/lib/supabase';
@@ -21,6 +22,7 @@ export default function MyStatisticsPage() {
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<PlayerStatistics | null>(null);
   const [recentRounds, setRecentRounds] = useState<PracticeRound[]>([]);
+  const [playerId, setPlayerId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -33,6 +35,7 @@ export default function MyStatisticsPage() {
         return;
       }
       const playerId = playerResult.data.id;
+      setPlayerId(playerId);
 
       const [statsResult, roundsResult] = await Promise.all([
         getPlayerStatistics(playerId),
@@ -180,6 +183,8 @@ export default function MyStatisticsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {playerId && <AdvancedAnalytics playerId={playerId} />}
     </Container>
   );
 }

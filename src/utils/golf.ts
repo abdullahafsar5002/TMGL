@@ -122,11 +122,14 @@ export function validateHoleScore(strokes: number): { isValid: boolean; error?: 
  * WHS Rule: Average of the best 8 of the last 20 score differentials.
  */
 export function calculateHandicapIndex(differentials: ScoreDifferential[]): number | null {
-  if (differentials.length === 0) return null;
+  if (!differentials || differentials.length === 0) return null;
 
   // 1. Sort differentials (ascending - lower is better)
   const sorted = [...differentials]
+    .filter(d => typeof d.differential === 'number' && !isNaN(d.differential))
     .sort((a, b) => a.differential - b.differential);
+
+  if (sorted.length === 0) return null;
 
   const countToAverage = Math.min(sorted.length, 8);
   const bestDifferentials = sorted.slice(0, countToAverage);
@@ -134,14 +137,15 @@ export function calculateHandicapIndex(differentials: ScoreDifferential[]): numb
   const sum = bestDifferentials.reduce((acc, curr) => acc + curr.differential, 0);
   const average = sum / countToAverage;
 
-  return parseFloat(average.toFixed(1));
+  return isNaN(average) ? null : parseFloat(average.toFixed(1));
 }
 
 /**
  * Calculates the Course Handicap based on the Index and Course Slope/Rating.
  * Formula: Handicap Index * (Slope / 113) + (Course Rating - Par)
  */
-export function calculateCourseHandicap(index: number, slope: number, rating: number, par: number): number {
+export function calculateCourseHandicap(index: number | null, slope: number, rating: number, par: number): number {
+  if (index === null || isNaN(index)) return 0;
   const adjusted = index * (slope / 113);
   const courseAdjustment = rating - par;
   return Math.round(adjusted + courseAdjustment);
