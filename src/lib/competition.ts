@@ -358,9 +358,23 @@ export async function verifyScorecard(scorecardId: string): Promise<ServiceResul
 
 export async function rejectScorecard(
   scorecardId: string,
-  _reason?: string
+  reason?: string
 ): Promise<ServiceResult<Scorecard>> {
-  return updateScorecard(scorecardId, { status: 'rejected' });
+  const payload: Record<string, unknown> = {
+    status: 'rejected',
+    updated_at: new Date().toISOString(),
+  };
+  if (reason) payload.rejection_reason = reason;
+
+  const { data, error } = await supabase
+    .from('scorecards')
+    .update(payload)
+    .eq('id', scorecardId)
+    .select()
+    .single();
+
+  if (error) return { data: null, error: error.message };
+  return { data: data as Scorecard, error: null };
 }
 
 export async function updateScorecard(

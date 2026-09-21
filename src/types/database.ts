@@ -190,6 +190,27 @@ export interface TeamStanding {
   total_score_to_par: number;
 }
 
+export interface TournamentRegistration {
+  id: string;
+  tournament_id: string;
+  player_id: string;
+  registered_at: string;
+  created_at: string;
+}
+
+export interface Shot {
+  id: string;
+  practice_score_id: string;
+  hole_number: number;
+  shot_number: number;
+  club: string;
+  distance_yards: number | null;
+  result: 'fairway' | 'green' | 'rough' | 'bunker' | 'water' | 'out_of_bounds' | 'hole_out';
+  lie: 'tee' | 'fairway' | 'rough' | 'bunker' | 'green' | 'penalty';
+  notes: string | null;
+  created_at: string;
+}
+
 export interface PracticeRound {
   id: string;
   player_id: string;

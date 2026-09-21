@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Trophy, Plus, Calendar, MapPin, Loader2, AlertCircle, ArrowLeft, Edit3, Trash2, ChevronRight, Flag, Users, Swords, Medal, Shield, BarChart3 } from 'lucide-react';
+import { Trophy, Plus, Calendar, MapPin, Loader2, AlertCircle, ArrowLeft, Edit3, Trash2, ChevronRight, Flag, Users, Swords, Medal, Shield, BarChart3, UserPlus, UserMinus } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card, CardHeader, CardTitle } from '@/components/common/Card';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
@@ -11,6 +11,9 @@ import { LoadingState } from '@/components/common/LoadingState';
 import { useAuth } from '@/context/AuthContext';
 import { canManageLeague } from '@/lib/roleGuards';
 import { getTournament, getRoundsByTournament, updateTournament, deleteTournament, getTournamentParticipants, type TournamentParticipant } from '@/lib/competition';
+import { finalizeTournament } from '@/lib/tournamentFinalize';
+import { joinTournament, leaveTournament, isRegistered, getRegistrationCount } from '@/lib/tournamentRegistration';
+import { getPlayerByProfileId } from '@/lib/league';
 import { validateTournament } from '@/lib/validation';
 import { getSeasons } from '@/lib/league';
 import { supabase } from '@/lib/supabase';
@@ -25,7 +28,7 @@ const STATUS_OPTIONS: TournamentStatus[] = ['draft', 'open', 'live', 'completed'
 
 export function TournamentDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const [tournament, setTournament] = useState<Tournament | null>(null);
@@ -50,6 +53,11 @@ export function TournamentDetailPage() {
 
   const [showDelete, setShowDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [isPlayerRegistered, setIsPlayerRegistered] = useState(false);
+  const [registrationCount, setRegistrationCount] = useState(0);
+  const [playerId, setPlayerId] = useState<string | null>(null);
+  const [isFinalizing, setIsFinalizing] = useState(false);
 
   const canManage = canManageLeague(profile?.role);
 
@@ -79,6 +87,22 @@ export function TournamentDetailPage() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Check registration status for current player
+  useEffect(() => {
+    if (!id || !user) return;
+    async function checkRegistration() {
+      const playerResult = await getPlayerByProfileId(user!.id);
+      if (playerResult.data) {
+        setPlayerId(playerResult.data.id);
+        const regResult = await isRegistered(id!, playerResult.data.id);
+        if (regResult.data !== null) setIsPlayerRegistered(regResult.data);
+      }
+      const countResult = await getRegistrationCount(id!);
+      if (countResult.data !== null) setRegistrationCount(countResult.data);
+    }
+    checkRegistration();
+  }, [id, user]);
 
   const startEdit = () => {
     if (!tournament) return;
@@ -132,6 +156,47 @@ export function TournamentDetailPage() {
     }
   };
 
+  const handleFinalize = async () => {
+    if (!id) return;
+    setIsFinalizing(true);
+    const result = await finalizeTournament(id);
+    setIsFinalizing(false);
+    if (result.error) {
+      toast.error(result.error);
+    } else if (result.data) {
+      toast.success(result.data.message);
+      load(); // Reload to show updated status
+    }
+  };
+
+  const handleJoin = async () => {
+    if (!id || !playerId) return;
+    const result = await joinTournament(id, playerId);
+    if (result.error) {
+      toast.error(result.error);
+    } else if (result.data) {
+      if (result.data.registered) {
+        setIsPlayerRegistered(true);
+        setRegistrationCount(c => c + 1);
+        toast.success(result.data.message);
+      } else {
+        toast.error(result.data.message);
+      }
+    }
+  };
+
+  const handleLeave = async () => {
+    if (!id || !playerId) return;
+    const result = await leaveTournament(id, playerId);
+    if (result.error) {
+      toast.error(result.error);
+    } else if (result.data) {
+      setIsPlayerRegistered(false);
+      setRegistrationCount(c => Math.max(0, c - 1));
+      toast.success(result.data.message);
+    }
+  };
+
   if (isLoading) return <Container size="lg" className="py-4"><LoadingState /></Container>;
   if (error || !tournament) return (
     <Container size="lg" className="py-4">
@@ -169,10 +234,38 @@ export function TournamentDetailPage() {
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={startEdit}><Edit3 className="w-3.5 h-3.5 mr-1.5" /> Edit</Button>
           <Button variant="danger" size="sm" onClick={() => setShowDelete(true)}><Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete</Button>
+          {(tournament.status === 'live' || tournament.status === 'completed') && (
+            <Button variant="primary" size="sm" onClick={handleFinalize} disabled={isFinalizing}
+              className="bg-yellow-600 hover:bg-yellow-500">
+              {isFinalizing ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Trophy className="w-3.5 h-3.5 mr-1.5" />}
+              Finalize Tournament
+            </Button>
+          )}
           {STATUS_OPTIONS.filter((s) => s !== tournament.status).map((s) => (
             <Button key={s} variant="outline" size="sm" onClick={() => handleStatusChange(s)}
               className="capitalize">{s}</Button>
           ))}
+        </div>
+      )}
+
+      {!canManage && tournament.status === 'open' && playerId && (
+        <div className="flex flex-wrap gap-2">
+          {isPlayerRegistered ? (
+            <Button variant="danger" size="sm" onClick={handleLeave}>
+              <UserMinus className="w-3.5 h-3.5 mr-1.5" /> Leave Tournament
+            </Button>
+          ) : (
+            <Button variant="primary" size="sm" onClick={handleJoin} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
+              <UserPlus className="w-3.5 h-3.5 mr-1.5" /> Join Tournament
+            </Button>
+          )}
+          <span className="text-xs text-tmgl-charcoal-500 self-center">{registrationCount} registered</span>
+        </div>
+      )}
+
+      {!canManage && tournament.status === 'open' && !playerId && (
+        <div className="flex items-center gap-2 text-sm text-tmgl-charcoal-500">
+          <Users className="w-4 h-4" /> {registrationCount} players registered
         </div>
       )}
 

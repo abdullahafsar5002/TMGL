@@ -120,6 +120,7 @@ export function validateHoleScore(strokes: number): { isValid: boolean; error?: 
 /**
  * Calculates the official WHS Handicap Index.
  * WHS Rule: Average of the best 8 of the last 20 score differentials.
+ * Minimum 3 rounds required to generate a handicap index.
  */
 export function calculateHandicapIndex(differentials: ScoreDifferential[]): number | null {
   if (!differentials || differentials.length === 0) return null;
@@ -130,6 +131,14 @@ export function calculateHandicapIndex(differentials: ScoreDifferential[]): numb
     .sort((a, b) => a.differential - b.differential);
 
   if (sorted.length === 0) return null;
+
+  // WHS requires minimum 3 scores before issuing a handicap index
+  // With fewer than 3, use simple average of all available differentials
+  if (sorted.length < 3) {
+    const sum = sorted.reduce((acc, curr) => acc + curr.differential, 0);
+    const average = sum / sorted.length;
+    return isNaN(average) ? null : parseFloat(average.toFixed(1));
+  }
 
   const countToAverage = Math.min(sorted.length, 8);
   const bestDifferentials = sorted.slice(0, countToAverage);

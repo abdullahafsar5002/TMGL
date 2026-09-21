@@ -13,6 +13,7 @@ import { getPlayerByProfileId } from '@/lib/league';
 import { getPracticeRoundsByPlayer } from '@/lib/practice';
 import { getPlayerStatistics } from '@/lib/statistics';
 import { formatToPar } from '@/utils/golf';
+import { VirtualCaddie } from '@/components/caddie/VirtualCaddie';
 import type { PracticeRound, PlayerStatistics } from '@/types/database';
 
 export default function PracticeHubPage() {
@@ -21,6 +22,7 @@ export default function PracticeHubPage() {
   const [error, setError] = useState<string | null>(null);
   const [rounds, setRounds] = useState<PracticeRound[]>([]);
   const [stats, setStats] = useState<PlayerStatistics | null>(null);
+  const [playerId, setPlayerId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -33,6 +35,8 @@ export default function PracticeHubPage() {
         setError('Player profile not found.');
         return;
       }
+
+      setPlayerId(playerResult.data.id);
 
       const [roundsResult, statsResult] = await Promise.all([
         getPracticeRoundsByPlayer(playerResult.data.id),
@@ -213,6 +217,12 @@ export default function PracticeHubPage() {
             </Link>
           }
         />
+      )}
+
+      {playerId && (
+        <div className="mt-8">
+          <VirtualCaddie playerId={playerId} />
+        </div>
       )}
     </Container>
   );
