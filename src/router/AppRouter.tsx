@@ -37,6 +37,7 @@ const TournamentsPage = lazyNamed(() => import('@/pages/TournamentsPage'), 'Tour
 const TournamentDetailPage = lazyNamed(() => import('@/pages/TournamentDetailPage'), 'TournamentDetailPage');
 const LeaderboardPage = lazyNamed(() => import('@/pages/LeaderboardPage'), 'LeaderboardPage');
 const ForgotPasswordPage = lazyNamed(() => import('@/pages/ForgotPasswordPage'), 'ForgotPasswordPage');
+const ResetPasswordPage = lazyNamed(() => import('@/pages/ResetPasswordPage'), 'ResetPasswordPage');
 const AboutPage = lazyNamed(() => import('@/pages/AboutPage'), 'AboutPage');
 const ContactPage = lazyNamed(() => import('@/pages/ContactPage'), 'ContactPage');
 const NewsPage = lazyNamed(() => import('@/pages/NewsPage'), 'NewsPage');
@@ -100,6 +101,7 @@ export function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<PublicLayout><ForgotPasswordPage /></PublicLayout>} />
+      <Route path="/reset-password" element={<PublicLayout><ResetPasswordPage /></PublicLayout>} />
       <Route path="/about" element={<PublicLayout><AboutPage /></PublicLayout>} />
       <Route path="/contact" element={<PublicLayout><ContactPage /></PublicLayout>} />
       <Route path="/news" element={<PublicLayout><NewsPage /></PublicLayout>} />

@@ -1,0 +1,12 @@
+{
+	"appId": "com.tmgl.league",
+	"appName": "TMGL",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https"
+	},
+	"android": {
+		"allowMixedOrientation": false
+	},
+	"plugins": {}
+}

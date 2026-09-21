@@ -1,0 +1,142 @@
+apply plugin: 'com.android.application'
+apply plugin: 'com.google.gms.google-services'
+apply plugin: 'com.google.firebase.crashlytics'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlinx-serialization'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
+apply plugin: 'com.google.devtools.ksp'
+apply plugin: 'com.google.dagger.hilt.android'
+
+def keystorePropertiesFile = rootProject.file("key.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+android {
+    namespace = "com.tmgl.league"
+    compileSdk = rootProject.ext.compileSdkVersion
+
+    defaultConfig {
+        applicationId "com.tmgl.league"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables { useSupportLibrary = true }
+
+        def localProps = new Properties()
+        def localPropsFile = rootProject.file("local.properties")
+        if (localPropsFile.exists()) {
+            localProps.load(new FileInputStream(localPropsFile))
+        }
+        buildConfigField "String", "SUPABASE_URL", "\"${localProps.getProperty('SUPABASE_URL', '')}\""
+        buildConfigField "String", "SUPABASE_ANON_KEY", "\"${localProps.getProperty('SUPABASE_ANON_KEY', '')}\""
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+        debug {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+
+    kotlinOptions {
+        jvmTarget = '21'
+    }
+
+    buildFeatures {
+        compose true
+        buildConfig true
+    }
+
+    packaging {
+        resources { excludes += '/META-INF/{AL2.0,LGPL2.1}' }
+    }
+}
+
+dependencies {
+    // Core
+    implementation "androidx.core:core-ktx:$rootProject.ext.androidxCoreVersion"
+    implementation "androidx.activity:activity-compose:$rootProject.ext.androidxActivityVersion"
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:$rootProject.ext.lifecycle_version"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-compose:$rootProject.ext.lifecycle_version"
+    implementation "androidx.lifecycle:lifecycle-runtime-compose:$rootProject.ext.lifecycle_version"
+
+    // Compose
+    implementation platform("androidx.compose:compose-bom:$rootProject.ext.compose_bom_version")
+    implementation "androidx.compose.ui:ui"
+    implementation "androidx.compose.ui:ui-graphics"
+    implementation "androidx.compose.ui:ui-tooling-preview"
+    implementation "androidx.compose.material3:material3"
+    implementation "androidx.compose.material:material-icons-extended"
+    debugImplementation "androidx.compose.ui:ui-tooling"
+
+    // Navigation
+    implementation "androidx.navigation:navigation-compose:$rootProject.ext.nav_compose_version"
+
+    // Supabase Kotlin SDK
+    implementation "io.github.jan-tennert.supabase:gotrue-kt:$rootProject.ext.supabase_version"
+    implementation "io.github.jan-tennert.supabase:postgrest-kt:$rootProject.ext.supabase_version"
+
+    // Ktor (HTTP client for Supabase)
+    implementation "io.ktor:ktor-client-android:$rootProject.ext.ktor_version"
+
+    // Kotlinx Serialization
+    implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:$rootProject.ext.serialization_version"
+
+    // Coil (image loading)
+    implementation "io.coil-kt:coil-compose:$rootProject.ext.coil_version"
+
+    // Splash Screen
+    implementation "androidx.core:core-splashscreen:1.0.1"
+
+    // DataStore
+    implementation "androidx.datastore:datastore-preferences:1.1.1"
+
+    // Firebase
+    implementation platform('com.google.firebase:firebase-bom:33.7.0')
+    implementation 'com.google.firebase:firebase-crashlytics-ktx'
+    implementation 'com.google.firebase:firebase-analytics-ktx'
+
+    // FCM
+    implementation 'com.google.firebase:firebase-messaging-ktx'
+
+    // Firebase Realtime Database (live scoring)
+    implementation 'com.google.firebase:firebase-database-ktx'
+
+    // In-App Updates
+    implementation 'com.google.android.play:app-update-ktx:2.1.0'
+
+    // Hilt DI
+    implementation "com.google.dagger:hilt-android:2.51.1"
+    ksp "com.google.dagger:hilt-android-compiler:2.51.1"
+    implementation "androidx.hilt:hilt-navigation-compose:1.2.0"
+
+    // Testing
+    testImplementation "junit:junit:$rootProject.ext.junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$rootProject.ext.androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$rootProject.ext.androidxEspressoCoreVersion"
+}

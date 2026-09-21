@@ -1,0 +1,17 @@
+# Build artifacts
+build/
+app/build/
+.gradle/
+local.properties
+key.properties
+
+# Generated assets (synced from web build)
+app/src/main/assets/public/
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db

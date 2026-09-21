@@ -43,6 +43,16 @@ jobs:
       env:
         GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
     
+    - name: Create local.properties
+      working-directory: android
+      run: |
+        echo "sdk.dir=$ANDROID_HOME" > local.properties
+        echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> local.properties
+        echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> local.properties
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+    
     - name: Build Debug APK
       working-directory: android
       run: ./gradlew assembleDebug

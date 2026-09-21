@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "333082700570",
+    "project_id": "toruk-makto-20aff",
+    "storage_bucket": "toruk-makto-20aff.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:333082700570:android:ad0b54adb797855b0d5aa3",
+        "android_client_info": {
+          "package_name": "com.tmgl.league"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCsipxS7ohcgh4BL9b6aevUDGrLL0CBB28"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

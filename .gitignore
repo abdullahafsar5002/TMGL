@@ -28,9 +28,12 @@ dist-ssr
 .env*.local
 !.env.example
 
-# Capacitor / Android
-android/
-capacitor.config.ts.bak
+# Android build artifacts
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/key.properties
 
 # Keystores / signing
 *.jks

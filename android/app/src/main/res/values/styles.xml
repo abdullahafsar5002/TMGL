@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.TMGL" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#0B3D2E</item>
+        <item name="android:navigationBarColor">#0B3D2E</item>
+        <item name="android:windowBackground">#FFFFFF</item>
+    </style>
+
+    <style name="Theme.TMGL.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#0B3D2E</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash</item>
+        <item name="postSplashScreenTheme">@style/Theme.TMGL</item>
+    </style>
+</resources>
