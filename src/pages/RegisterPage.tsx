@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Trophy, Mail, Lock, User, AlertCircle, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -19,10 +19,11 @@ export function RegisterPage() {
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
 
   // Already authenticated — redirect away
-  if (isAuthenticated && !authLoading) {
-    navigate('/dashboard', { replace: true });
-    return null;
-  }
+  useEffect(() => {
+    if (isAuthenticated && !authLoading) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, authLoading, navigate]);
 
   // Email confirmation pending state
   if (awaitingConfirmation) {

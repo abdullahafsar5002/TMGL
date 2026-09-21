@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Edit3, ArrowLeft, Loader2, AlertCircle, Save, CheckCircle } from 'lucide-react';
+import { Edit3, ArrowLeft, Loader2, AlertCircle, Save, CheckCircle, Plus, Minus } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
@@ -121,6 +121,14 @@ export function ScoringPage() {
     setHoleScores((prev) => ({ ...prev, [holeNum]: value }));
     setSuccess(null);
     setValidationErrors([]);
+  };
+
+  const adjustScore = (holeNum: number, delta: number) => {
+    const current = parseInt(holeScores[holeNum] || '0', 10);
+    const newValue = current + delta;
+    if (newValue >= 1 && newValue <= 20) {
+      handleScoreChange(holeNum, String(newValue));
+    }
   };
 
   const summary = (() => {
@@ -259,16 +267,37 @@ export function ScoringPage() {
               const toPar = !isNaN(strokes) ? holeScoreToPar(strokes, par) : null;
 
               return (
-                <Card key={holeNum} className="flex items-center gap-3">
-                  <div className="w-10 text-center">
+                <Card key={holeNum} className="flex items-center gap-3 p-3 bg-white hover:bg-tmgl-charcoal-50 transition-colors">
+                  <div className="w-10 text-center shrink-0">
                     <p className="text-sm font-bold text-tmgl-charcoal-900">{holeNum}</p>
                     <p className="text-[10px] text-tmgl-charcoal-500">Par {par}</p>
                   </div>
-                  <div className="flex-1">
-                    <input type="number" min={1} max={20} value={holeScores[holeNum] || ''}
+                  <div className="flex items-center gap-2 flex-1 justify-center">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => adjustScore(holeNum, -1)}
+                      className="w-8 h-8 p-0 rounded-full border-tmgl-charcoal-200 hover:bg-red-50 hover:text-red-600"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </Button>
+                    <input 
+                      type="number" 
+                      min={1} 
+                      max={20} 
+                      value={holeScores[holeNum] || ''}
                       onChange={(e) => handleScoreChange(holeNum, e.target.value)}
-                      placeholder="Strokes"
-                      className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm text-center font-medium focus:outline-none focus:ring-2 focus:ring-tmgl-green-700" />
+                      placeholder="0"
+                      className="w-12 text-center py-2 rounded-lg border border-tmgl-charcoal-200 bg-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-tmgl-green-700" 
+                    />
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => adjustScore(holeNum, 1)}
+                      className="w-8 h-8 p-0 rounded-full border-tmgl-charcoal-200 hover:bg-green-50 hover:text-green-600"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
                   </div>
                   <div className="w-14 text-right">
                     {toPar !== null && (
@@ -281,15 +310,6 @@ export function ScoringPage() {
               );
             })}
           </div>
-
-          {summary.holesCompleted > 0 && (
-            <Card>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><p className="text-tmgl-charcoal-500">Front 9</p><p className="font-bold">{summary.front9Strokes || '-'} ({summary.front9Strokes > 0 ? formatToPar(summary.front9ToPar) : '-'})</p></div>
-                <div><p className="text-tmgl-charcoal-500">Back 9</p><p className="font-bold">{summary.back9Strokes || '-'} ({summary.back9Strokes > 0 ? formatToPar(summary.back9ToPar) : '-'})</p></div>
-              </div>
-            </Card>
-          )}
 
           <div className="flex gap-3">
             <Button variant="outline" fullWidth onClick={() => handleSave(false)} disabled={isSaving}>

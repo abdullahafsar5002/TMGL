@@ -5,12 +5,21 @@ const config: CapacitorConfig = {
   appName: 'TMGL',
   webDir: 'dist',
   server: {
-    androidScheme: 'https',
+    androidScheme: 'https'
   },
-  android: {
-    allowMixedOrientation: false,
-  },
-  plugins: {},
+  plugins: {
+    SplashScreen: {
+      launchAutoHide: true,
+      launchShowDuration: 1500,
+      backgroundColor: '#064e3b',
+      showSpinner: true,
+      spinnerColor: '#fbbf24'
+    },
+    StatusBar: {
+      style: 'DARK',
+      backgroundColor: '#064e3b'
+    }
+  }
 };
 
 export default config;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Medal, AlertCircle, RefreshCw, FileText, Inbox } from 'lucide-react';
+import { Medal, AlertCircle, RefreshCw, FileText, Inbox, Radio } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card } from '@/components/common/Card';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
@@ -8,6 +8,7 @@ import { Button } from '@/components/common/Button';
 import { LoadingState } from '@/components/common/LoadingState';
 import { getTournaments, getRoundsByTournament, getLeaderboard, getTournamentLeaderboard } from '@/lib/competition';
 import { formatToPar } from '@/utils/golf';
+import { supabase } from '@/lib/supabase';
 import type { Tournament, Round, LeaderboardEntry, ScorecardStatus } from '@/types/database';
 
 const STATUS_VARIANTS: Record<ScorecardStatus, BadgeVariant> = {
@@ -23,6 +24,7 @@ export function LeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLive, setIsLive] = useState(false);
 
   useEffect(() => { getTournaments().then((r) => { if (r.error) setError(r.error); else if (r.data) setTournaments(r.data); }); }, []);
 
@@ -55,11 +57,52 @@ export function LeaderboardPage() {
 
   useEffect(() => { loadLeaderboard(); }, [loadLeaderboard]);
 
+  useEffect(() => {
+    if (!selectedTournamentId) return;
+
+    setIsLive(true);
+    const channel = supabase
+      .channel('live-leaderboard')
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'hole_scores' 
+        },
+        () => {
+          loadLeaderboard();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'scorecards' 
+        },
+        () => {
+          loadLeaderboard();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      setIsLive(false);
+    };
+  }, [selectedTournamentId, loadLeaderboard]);
+
   return (
     <Container size="lg" className="space-y-4 py-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
           <Medal className="w-5 h-5 text-tmgl-green-800" /> Leaderboard
+          {isLive && (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider animate-pulse">
+              <Radio className="w-3 h-3" /> Live
+            </span>
+          )}
         </h1>
         <Button variant="outline" size="sm" onClick={loadLeaderboard} disabled={isLoading}>
           <RefreshCw className={`w-4 h-4 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} /> Refresh

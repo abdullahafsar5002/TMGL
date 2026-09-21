@@ -3,13 +3,31 @@ import type { FriendlyMatch, FriendlyMatchPlayer, FriendlyMatchScore } from '@/t
 import type { ServiceResult } from '@/types/service';
 
 export async function getFriendlyMatchesByPlayer(playerId: string): Promise<ServiceResult<FriendlyMatch[]>> {
-  const { data, error } = await supabase
+  const { data: created, error: err1 } = await supabase
     .from('friendly_matches')
     .select('*')
-    .or(`creator_id.eq.${playerId},id.in.(SELECT match_id FROM friendly_match_players WHERE player_id = '${playerId}')`)
+    .eq('creator_id', playerId);
+  if (err1) return { data: null, error: err1.message };
+
+  const { data: invited, error: err2 } = await supabase
+    .from('friendly_match_players')
+    .select('match_id')
+    .eq('player_id', playerId);
+  if (err2) return { data: null, error: err2.message };
+
+  const invitedMatchIds = (invited ?? []).map((r: any) => r.match_id);
+  const allIds = [...new Set([...(created ?? []).map((m: any) => m.id), ...invitedMatchIds])];
+
+  if (allIds.length === 0) return { data: [], error: null };
+
+  const { data: all, error: err3 } = await supabase
+    .from('friendly_matches')
+    .select('*')
+    .in('id', allIds)
     .order('created_at', { ascending: false });
-  if (error) return { data: null, error: error.message };
-  return { data: (data ?? []) as FriendlyMatch[], error: null };
+  if (err3) return { data: null, error: err3.message };
+
+  return { data: (all ?? []) as FriendlyMatch[], error: null };
 }
 
 export async function getFriendlyMatch(id: string): Promise<ServiceResult<FriendlyMatch>> {

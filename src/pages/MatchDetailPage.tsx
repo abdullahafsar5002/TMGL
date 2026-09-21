@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Swords, ArrowLeft, Loader2, AlertCircle, Edit3, Trash2, FileText, CheckCircle } from 'lucide-react';
+import { Swords, ArrowLeft, Loader2, AlertCircle, Edit3, Trash2, FileText, CheckCircle, Wallet, Plus, X } from 'lucide-react';
 import { Container } from '@/components/common/Container';
-import { Card } from '@/components/common/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -11,6 +11,7 @@ import { useAuth } from '@/context/AuthContext';
 import { canManageLeague } from '@/lib/roleGuards';
 import { getMatch, getRound, updateMatch, deleteMatch } from '@/lib/competition';
 import { getPlayers, getAllTeams } from '@/lib/league';
+import { supabase } from '@/lib/supabase';
 import type { Match, MatchStatus, Player, Team } from '@/types/database';
 
 const STATUS_VARIANTS: Record<MatchStatus, BadgeVariant> = {
@@ -29,6 +30,12 @@ export function MatchDetailPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Stakes State
+  const [stake, setStake] = useState<{type: string, value: string} | null>(null);
+  const [isAddingStake, setIsAddingStake] = useState(false);
+  const [newStake, setNewStake] = useState({ type: 'money', value: '' });
+  const [isSavingStake, setIsSavingStake] = useState(false);
 
   const [showResult, setShowResult] = useState(false);
   const [resultText, setResultText] = useState('');
@@ -49,16 +56,18 @@ export function MatchDetailPage() {
     if (mRes.error || !mRes.data) { setError(mRes.error || 'Match not found'); setIsLoading(false); return; }
     setMatch(mRes.data);
 
-    const [rRes, pRes, tRes] = await Promise.all([
+    const [rRes, pRes, tRes, sRes] = await Promise.all([
       getRound(mRes.data.round_id),
       getPlayers(),
       getAllTeams(),
+      supabase.from('match_stakes').select('*').eq('match_id', id).single(),
     ]);
     if (rRes.data) {
       setRoundName(`Round ${rRes.data.round_number}: ${rRes.data.name}`);
     }
     if (pRes.data) setPlayers(pRes.data);
     if (tRes.data) setTeams(tRes.data);
+    if (sRes.data) setStake({ type: sRes.data.stake_type, value: sRes.data.stake_value });
     setIsLoading(false);
   }, [id]);
 
@@ -94,6 +103,28 @@ export function MatchDetailPage() {
     setIsSaving(false);
     if (result.error) { setError(result.error); return; }
     if (result.data) { setMatch(result.data); setShowResult(false); }
+  };
+
+  const handleSaveStake = async () => {
+    if (!id) return;
+    setIsSavingStake(true);
+    const { error } = await supabase
+      .from('match_stakes')
+      .upsert({
+        match_id: id,
+        stake_type: newStake.type,
+        stake_value: newStake.value,
+      });
+    setIsSavingStake(false);
+    if (error) { setError(error.message); return; }
+    setStake({ type: newStake.type, value: newStake.value });
+    setIsAddingStake(false);
+  };
+
+  const removeStake = async () => {
+    if (!id) return;
+    const { error } = await supabase.from('match_stakes').delete().eq('match_id', id);
+    if (!error) setStake(null);
   };
 
   const handleStatusChange = async (newStatus: MatchStatus) => {
@@ -139,53 +170,112 @@ export function MatchDetailPage() {
         <Badge variant={STATUS_VARIANTS[match.status]}>{match.status}</Badge>
       </div>
 
-      <Card className="space-y-3">
-        {match.match_type === 'singles' || match.match_type === 'foursome' || match.match_type === 'fourball' ? (
-          <>
-            <div className="flex justify-between text-sm">
-              <span className="text-tmgl-charcoal-500">Player A</span>
-              <span className="font-medium">{getPlayerName(match.player_a_id)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-tmgl-charcoal-500">Player B</span>
-              <span className="font-medium">{getPlayerName(match.player_b_id)}</span>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="flex justify-between text-sm">
-              <span className="text-tmgl-charcoal-500">Team A</span>
-              <span className="font-medium">{getTeamName(match.team_a_id)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-tmgl-charcoal-500">Team B</span>
-              <span className="font-medium">{getTeamName(match.team_b_id)}</span>
-            </div>
-          </>
-        )}
-        {match.scheduled_at && <div className="flex justify-between text-sm"><span className="text-tmgl-charcoal-500">Scheduled</span><span className="font-medium">{new Date(match.scheduled_at).toLocaleString()}</span></div>}
-        {match.completed_at && <div className="flex justify-between text-sm"><span className="text-tmgl-charcoal-500">Completed</span><span className="font-medium">{new Date(match.completed_at).toLocaleString()}</span></div>}
-        {match.result && <div className="flex justify-between text-sm"><span className="text-tmgl-charcoal-500">Result</span><span className="font-medium">{match.result}</span></div>}
-        {match.winner_player_id && <div className="flex justify-between text-sm"><span className="text-tmgl-charcoal-500">Winner</span><span className="font-medium">{getPlayerName(match.winner_player_id)}</span></div>}
-        {match.winner_team_id && <div className="flex justify-between text-sm"><span className="text-tmgl-charcoal-500">Winner</span><span className="font-medium">{getTeamName(match.winner_team_id)}</span></div>}
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-4">
+          <Card className="space-y-3">
+            {match.match_type === 'singles' || match.match_type === 'foursome' || match.match_type === 'fourball' ? (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span className="text-tmgl-charcoal-500">Player A</span>
+                  <span className="font-medium">{getPlayerName(match.player_a_id)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-tmgl-charcoal-500">Player B</span>
+                  <span className="font-medium">{getPlayerName(match.player_b_id)}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span className="text-tmgl-charcoal-500">Team A</span>
+                  <span className="font-medium">{getTeamName(match.team_a_id)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-tmgl-charcoal-500">Team B</span>
+                  <span className="font-medium">{getTeamName(match.team_b_id)}</span>
+                </div>
+              </>
+            )}
+            {match.scheduled_at && <div className="flex justify-between text-sm"><span className="text-tmgl-charcoal-500">Scheduled</span><span className="font-medium">{new Date(match.scheduled_at).toLocaleString()}</span></div>}
+            {match.completed_at && <div className="flex justify-between text-sm"><span className="text-tmgl-charcoal-500">Completed</span><span className="font-medium">{new Date(match.completed_at).toLocaleString()}</span></div>}
+            {match.result && <div className="flex justify-between text-sm"><span className="text-tmgl-charcoal-500">Result</span><span className="font-medium">{match.result}</span></div>}
+            {match.winner_player_id && <div className="flex justify-between text-sm"><span className="text-tmgl-charcoal-500">Winner</span><span className="font-medium">{getPlayerName(match.winner_player_id)}</span></div>}
+            {match.winner_team_id && <div className="flex justify-between text-sm"><span className="text-tmgl-charcoal-500">Winner</span><span className="font-medium">{getTeamName(match.winner_team_id)}</span></div>}
+          </Card>
 
-      {canManage && (
-        <div className="flex flex-wrap gap-2">
-          <Button variant="primary" size="sm" onClick={() => navigate('/scoring')} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
-            <Edit3 className="w-4 h-4 mr-1.5" /> Enter Scores
+          {canManage && (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="primary" size="sm" onClick={() => navigate('/scoring')} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
+                <Edit3 className="w-4 h-4 mr-1.5" /> Enter Scores
+              </Button>
+              <Button variant="outline" size="sm" onClick={startResultEntry}><CheckCircle className="w-3.5 h-3.5 mr-1.5" /> Set Result</Button>
+              <Button variant="danger" size="sm" onClick={() => setShowDelete(true)}><Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete</Button>
+              {STATUS_OPTIONS.filter((s) => s !== match.status).map((s) => (
+                <Button key={s} variant="outline" size="sm" onClick={() => handleStatusChange(s)} className="capitalize">{s}</Button>
+              ))}
+            </div>
+          )}
+
+          <Button variant="outline" fullWidth onClick={() => navigate('/leaderboard')}>
+            <FileText className="w-4 h-4 mr-2" /> View Leaderboard
           </Button>
-          <Button variant="outline" size="sm" onClick={startResultEntry}><CheckCircle className="w-3.5 h-3.5 mr-1.5" /> Set Result</Button>
-          <Button variant="danger" size="sm" onClick={() => setShowDelete(true)}><Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete</Button>
-          {STATUS_OPTIONS.filter((s) => s !== match.status).map((s) => (
-            <Button key={s} variant="outline" size="sm" onClick={() => handleStatusChange(s)} className="capitalize">{s}</Button>
-          ))}
         </div>
-      )}
 
-      <Button variant="outline" fullWidth onClick={() => navigate('/leaderboard')}>
-        <FileText className="w-4 h-4 mr-2" /> View Leaderboard
-      </Button>
+        <div className="lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Wallet className="w-4 h-4 text-tmgl-green-800" /> Match Stakes
+                </CardTitle>
+                {!stake && (
+                  <Button variant="outline" size="sm" onClick={() => setIsAddingStake(true)} className="h-7 px-2 text-xs">
+                    <Plus className="w-3 h-3 mr-1" /> Set Stakes
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {isAddingStake ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-tmgl-charcoal-500 mb-1">Stake Type</label>
+                    <select value={newStake.type} onChange={e => setNewStake({...newStake, type: e.target.value})} 
+                      className="w-full px-2 py-1.5 rounded border border-tmgl-charcoal-200 text-xs">
+                      <option value="money">Money</option>
+                      <option value="social">Social/Dinner</option>
+                      <option value="custom">Custom</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-tmgl-charcoal-500 mb-1">Value</label>
+                    <input value={newStake.value} onChange={e => setNewStake({...newStake, value: e.target.value})} 
+                      placeholder="e.g. $10 or Dinner" className="w-full px-2 py-1.5 rounded border border-tmgl-charcoal-200 text-xs" />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="outline" size="sm" onClick={() => setIsAddingStake(false)} className="h-7 px-2 text-xs">Cancel</Button>
+                    <Button variant="primary" size="sm" onClick={handleSaveStake} disabled={isSavingStake} className="h-7 px-2 text-xs bg-tmgl-green-800">
+                      {isSavingStake ? 'Saving...' : 'Save'}
+                    </Button>
+                  </div>
+                </div>
+              ) : stake ? (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-tmgl-charcoal-500 uppercase font-bold">{stake.type}</p>
+                    <p className="text-lg font-bold text-tmgl-charcoal-900">{stake.value}</p>
+                  </div>
+                  <button onClick={removeStake} className="p-1 text-red-400 hover:text-red-600">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <p className="text-sm text-tmgl-charcoal-500 text-center py-4">No stakes set for this match.</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {showResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -211,7 +301,7 @@ export function MatchDetailPage() {
               {match.match_type === 'team' && (
                 <div>
                   <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Winner</label>
-                  <select value={winnerTeamId} onChange={(e) => setWinnerTeamId(e.target.value)}
+                  <select value={winnerTeamId} onChange={(e) => setWinnerTeamId (e.target.value)}
                     className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700">
                     <option value="">No winner / Tie</option>
                     {match.team_a_id && <option value={match.team_a_id}>{getTeamName(match.team_a_id)}</option>}

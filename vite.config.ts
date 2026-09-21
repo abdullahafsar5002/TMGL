@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -66,9 +67,8 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src')
     }
   },
-  // @ts-expect-error vitest config field
   test: {
     globals: true,
-    environment: 'node'
+    environment: 'jsdom'
   }
 });

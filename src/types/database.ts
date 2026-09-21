@@ -106,6 +106,7 @@ export interface Round {
   tournament_id: string;
   round_number: number;
   name: string;
+  course_id?: string;
   date: string | null;
   status: MatchStatus;
   created_at: string;
@@ -139,6 +140,7 @@ export interface Scorecard {
   status: ScorecardStatus;
   total_strokes: number | null;
   total_score_to_par: number | null;
+  differential?: number | null;
   created_at: string;
   updated_at: string;
 }

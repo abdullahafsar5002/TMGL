@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { FileText, ArrowLeft, AlertCircle, Edit3 } from 'lucide-react';
+import { FileText, ArrowLeft, AlertCircle, Edit3, BookOpen, Save, X, Loader2 } from 'lucide-react';
 import { Container } from '@/components/common/Container';
-import { Card } from '@/components/common/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { LoadingState } from '@/components/common/LoadingState';
@@ -29,6 +29,12 @@ export function ScorecardPage() {
   const [tournamentId, setTournamentId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Yardage Note State
+  const [activeHole, setActiveHole] = useState<number | null>(null);
+  const [noteText, setNoteText] = useState('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [courseId, setCourseId] = useState<string | null>(null);
 
   const canManage = canManageLeague(profile?.role);
 
@@ -39,11 +45,14 @@ export function ScorecardPage() {
     const [scRes, holesRes] = await Promise.all([getScorecard(id), getScorecardHoles(id)]);
     if (scRes.error || !scRes.data) { setError(scRes.error || 'Scorecard not found'); setIsLoading(false); return; }
     setScorecard(scRes.data);
-    if (holesRes.data) setHoles(holesRes.data);
+    if (holesRes.data) {
+      setHoles(holesRes.data);
+    }
 
     const rRes = await getRound(scRes.data.round_id);
     if (rRes.data) {
       setRoundName(`Round ${rRes.data.round_number}: ${rRes.data.name}`);
+      setCourseId(rRes.data.course_id ?? null);
       const tRes = await getTournament(rRes.data.tournament_id);
       if (tRes.data) setTournamentId(tRes.data.id);
     }
@@ -55,6 +64,48 @@ export function ScorecardPage() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  const handleHoleClick = async (holeNumber: number) => {
+    if (activeHole === holeNumber) {
+      setActiveHole(null);
+      return;
+    }
+    
+    setActiveHole(holeNumber);
+    setNoteText('');
+
+    if (!courseId || !scorecard) return;
+
+    const { data } = await supabase
+      .from('course_notes')
+      .select('note_text')
+      .eq('player_id', scorecard.player_id)
+      .eq('course_id', courseId)
+      .eq('hole_number', holeNumber)
+      .single();
+
+    if (data) setNoteText(data.note_text);
+  };
+
+  const saveNote = async () => {
+    if (!activeHole || !courseId || !scorecard) return;
+    setIsSavingNote(true);
+    
+    const { error } = await supabase
+      .from('course_notes')
+      .upsert({
+        player_id: scorecard.player_id,
+        course_id: courseId,
+        hole_number: activeHole,
+        note_text: noteText,
+        updated_at: new Date().toISOString(),
+      });
+
+    if (error) {
+      console.error('Error saving note:', error);
+    }
+    setIsSavingNote(false);
+  };
 
   if (isLoading) return <Container size="lg" className="py-4"><LoadingState /></Container>;
   if (error || !scorecard) return (
@@ -125,34 +176,20 @@ export function ScorecardPage() {
         </div>
       )}
 
-      {holes.length > 0 && (
-        <>
-          <h2 className="text-sm font-semibold text-tmgl-charcoal-700">Front 9</h2>
-          <div className="space-y-1">
-            <div className="grid grid-cols-4 gap-2 px-3 py-2 text-xs font-semibold text-tmgl-charcoal-500">
-              <span>Hole</span><span className="text-center">Par</span><span className="text-center">Strokes</span><span className="text-right">To Par</span>
-            </div>
-            {holes.filter((h) => h.hole_number <= 9).map((h) => (
-              <div key={h.id} className="grid grid-cols-4 gap-2 px-3 py-2 bg-white rounded-lg border border-tmgl-charcoal-100 text-sm">
-                <span className="font-medium">{h.hole_number}</span>
-                <span className="text-center text-tmgl-charcoal-500">{h.par}</span>
-                <span className="text-center font-semibold">{h.strokes}</span>
-                <span className={`text-right font-bold ${h.score_to_par <= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                  {formatToPar(h.score_to_par)}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {holes.some((h) => h.hole_number > 9) && (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-4">
+          {holes.length > 0 && (
             <>
-              <h2 className="text-sm font-semibold text-tmgl-charcoal-700">Back 9</h2>
+              <h2 className="text-sm font-semibold text-tmgl-charcoal-700">Front 9</h2>
               <div className="space-y-1">
                 <div className="grid grid-cols-4 gap-2 px-3 py-2 text-xs font-semibold text-tmgl-charcoal-500">
                   <span>Hole</span><span className="text-center">Par</span><span className="text-center">Strokes</span><span className="text-right">To Par</span>
                 </div>
-                {holes.filter((h) => h.hole_number > 9).map((h) => (
-                  <div key={h.id} className="grid grid-cols-4 gap-2 px-3 py-2 bg-white rounded-lg border border-tmgl-charcoal-100 text-sm">
+                {holes.filter((h) => h.hole_number <= 9).map((h) => (
+                  <div key={h.id} 
+                    onClick={() => handleHoleClick(h.hole_number)}
+                    className={`grid grid-cols-4 gap-2 px-3 py-2 bg-white rounded-lg border transition-colors cursor-pointer ${activeHole === h.hole_number ? 'border-tmgl-green-500 bg-green-50' : 'border-tmgl-charcoal-100'} text-sm`}
+                  >
                     <span className="font-medium">{h.hole_number}</span>
                     <span className="text-center text-tmgl-charcoal-500">{h.par}</span>
                     <span className="text-center font-semibold">{h.strokes}</span>
@@ -162,10 +199,68 @@ export function ScorecardPage() {
                   </div>
                 ))}
               </div>
+
+              {holes.some((h) => h.hole_number > 9) && (
+                <>
+                  <h2 className="text-sm font-semibold text-tmgl-charcoal-700">Back 9</h2>
+                  <div className="space-y-1">
+                    <div className="grid grid-cols-4 gap-2 px-3 py-2 text-xs font-semibold text-tmgl-charcoal-500">
+                      <span>Hole</span><span className="text-center">Par</span><span className="text-center">Strokes</span><span className="text-right">To Par</span>
+                    </div>
+                    {holes.filter((h) => h.hole_number > 9).map((h) => (
+                      <div key={h.id} 
+                        onClick={() => handleHoleClick(h.hole_number)}
+                        className={`grid grid-cols-4 gap-2 px-3 py-2 bg-white rounded-lg border transition-colors cursor-pointer ${activeHole === h.hole_number ? 'border-tmgl-green-500 bg-green-50' : 'border-tmgl-charcoal-100'} text-sm`}
+                      >
+                        <span className="font-medium">{h.hole_number}</span>
+                        <span className="text-center text-tmgl-charcoal-500">{h.par}</span>
+                        <span className="text-center font-semibold">{h.strokes}</span>
+                        <span className={`text-right font-bold ${h.score_to_par <= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                          {formatToPar(h.score_to_par)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </>
           )}
-        </>
-      )}
+        </div>
+
+        {activeHole && (
+          <div className="lg:col-span-1">
+            <Card className="sticky top-4">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-tmgl-green-800" />
+                    Hole {activeHole} Strategy
+                  </CardTitle>
+                  <button onClick={() => setActiveHole(null)} className="p-1 rounded-full hover:bg-tmgl-charcoal-100">
+                    <X className="w-4 h-4 text-tmgl-charcoal-400" />
+                  </button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <textarea 
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  placeholder="Example: Aim left of the bunker, 140 yards to pin..."
+                  className="w-full p-3 text-sm rounded-lg border border-tmgl-charcoal-200 min-h-[120px] focus:outline-none focus:ring-2 focus:ring-tmgl-green-700"
+                />
+                <Button 
+                  onClick={saveNote} 
+                  disabled={isSavingNote}
+                  className="w-full bg-tmgl-green-800 hover:bg-tmgl-green-700 text-white"
+                >
+                  {isSavingNote ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                  Save Note
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
 
       <div className="flex gap-3 flex-wrap">
         {canManage && scorecard.status !== 'verified' && (

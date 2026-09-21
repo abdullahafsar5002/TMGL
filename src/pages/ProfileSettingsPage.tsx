@@ -87,7 +87,7 @@ export default function ProfileSettingsPage() {
 
   return (
     <Container className="py-8 max-w-2xl">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Profile Settings</h1>
+      <h1 className="text-3xl font-bold text-tmgl-charcoal-900 mb-8">Profile Settings</h1>
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
@@ -106,34 +106,34 @@ export default function ProfileSettingsPage() {
         <CardContent>
           <form onSubmit={handleSave} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Email</label>
               <input
                 type="email"
                 value={user?.email ?? ''}
                 disabled
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-gray-500"
+                className="w-full border border-tmgl-charcoal-200 rounded-lg px-3 py-2 bg-tmgl-charcoal-50 text-tmgl-charcoal-500"
               />
-              <p className="text-xs text-gray-400 mt-1">Email cannot be changed here.</p>
+              <p className="text-xs text-tmgl-charcoal-400 mt-1">Email cannot be changed here.</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+              <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Full Name *</label>
               <input
                 type="text"
                 value={fullName}
                 onChange={e => setFullName(e.target.value)}
                 required
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full border border-tmgl-charcoal-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-tmgl-green-500 focus:border-tmgl-green-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+              <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Phone</label>
               <input
                 type="tel"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full border border-tmgl-charcoal-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-tmgl-green-500 focus:border-tmgl-green-500"
                 placeholder="+1 (555) 123-4567"
               />
             </div>

@@ -13,6 +13,11 @@ export interface HoleScoreInput {
   strokes: number;
 }
 
+export interface ScoreDifferential {
+  differential: number;
+  date: string | Date;
+}
+
 /**
  * Calculates gross score (total strokes) from an array of hole scores.
  */
@@ -110,4 +115,34 @@ export function validateHoleScore(strokes: number): { isValid: boolean; error?: 
     return { isValid: false, error: 'Score exceeds maximum allowed strokes per hole (20).' };
   }
   return { isValid: true };
+}
+
+/**
+ * Calculates the official WHS Handicap Index.
+ * WHS Rule: Average of the best 8 of the last 20 score differentials.
+ */
+export function calculateHandicapIndex(differentials: ScoreDifferential[]): number | null {
+  if (differentials.length === 0) return null;
+
+  // 1. Sort differentials (ascending - lower is better)
+  const sorted = [...differentials]
+    .sort((a, b) => a.differential - b.differential);
+
+  const countToAverage = Math.min(sorted.length, 8);
+  const bestDifferentials = sorted.slice(0, countToAverage);
+  
+  const sum = bestDifferentials.reduce((acc, curr) => acc + curr.differential, 0);
+  const average = sum / countToAverage;
+
+  return parseFloat(average.toFixed(1));
+}
+
+/**
+ * Calculates the Course Handicap based on the Index and Course Slope/Rating.
+ * Formula: Handicap Index * (Slope / 113) + (Course Rating - Par)
+ */
+export function calculateCourseHandicap(index: number, slope: number, rating: number, par: number): number {
+  const adjusted = index * (slope / 113);
+  const courseAdjustment = rating - par;
+  return Math.round(adjusted + courseAdjustment);
 }

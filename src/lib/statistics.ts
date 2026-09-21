@@ -15,15 +15,15 @@ import type { ServiceResult } from '@/types/service';
 
 export async function getPlayerStatistics(
   playerId: string
-): Promise<ServiceResult<PlayerStatistics>> {
+): Promise<ServiceResult<PlayerStatistics | null>> {
   const { data, error } = await supabase
     .from('player_statistics')
     .select('*')
     .eq('player_id', playerId)
-    .single();
+    .maybeSingle();
 
   if (error) return { data: null, error: error.message };
-  return { data: data as PlayerStatistics, error: null };
+  return { data: (data as PlayerStatistics) ?? null, error: null };
 }
 
 export async function upsertPlayerStatistics(

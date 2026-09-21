@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Trophy, Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -17,11 +17,13 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Redirect already-authenticated users away from login
-  const from = (location.state as { from?: Location })?.from?.pathname ?? '/dashboard';
-  if (isAuthenticated && !authLoading) {
-    navigate(from, { replace: true });
-    return null;
-  }
+  const rawFrom = (location.state as { from?: Location })?.from?.pathname ?? '/dashboard';
+  const from = rawFrom.startsWith('/') && !rawFrom.startsWith('//') ? rawFrom : '/dashboard';
+  useEffect(() => {
+    if (isAuthenticated && !authLoading) {
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, authLoading, navigate, from]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +63,11 @@ export function LoginPage() {
           Don't have an account?{' '}
           <Link to="/register" className="text-tmgl-green-700 font-semibold hover:underline">
             Create one
+          </Link>
+        </p>
+        <p className="text-sm text-tmgl-charcoal-500 mb-6 -mt-4">
+          <Link to="/forgot-password" className="text-tmgl-green-700 hover:underline">
+            Forgot password?
           </Link>
         </p>
 

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { Users, ArrowLeft, Edit, Trash2, Loader2, AlertCircle, Calendar, Phone, Hash, Shield, Swords, FileText, ChevronRight } from 'lucide-react';
+import { Users, ArrowLeft, Edit, Trash2, Loader2, AlertCircle, Calendar, Phone, Hash, Swords, FileText, ChevronRight, TrendingDown, Trophy, Target, Package, Plus, X } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
@@ -11,7 +11,9 @@ import { canManageLeague } from '@/lib/roleGuards';
 import { getPlayer, updatePlayer, deletePlayer, getTeamsByPlayer, getTeamsByIds, getSeason, getPlayers } from '@/lib/league';
 import { getMatchesByPlayer, getScorecardsByPlayer } from '@/lib/competition';
 import { validatePlayer, type PlayerInput } from '@/lib/validation';
+import { supabase } from '@/lib/supabase';
 import type { Player, TeamMember, Season, Match, Scorecard, Team } from '@/types/database';
+
 
 export function PlayerDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +30,11 @@ export function PlayerDetailPage() {
   const [playerNameMap, setPlayerNameMap] = useState<Record<string, string>>({});
   const [matches, setMatches] = useState<Match[]>([]);
   const [scorecards, setScorecards] = useState<Scorecard[]>([]);
+  const [handicapTrend] = useState<'up' | 'down' | 'stable'>('stable');
+  const [achievements] = useState<{name: string, icon: string}[]>([]);
+  const [equipment, setEquipment] = useState<{id: string, club_name: string, brand?: string, model?: string}[]>([]);
+  const [isAddingClub, setIsAddingClub] = useState(false);
+  const [newClub, setNewClub] = useState({ name: '', brand: '', model: '' });
 
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<PlayerInput>({
@@ -43,11 +50,12 @@ export function PlayerDetailPage() {
     if (!id) return;
     setIsLoading(true);
     setError(null);
-    const [res, teamsRes, matchesRes, scorecardsRes] = await Promise.all([
+    const [res, teamsRes, matchesRes, scorecardsRes, equipRes] = await Promise.all([
       getPlayer(id),
       getTeamsByPlayer(id),
       getMatchesByPlayer(id),
       getScorecardsByPlayer(id),
+      supabase.from('player_equipment').select('*').eq('player_id', id),
     ]);
     if (res.error || !res.data) {
       setError(res.error || 'Player not found');
@@ -62,6 +70,7 @@ export function PlayerDetailPage() {
       setPlayerCode(res.data.player_code ?? '');
       setMatches(matchesRes.data ?? []);
       setScorecards(scorecardsRes.data ?? []);
+      setEquipment(equipRes.data ?? []);
       const memberships = teamsRes.data ?? [];
       setTeamMemberships(memberships);
 
@@ -116,6 +125,31 @@ export function PlayerDetailPage() {
     } else {
       setPlayer(res.data);
       setIsEditing(false);
+    }
+  };
+
+  const addClub = async () => {
+    if (!id || !newClub.name) return;
+    const { error } = await supabase
+      .from('player_equipment')
+      .insert({
+        player_id: id,
+        club_name: newClub.name,
+        brand: newClub.brand,
+        model: newClub.model,
+      });
+    if (!error) {
+      const { data } = await supabase.from('player_equipment').select('*').eq('player_id', id);
+      setEquipment(data ?? []);
+      setNewClub({ name: '', brand: '', model: '' });
+      setIsAddingClub(false);
+    }
+  };
+
+  const removeClub = async (clubId: string) => {
+    const { error } = await supabase.from('player_equipment').delete().eq('id', clubId);
+    if (!error) {
+      setEquipment(equipment.filter((c) => c.id !== clubId));
     }
   };
 
@@ -236,19 +270,23 @@ export function PlayerDetailPage() {
                 )}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div>
+                <div className="p-3 rounded-lg bg-tmgl-charcoal-50 border border-tmgl-charcoal-100">
                   <p className="text-tmgl-charcoal-500 font-medium flex items-center gap-1"><Phone className="w-3.5 h-3.5" /> Phone</p>
                   <p className="text-tmgl-charcoal-900">{player.phone || '\u2014'}</p>
                 </div>
-                <div>
-                  <p className="text-tmgl-charcoal-500 font-medium">Handicap Index</p>
-                  <p className="text-tmgl-charcoal-900">{player.handicap_index ?? '\u2014'}</p>
+                <div className="p-3 rounded-lg bg-green-50 border border-green-100">
+                  <p className="text-green-700 font-bold flex items-center gap-1"><Target className="w-3.5 h-3.5" /> Official Handicap</p>
+                  <p className="text-2xl font-black text-green-900">{player.handicap_index ?? 'N/A'}</p>
+                  <div className="flex items-center gap-1 text-[10px] font-semibold text-green-600 mt-1">
+                    {handicapTrend === 'down' ? <TrendingDown className="w-3 h-3" /> : null}
+                    {handicapTrend === 'down' ? 'Improving' : handicapTrend === 'up' ? 'Rising' : 'Stable'}
+                  </div>
                 </div>
-                <div>
+                <div className="p-3 rounded-lg bg-tmgl-charcoal-50 border border-tmgl-charcoal-100">
                   <p className="text-tmgl-charcoal-500 font-medium flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> Joined</p>
                   <p className="text-tmgl-charcoal-900">{player.join_date ? new Date(player.join_date).toLocaleDateString() : '\u2014'}</p>
                 </div>
-                <div>
+                <div className="p-3 rounded-lg bg-tmgl-charcoal-50 border border-tmgl-charcoal-100">
                   <p className="text-tmgl-charcoal-500 font-medium">Created</p>
                   <p className="text-tmgl-charcoal-900">{new Date(player.created_at).toLocaleDateString()}</p>
                 </div>
@@ -257,9 +295,32 @@ export function PlayerDetailPage() {
           )}
         </CardContent>
       </Card>
-
+      
       {!isEditing && (
         <>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-tmgl-green-700" />
+                <CardTitle className="text-base">Achievements & Trophies</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {achievements.length === 0 ? (
+                <p className="text-sm text-tmgl-charcoal-500">No achievements unlocked yet. Start playing to earn badges!</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {achievements.map((ach, i) => (
+                    <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-tmgl-charcoal-50 border border-tmgl-charcoal-200">
+                      <span className="text-lg">{ach.icon}</span>
+                      <span className="text-xs font-medium text-tmgl-charcoal-900">{ach.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -303,14 +364,61 @@ export function PlayerDetailPage() {
 
           <Card>
             <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Package className="w-4 h-4 text-tmgl-green-700" />
+                  <CardTitle className="text-base">My Bag</CardTitle>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setIsAddingClub(true)} className="h-7 px-2 text-xs">
+                  <Plus className="w-3 h-3 mr-1" /> Add Club
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isAddingClub && (
+                <div className="mb-4 p-3 bg-tmgl-charcoal-50 rounded-lg border border-tmgl-charcoal-200 space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input placeholder="Club (e.g. Driver)" value={newClub.name} onChange={e => setNewClub({...newClub, name: e.target.value})} className="px-2 py-1 text-xs rounded border border-tmgl-charcoal-200" />
+                    <input placeholder="Brand" value={newClub.brand} onChange={e => setNewClub({...newClub, brand: e.target.value})} className="px-2 py-1 text-xs rounded border border-tmgl-charcoal-200" />
+                    <input placeholder="Model" value={newClub.model} onChange={e => setNewClub({...newClub, model: e.target.value})} className="px-2 py-1 text-xs rounded border border-tmgl-charcoal-200" />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setIsAddingClub(false)} className="h-7 px-2 text-xs">Cancel</Button>
+                    <Button variant="primary" size="sm" onClick={addClub} className="h-7 px-2 text-xs bg-tmgl-green-800">Save</Button>
+                  </div>
+                </div>
+              )}
+              {equipment.length === 0 ? (
+                <p className="text-sm text-tmgl-charcoal-500">No equipment listed. Add your clubs to track your gear!</p>
+              ) : (
+                <div className="space-y-2">
+                  {equipment.map((club) => (
+                    <div key={club.id} className="flex items-center justify-between p-2 rounded-lg border border-tmgl-charcoal-100 bg-white">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-tmgl-charcoal-900">{club.club_name}</span>
+                        {club.brand && <span className="text-xs text-tmgl-charcoal-500">{club.brand}</span>}
+                        {club.model && <span className="text-xs text-tmgl-charcoal-400 italic">{club.model}</span>}
+                      </div>
+                      <button onClick={() => removeClub(club.id)} className="p-1 text-red-400 hover:text-red-600 transition-colors">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-tmgl-green-700" />
-                <CardTitle className="text-base">Team Memberships ({teamMemberships.length})</CardTitle>
+                <Users className="w-4 h-4 text-tmgl-green-700" />
+                <CardTitle className="text-base">Teams</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
               {teamMemberships.length === 0 ? (
-                <p className="text-sm text-tmgl-charcoal-500">Not assigned to any team.</p>
+                <p className="text-sm text-tmgl-charcoal-500">Not assigned to any team</p>
               ) : (
                 <div className="space-y-2">
                   {teamMemberships.map((member) => {
@@ -354,7 +462,7 @@ export function PlayerDetailPage() {
                     const won = match.winner_player_id === id;
                     const MATCH_STATUS_VARIANTS: Record<string, BadgeVariant> = {
                       completed: 'info', live: 'danger', scheduled: 'outline', draft: 'outline', cancelled: 'outline',
-                    };
+                      };
                     return (
                       <button key={match.id} onClick={() => navigate(`/matches/${match.id}`)} className="w-full text-left">
                         <div className="flex items-center justify-between p-3 rounded-lg border border-tmgl-charcoal-200 hover:border-tmgl-green-300 transition-colors">
@@ -384,37 +492,39 @@ export function PlayerDetailPage() {
                 <FileText className="w-4 h-4 text-tmgl-green-700" />
                 <CardTitle className="text-base">Scorecards ({scorecards.length})</CardTitle>
               </div>
-            </CardHeader>
-            <CardContent>
-              {scorecards.length === 0 ? (
-                <p className="text-sm text-tmgl-charcoal-500">No scorecards submitted yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {scorecards.map((sc) => (
-                    <button key={sc.id} onClick={() => navigate(`/scorecards/${sc.id}`)} className="w-full text-left">
-                      <div className="flex items-center justify-between p-3 rounded-lg border border-tmgl-charcoal-200 hover:border-tmgl-green-300 transition-colors">
-                        <div>
-                          <p className="text-sm font-medium text-tmgl-charcoal-900">
+              </CardHeader>
+              <CardContent>
+                {scorecards.length === 0 ? (
+                  <p className="text-sm text-tmgl-charcoal-500">No scorecards submitted yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {scorecards.map((sc) => (
+                      <button key={sc.id} onClick={() => navigate(`/scorecards/${sc.id}`)} className="w-full text-left">
+                        <div className="flex items-center justify-between p-3 rounded-lg border border-tmgl-charcoal-200 hover:border-tmgl-green-300 transition-colors">
+                          <div>
+                            <p className="text-sm font-medium text-tmgl-charcoal-900">
                             {sc.total_strokes !== null ? `${sc.total_strokes} strokes` : 'No score yet'}
-                          </p>
-                          <p className="text-xs text-tmgl-charcoal-500">
-                            {sc.total_score_to_par !== null ? (sc.total_score_to_par > 0 ? `+${sc.total_score_to_par}` : sc.total_score_to_par === 0 ? 'E' : sc.total_score_to_par) : '\u2014'}
-                          </p>
+                            </p>
+                            <p className="text-xs text-tmgl-charcoal-500">
+                              {sc.total_score_to_par !== null ? (sc.total_score_to_par > 0 ? `+${sc.total_score_to_par}` : sc.total_score_to_par === 0 ? 'E' : sc.total_score_to_par) : '\u2014'}
+                            </p>
+                            <div className="flex items-center gap-1 text-[10px] font-semibold text-tmgl-green-600 mt-1">
+                              <Badge variant="outline" className="px-1 py-0">WHS Differential: {sc.differential ?? 'N/A'}</Badge>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={sc.status === 'verified' ? 'success' : sc.status === 'submitted' ? 'warning' : 'outline'}>{sc.status}</Badge>
+                            <ChevronRight className="w-4 h-4 text-tmgl-charcoal-400" />
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={sc.status === 'verified' ? 'success' : sc.status === 'submitted' ? 'warning' : 'outline'}>{sc.status}</Badge>
-                          <ChevronRight className="w-4 h-4 text-tmgl-charcoal-400" />
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    ))}
                 </div>
               )}
             </CardContent>
           </Card>
         </>
       )}
-
       <ConfirmDialog
         open={showDeleteConfirm}
         title="Delete Player"
