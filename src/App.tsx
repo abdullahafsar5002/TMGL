@@ -10,7 +10,6 @@ function AuthHashRedirect({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const hash = window.location.hash;
     if (hash && (hash.includes('access_token') || hash.includes('type=recovery'))) {
-      const target = window.location.pathname + hash;
       window.history.replaceState(null, '', '/reset-password' + hash);
       navigate('/reset-password' + hash, { replace: true });
       return;
