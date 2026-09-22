@@ -23,7 +23,8 @@ import com.tmgl.league.ui.components.*
 @Composable
 fun ProfileScreen(onBack: () -> Unit, onSignOut: () -> Unit, onEditProfile: () -> Unit = {}) {
     var authState by remember { mutableStateOf<AuthState>(AuthState.Loading) }
-    val authRepository = remember { AuthRepository() }
+    val context = LocalContext.current
+    val authRepository = remember { AuthRepository(context) }
     var showSignOutDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {

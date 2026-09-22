@@ -103,6 +103,9 @@ dependencies {
 
     // Ktor (HTTP client for Supabase)
     implementation "io.ktor:ktor-client-android:$rootProject.ext.ktor_version"
+    implementation "io.ktor:ktor-client-okhttp:$rootProject.ext.ktor_version"
+    implementation "io.ktor:ktor-client-content-negotiation:$rootProject.ext.ktor_version"
+    implementation "io.ktor:ktor-serialization-kotlinx-json:$rootProject.ext.ktor_version"
 
     // Kotlinx Serialization
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:$rootProject.ext.serialization_version"

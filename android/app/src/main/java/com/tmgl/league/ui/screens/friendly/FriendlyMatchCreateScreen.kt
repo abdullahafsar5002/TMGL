@@ -9,6 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import com.tmgl.league.data.SupabaseConfig
 import com.tmgl.league.data.repository.AuthRepository
@@ -20,7 +21,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun FriendlyMatchCreateScreen(navController: NavHostController) {
     val scope = rememberCoroutineScope()
-    val authRepository = remember { AuthRepository() }
+    val context = LocalContext.current
+    val authRepository = remember { AuthRepository(context) }
     var playerName by remember { mutableStateOf("") }
     var opponentEmail by remember { mutableStateOf("") }
     var matchDate by remember { mutableStateOf("") }

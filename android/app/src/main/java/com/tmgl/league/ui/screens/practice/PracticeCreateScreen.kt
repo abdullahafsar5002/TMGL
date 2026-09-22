@@ -6,6 +6,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.tmgl.league.data.model.Course
 import com.tmgl.league.data.model.PracticeRound
@@ -31,7 +32,8 @@ fun PracticeCreateScreen(
     var isSaving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val repository = remember { PracticeRepository() }
-    val authRepository = remember { AuthRepository() }
+    val context = LocalContext.current
+    val authRepository = remember { AuthRepository(context) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {

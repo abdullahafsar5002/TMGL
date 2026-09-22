@@ -25,7 +25,7 @@ import javax.inject.Singleton
 object AppModule {
     @Provides
     @Singleton
-    fun provideAuthRepository(): AuthRepository = AuthRepository()
+    fun provideAuthRepository(@ApplicationContext context: Context): AuthRepository = AuthRepository(context)
 
     @Provides
     @Singleton

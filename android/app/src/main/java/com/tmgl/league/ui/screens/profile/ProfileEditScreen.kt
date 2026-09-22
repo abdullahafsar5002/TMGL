@@ -22,6 +22,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.tmgl.league.data.SupabaseConfig
+import androidx.compose.ui.platform.LocalContext
 import com.tmgl.league.data.repository.AuthRepository
 import com.tmgl.league.data.repository.AuthState
 import com.tmgl.league.ui.components.*
@@ -42,7 +43,8 @@ private data class ProfileUpdate(
 @Composable
 fun ProfileEditScreen(onBack: () -> Unit) {
     var authState by remember { mutableStateOf<AuthState>(AuthState.Loading) }
-    val authRepository = remember { AuthRepository() }
+    val context = LocalContext.current
+    val authRepository = remember { AuthRepository(context) }
     val scope = rememberCoroutineScope()
 
     var fullName by rememberSaveable { mutableStateOf("") }
