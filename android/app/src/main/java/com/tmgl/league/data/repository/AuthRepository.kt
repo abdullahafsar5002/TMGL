@@ -63,7 +63,7 @@ class AuthRepository {
         return try {
             var session = auth.currentSessionOrNull()
             if (session == null) {
-                kotlinx.coroutines.delay(500)
+                kotlinx.coroutines.delay(1000)
                 session = auth.currentSessionOrNull()
             }
             if (session == null) {

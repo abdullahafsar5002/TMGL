@@ -40,7 +40,6 @@ class AuthViewModel @Inject constructor(
                 val result = authRepository.signIn(email, password)
                 when (result) {
                     is com.tmgl.league.data.repository.AuthResult.Success -> {
-                        kotlinx.coroutines.delay(300)
                         _authState.value = authRepository.getCurrentUser()
                         onSuccess()
                     }
