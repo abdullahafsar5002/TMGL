@@ -21,6 +21,8 @@ jobs:
         
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
+      with:
+        packages: 'platforms;android-35,build-tools;35.0.0,platform-tools'
     
     - name: Cache Gradle packages
       uses: actions/cache@v4
@@ -36,13 +38,6 @@ jobs:
       working-directory: android
       run: chmod +x gradlew
 
-    - name: Create google-services.json
-      if: env.GOOGLE_SERVICES_JSON != ''
-      working-directory: android/app
-      run: echo "$GOOGLE_SERVICES_JSON" > google-services.json
-      env:
-        GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-    
     - name: Create local.properties
       working-directory: android
       run: |
