@@ -28,16 +28,6 @@
     }
   ],
   "rewrites": [
-    {
-      "source": "/((?!assets/).*)",
-      "destination": "/index.html",
-      "has": [
-        {
-          "type": "header",
-          "key": "accept",
-          "value": "text/html"
-        }
-      ]
-    }
+    { "source": "/((?!assets/|downloads/).*)", "destination": "/index.html" }
   ]
 }

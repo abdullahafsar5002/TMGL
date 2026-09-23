@@ -32,7 +32,7 @@ export function HomePage() {
               Sign in
               <ArrowRight className="w-4 h-4 ml-1.5" />
             </Button>
-            <a href="/app-debug.apk" download>
+            <a href="/downloads/app-debug.apk" download="app-debug.apk">
               <Button
                 variant="outline"
                 size="md"
@@ -76,7 +76,7 @@ export function HomePage() {
           </Card>
         </button>
 
-        <a href="/app-debug.apk" download className="text-left">
+        <a href="/downloads/app-debug.apk" download="app-debug.apk" className="text-left">
           <Card variant="hover" className="cursor-pointer hover:border-tmgl-green-300 transition-all h-full">
             <CardContent className="p-6 flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
