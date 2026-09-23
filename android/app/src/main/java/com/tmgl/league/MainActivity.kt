@@ -1,6 +1,8 @@
 package com.tmgl.league
 
 import android.os.Bundle
+import android.view.HapticFeedbackConstants
+import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -8,9 +10,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.rememberNavController
+import com.tmgl.league.auth.BiometricAuthManager
 import com.tmgl.league.data.offline.NetworkMonitor
 import com.tmgl.league.data.repository.AuthState
 import com.tmgl.league.data.error.GlobalErrorHandler
@@ -25,28 +30,47 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
     @Inject lateinit var networkMonitor: NetworkMonitor
     @Inject lateinit var errorHandler: GlobalErrorHandler
+    @Inject lateinit var biometricAuthManager: BiometricAuthManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         networkMonitor.startMonitoring()
 
         setContent {
             TmglTheme {
                 val authViewModel: AuthViewModel = hiltViewModel()
                 var authState by remember { mutableStateOf<AuthState>(AuthState.Loading) }
+                var showBiometricPrompt by remember { mutableStateOf(false) }
 
                 LaunchedEffect(authViewModel.authState) {
                     authViewModel.authState.collect { state ->
                         if (state !is AuthState.Loading) {
                             authState = state
+                            if (state is AuthState.Authenticated && biometricAuthManager.isBiometricEnabled.value) {
+                                showBiometricPrompt = true
+                            }
                         }
                     }
                 }
 
                 splashScreen.setKeepOnScreenCondition {
                     authState is AuthState.Loading
+                }
+
+                if (showBiometricPrompt && authState is AuthState.Authenticated) {
+                    biometricAuthManager.authenticate(
+                        activity = this@MainActivity,
+                        title = "Welcome Back",
+                        subtitle = "Authenticate to access TMGL",
+                        onSuccess = {
+                            showBiometricPrompt = false
+                        },
+                        onError = { showBiometricPrompt = false },
+                        onFailed = { showBiometricPrompt = false }
+                    )
                 }
 
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -78,5 +102,19 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         networkMonitor.stopMonitoring()
+    }
+
+    companion object {
+        fun performHapticClick(view: View) {
+            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        }
+
+        fun performHapticLongPress(view: View) {
+            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        }
+
+        fun performHapticError(view: View) {
+            view.performHapticFeedback(HapticFeedbackConstants.REJECT)
+        }
     }
 }

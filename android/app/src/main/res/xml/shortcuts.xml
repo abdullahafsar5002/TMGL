@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Quick Score Entry -->
+    <shortcut
+        android:shortcutId="quick_score"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_quick_score"
+        android:shortcutLongLabel="@string/shortcut_quick_score_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.tmgl.league"
+            android:targetClass="com.tmgl.league.MainActivity"
+            android:data="tmgl://scoring" />
+    </shortcut>
+
+    <!-- View Leaderboard -->
+    <shortcut
+        android:shortcutId="view_leaderboard"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_leaderboard"
+        android:shortcutLongLabel="@string/shortcut_leaderboard_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.tmgl.league"
+            android:targetClass="com.tmgl.league.MainActivity"
+            android:data="tmgl://leaderboard" />
+    </shortcut>
+
+    <!-- View Tournaments -->
+    <shortcut
+        android:shortcutId="view_tournaments"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_tournaments"
+        android:shortcutLongLabel="@string/shortcut_tournaments_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.tmgl.league"
+            android:targetClass="com.tmgl.league.MainActivity"
+            android:data="tmgl://tournaments" />
+    </shortcut>
+
+    <!-- Practice Round -->
+    <shortcut
+        android:shortcutId="practice_round"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_practice"
+        android:shortcutLongLabel="@string/shortcut_practice_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.tmgl.league"
+            android:targetClass="com.tmgl.league.MainActivity"
+            android:data="tmgl://practice/create" />
+    </shortcut>
+
+    <!-- View Matches -->
+    <shortcut
+        android:shortcutId="view_matches"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_matches"
+        android:shortcutLongLabel="@string/shortcut_matches_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.tmgl.league"
+            android:targetClass="com.tmgl.league.MainActivity"
+            android:data="tmgl://matches" />
+    </shortcut>
+
+    <!-- Course GPS -->
+    <shortcut
+        android:shortcutId="course_gps"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_gps"
+        android:shortcutLongLabel="@string/shortcut_gps_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.tmgl.league"
+            android:targetClass="com.tmgl.league.MainActivity"
+            android:data="tmgl://course_search" />
+    </shortcut>
+</shortcuts>

@@ -49,4 +49,18 @@
     <string name="live">Live</string>
     <string name="draft">Draft</string>
     <string name="back_to_dashboard">Back to Dashboard</string>
+
+    <!-- App Shortcuts -->
+    <string name="shortcut_quick_score">Quick Score</string>
+    <string name="shortcut_quick_score_long">Enter scores quickly</string>
+    <string name="shortcut_leaderboard">Leaderboard</string>
+    <string name="shortcut_leaderboard_long">View current leaderboard</string>
+    <string name="shortcut_tournaments">Tournaments</string>
+    <string name="shortcut_tournaments_long">View all tournaments</string>
+    <string name="shortcut_practice">Practice</string>
+    <string name="shortcut_practice_long">Start a practice round</string>
+    <string name="shortcut_matches">Matches</string>
+    <string name="shortcut_matches_long">View your matches</string>
+    <string name="shortcut_gps">Course GPS</string>
+    <string name="shortcut_gps_long">Find course information</string>
 </resources>

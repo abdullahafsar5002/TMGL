@@ -5,20 +5,43 @@ const config: CapacitorConfig = {
   appName: 'TMGL',
   webDir: 'dist',
   server: {
-    androidScheme: 'https'
+    androidScheme: 'https',
+    allowNavigation: ['*']
   },
   plugins: {
     SplashScreen: {
       launchAutoHide: true,
-      launchShowDuration: 1500,
-      backgroundColor: '#064e3b',
+      launchShowDuration: 2000,
+      backgroundColor: '#0B3D2E',
       showSpinner: true,
-      spinnerColor: '#fbbf24'
+      spinnerColor: '#fbbf24',
+      androidScaleType: 'CENTER_CROP',
+      splashFullScreen: true,
+      splashImmersive: true,
+      launchFadeOutDuration: 300
     },
     StatusBar: {
       style: 'DARK',
-      backgroundColor: '#064e3b'
+      backgroundColor: '#0B3D2E',
+      overlaysWebView: true
+    },
+    LocalNotifications: {
+      smallIcon: 'ic_launcher',
+      iconColor: '#0B3D2E'
+    },
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert']
     }
+  },
+  android: {
+    buildOptions: {
+      keystorePath: 'C:/Users/Azam Khan/.android/tmgl-release.jks',
+      keystoreAlias: 'tmgl'
+    },
+    backgroundColor: '#0B3D2E',
+    allowMixedContent: true,
+    captureInput: true,
+    webContentsDebuggingEnabled: false
   }
 };
 

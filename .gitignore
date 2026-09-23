@@ -43,8 +43,6 @@ local.properties
 
 # Build artifacts
 *.apk
-!public/app-debug.apk
-!public/downloads/app-debug.apk
 *.aab
 build/
 .gradle/
