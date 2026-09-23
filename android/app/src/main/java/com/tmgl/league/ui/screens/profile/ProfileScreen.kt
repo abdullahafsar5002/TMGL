@@ -13,23 +13,23 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.tmgl.league.data.model.Profile
-import com.tmgl.league.data.repository.AuthRepository
 import com.tmgl.league.data.repository.AuthState
 import com.tmgl.league.ui.components.*
+import com.tmgl.league.ui.viewmodel.ProfileViewModel
 
 @Composable
-fun ProfileScreen(onBack: () -> Unit, onSignOut: () -> Unit, onEditProfile: () -> Unit = {}) {
-    var authState by remember { mutableStateOf<AuthState>(AuthState.Loading) }
+fun ProfileScreen(
+    onBack: () -> Unit,
+    onSignOut: () -> Unit,
+    onEditProfile: () -> Unit = {},
+    profileViewModel: ProfileViewModel = hiltViewModel()
+) {
+    val authState by profileViewModel.authState.collectAsState()
     val context = LocalContext.current
-    val authRepository = remember { AuthRepository(context) }
     var showSignOutDialog by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        authState = authRepository.getCurrentUser()
-    }
 
     if (showSignOutDialog) {
         AlertDialog(
@@ -96,6 +96,7 @@ fun ProfileScreen(onBack: () -> Unit, onSignOut: () -> Unit, onEditProfile: () -
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             InfoRow("Email", state.email ?: "—")
                             InfoRow("Role", profile?.role?.name?.replace("_", " ")?.uppercase() ?: "Player")
+                            InfoRow("Handicap", profile?.handicapIndex?.toString() ?: "—")
                             InfoRow("Joined", profile?.createdAt?.take(10) ?: "—")
                         }
                     }
@@ -114,5 +115,3 @@ fun ProfileScreen(onBack: () -> Unit, onSignOut: () -> Unit, onEditProfile: () -
         }
     }
 }
-
-

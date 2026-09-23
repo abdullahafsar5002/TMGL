@@ -1,5 +1,6 @@
 package com.tmgl.league
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.HapticFeedbackConstants
 import android.view.View
@@ -10,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalView
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -20,6 +20,7 @@ import com.tmgl.league.data.offline.NetworkMonitor
 import com.tmgl.league.data.repository.AuthState
 import com.tmgl.league.data.error.GlobalErrorHandler
 import com.tmgl.league.ui.navigation.AppNavigation
+import com.tmgl.league.ui.navigation.DeepLinkHandler
 import com.tmgl.league.ui.navigation.MainScreen
 import com.tmgl.league.ui.theme.TmglTheme
 import com.tmgl.league.ui.viewmodel.AuthViewModel
@@ -38,6 +39,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         WindowCompat.setDecorFitsSystemWindows(window, false)
         networkMonitor.startMonitoring()
+
+        val deepLinkUri = intent?.data
 
         setContent {
             TmglTheme {
@@ -81,7 +84,8 @@ class MainActivity : ComponentActivity() {
                                 authState = state,
                                 onAuthStateChanged = { newState -> authState = newState },
                                 networkMonitor = networkMonitor,
-                                errorHandler = errorHandler
+                                errorHandler = errorHandler,
+                                initialDeepLink = deepLinkUri
                             )
                         }
                         is AuthState.Unauthenticated -> {
@@ -96,6 +100,16 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val deepLinkUri = intent?.data
+        if (deepLinkUri != null) {
+            // Handle deep link when app is already running
+            DeepLinkHandler.handleDeepLink(deepLinkUri)
         }
     }
 

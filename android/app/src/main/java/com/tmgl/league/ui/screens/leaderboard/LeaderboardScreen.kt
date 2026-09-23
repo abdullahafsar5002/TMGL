@@ -3,11 +3,14 @@ package com.tmgl.league.ui.screens.leaderboard
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,8 +24,6 @@ import com.tmgl.league.ui.theme.MedalBronze
 import com.tmgl.league.ui.theme.MedalGold
 import com.tmgl.league.ui.theme.MedalSilver
 import com.tmgl.league.ui.viewmodel.LeaderboardViewModel
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,17 +34,32 @@ fun LeaderboardScreen(
     val entries by leaderboardViewModel.entries.collectAsState()
     val tournaments by leaderboardViewModel.tournaments.collectAsState()
     val isLoading by leaderboardViewModel.isLoading.collectAsState()
+    val isLoadingMore by leaderboardViewModel.isLoadingMore.collectAsState()
     val error by leaderboardViewModel.error.collectAsState()
     var selectedTournamentId by remember { mutableStateOf<String?>(null) }
     var selectedTournamentName by remember { mutableStateOf<String?>(null) }
     var showTournamentMenu by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
     val pullRefreshState = rememberPullToRefreshState()
+    val listState = rememberLazyListState()
 
     LaunchedEffect(tournaments) {
         if (tournaments.isNotEmpty() && selectedTournamentId == null) {
             selectedTournamentId = tournaments.first().id
             selectedTournamentName = tournaments.first().name
+        }
+    }
+
+    // Pagination - load more when near bottom
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            val totalItems = listState.layoutInfo.totalItemsCount
+            lastVisibleItem >= totalItems - 3
+        }.collect { shouldLoadMore ->
+            if (shouldLoadMore && leaderboardViewModel.hasMore && !isLoadingMore) {
+                leaderboardViewModel.loadMore()
+            }
         }
     }
 
@@ -55,6 +71,7 @@ fun LeaderboardScreen(
                 selectedTournamentId?.let {
                     leaderboardViewModel.loadLeaderboardForTournament(it)
                 }
+                isRefreshing = false
             },
             state = pullRefreshState
         ) {
@@ -74,6 +91,7 @@ fun LeaderboardScreen(
                 else -> {
                     isRefreshing = false
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.padding(paddingValues),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -121,6 +139,15 @@ fun LeaderboardScreen(
                         val listEntries = if (entries.size >= 3) entries.drop(3) else entries
                         itemsIndexed(listEntries, key = { _, entry -> entry.playerName }) { index, entry ->
                             LeaderboardRow(position = entry.position, entry = entry)
+                        }
+
+                        // Loading more indicator
+                        if (isLoadingMore) {
+                            item {
+                                Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                }
+                            }
                         }
                     }
                 }

@@ -1,28 +1,34 @@
 package com.tmgl.league.ui.screens.settings
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import android.content.Intent
-import android.net.Uri
-import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.tmgl.league.BuildConfig
 import com.tmgl.league.ui.components.*
+import com.tmgl.league.ui.viewmodel.SettingsViewModel
 
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
     onSignOut: () -> Unit,
     isDarkMode: Boolean = false,
-    onDarkModeChanged: (Boolean) -> Unit = {}
+    onDarkModeChanged: (Boolean) -> Unit = {},
+    settingsViewModel: SettingsViewModel = hiltViewModel()
 ) {
+    val uiState by settingsViewModel.uiState.collectAsState()
     var showSignOutDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -50,6 +56,7 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // ── App Info ──
             TmglCard {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(text = "App", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -59,16 +66,64 @@ fun SettingsScreen(
                 }
             }
 
+            // ── Security ──
             TmglCard {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(text = "Account", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    TmglButton(
-                        text = "Sign Out",
-                        onClick = onSignOut
+                    Text(text = "Security", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    SettingsItem(
+                        title = "Biometric Login",
+                        subtitle = if (uiState.isBiometricAvailable) "Use fingerprint or face to login" else "Not available on this device",
+                        trailing = {
+                            Switch(
+                                checked = uiState.isBiometricEnabled,
+                                onCheckedChange = { settingsViewModel.setBiometricEnabled(it) },
+                                enabled = uiState.isBiometricAvailable
+                            )
+                        }
                     )
                 }
             }
 
+            // ── Notifications ──
+            TmglCard {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(text = "Notifications", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    SettingsItem(
+                        title = "Push Notifications",
+                        subtitle = "Receive tournament and score updates",
+                        trailing = {
+                            Switch(
+                                checked = uiState.notificationsEnabled,
+                                onCheckedChange = { settingsViewModel.setNotificationsEnabled(it) }
+                            )
+                        }
+                    )
+                    SettingsItem(
+                        title = "Notification Sound",
+                        subtitle = "Play sound for notifications",
+                        trailing = {
+                            Switch(
+                                checked = uiState.soundEnabled,
+                                onCheckedChange = { settingsViewModel.setSoundEnabled(it) },
+                                enabled = uiState.notificationsEnabled
+                            )
+                        }
+                    )
+                    SettingsItem(
+                        title = "Vibration",
+                        subtitle = "Vibrate for notifications",
+                        trailing = {
+                            Switch(
+                                checked = uiState.vibrationEnabled,
+                                onCheckedChange = { settingsViewModel.setVibrationEnabled(it) },
+                                enabled = uiState.notificationsEnabled
+                            )
+                        }
+                    )
+                }
+            }
+
+            // ── Appearance ──
             TmglCard {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(text = "Appearance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -76,35 +131,51 @@ fun SettingsScreen(
                         title = "Dark Theme",
                         subtitle = "Follow system setting",
                         trailing = {
-                            Switch(checked = isDarkMode, onCheckedChange = onDarkModeChanged)
+                            Switch(checked = uiState.isDarkMode, onCheckedChange = { settingsViewModel.setDarkMode(it) })
                         }
                     )
                 }
             }
 
+            // ── Account ──
             TmglCard {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(text = "About", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(text = "Account", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    SettingsItem(
+                        title = "Sign Out",
+                        subtitle = "Sign out of your account",
+                        onClick = { showSignOutDialog = true }
+                    )
+                }
+            }
+
+            // ── Support ──
+            TmglCard {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(text = "Support", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    SettingsItem(
+                        title = "Rate App",
+                        subtitle = "Rate TMGL on the Play Store",
+                        icon = Icons.Default.Star,
+                        onClick = { settingsViewModel.rateApp() }
+                    )
+                    SettingsItem(
+                        title = "Send Feedback",
+                        subtitle = "Help us improve the app",
+                        icon = Icons.Default.Feedback,
+                        onClick = { settingsViewModel.sendFeedback() }
+                    )
                     SettingsItem(
                         title = "Privacy Policy",
                         subtitle = "View privacy policy",
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://tmgl.app/privacy"))
-                            context.startActivity(intent)
-                        }
+                        icon = Icons.Default.Security,
+                        onClick = { settingsViewModel.openPrivacyPolicy() }
                     )
                     SettingsItem(
                         title = "Terms of Service",
                         subtitle = "View terms",
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://tmgl.app/terms"))
-                            context.startActivity(intent)
-                        }
-                    )
-                    SettingsItem(
-                        title = "About",
-                        subtitle = "TMGL v1.0.0 - Toruk Maktu Golf League",
-                        onClick = { }
+                        icon = Icons.Default.Description,
+                        onClick = { settingsViewModel.openTerms() }
                     )
                 }
             }
@@ -113,13 +184,24 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsItem(title: String, subtitle: String, onClick: (() -> Unit)? = null, trailing: @Composable (() -> Unit)? = null) {
+private fun SettingsItem(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    onClick: (() -> Unit)? = null,
+    trailing: @Composable (() -> Unit)? = null
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
             .padding(16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (icon != null) {
+            Icon(icon, contentDescription = title, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(text = title, style = MaterialTheme.typography.bodyLarge)
             Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

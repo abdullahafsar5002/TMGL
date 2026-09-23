@@ -77,7 +77,8 @@ fun MainScreen(
     authState: AuthState,
     onAuthStateChanged: (AuthState) -> Unit,
     networkMonitor: NetworkMonitor,
-    errorHandler: GlobalErrorHandler
+    errorHandler: GlobalErrorHandler,
+    initialDeepLink: android.net.Uri? = null
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -95,6 +96,18 @@ fun MainScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     val isDarkMode by OfflineCache.getDarkMode(context).collectAsState(initial = false)
     val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(initialDeepLink) {
+        if (initialDeepLink != null) {
+            DeepLinkHandler.handleDeepLink(initialDeepLink)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        DeepLinkHandler.setDeepLinkHandler { route ->
+            navController.navigate(route)
+        }
+    }
 
     Scaffold(
         snackbarHost = { ErrorSnackbarHost(errorHandler = errorHandler) },

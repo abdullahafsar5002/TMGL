@@ -1,6 +1,8 @@
 package com.tmgl.league.di
 
 import android.content.Context
+import com.tmgl.league.auth.BiometricAuthManager
+import com.tmgl.league.auth.EncryptedAuthStorage
 import com.tmgl.league.data.error.GlobalErrorHandler
 import com.tmgl.league.data.offline.NetworkMonitor
 import com.tmgl.league.data.repository.AuthRepository
@@ -25,7 +27,21 @@ import javax.inject.Singleton
 object AppModule {
     @Provides
     @Singleton
-    fun provideAuthRepository(@ApplicationContext context: Context): AuthRepository = AuthRepository(context)
+    fun provideEncryptedAuthStorage(@ApplicationContext context: Context): EncryptedAuthStorage {
+        return EncryptedAuthStorage(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideAuthRepository(encryptedStorage: EncryptedAuthStorage): AuthRepository {
+        return AuthRepository(encryptedStorage)
+    }
+
+    @Provides
+    @Singleton
+    fun provideBiometricAuthManager(@ApplicationContext context: Context): BiometricAuthManager {
+        return BiometricAuthManager(context)
+    }
 
     @Provides
     @Singleton

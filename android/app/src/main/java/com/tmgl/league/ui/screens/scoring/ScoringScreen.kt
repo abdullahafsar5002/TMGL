@@ -1,5 +1,6 @@
 package com.tmgl.league.ui.screens.scoring
 
+import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -7,12 +8,14 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -21,6 +24,7 @@ import com.tmgl.league.data.model.ScorecardStatus
 import com.tmgl.league.data.repository.CompetitionRepository
 import com.tmgl.league.data.repository.DataResult
 import com.tmgl.league.ui.components.*
+import com.tmgl.league.util.HapticFeedbackHelper
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,6 +40,8 @@ fun ScoringScreen(matchId: String?, onBack: () -> Unit) {
     val repository = remember { CompetitionRepository() }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
+    val context = LocalContext.current
+    val hapticPerformer = HapticFeedbackHelper.rememberHapticPerformer()
 
     LaunchedEffect(matchId) {
         if (matchId == null) {
@@ -67,7 +73,36 @@ fun ScoringScreen(matchId: String?, onBack: () -> Unit) {
     }
 
     Scaffold(
-        topBar = { TmglTopBar(title = "Score Entry", onBack = onBack) }
+        topBar = {
+            TopAppBar(
+                title = { Text("Score Entry") },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                actions = {
+                    IconButton(onClick = {
+                        val totalStrokes = holes.sumOf { it.toIntOrNull() ?: 0 }
+                        val totalToPar = holes.mapIndexed { i, s ->
+                            val strokes = s.toIntOrNull() ?: 0
+                            if (strokes > 0) strokes - pars[i] else 0
+                        }.sum()
+                        val scoreText = if (totalToPar == 0) "E" else if (totalToPar > 0) "+$totalToPar" else "$totalToPar"
+
+                        val shareText = buildString {
+                            appendLine("🏌️ TMGL Scorecard")
+                            appendLine("Total: $totalStrokes ($scoreText)")
+                            appendLine("Played on TMGL app")
+                        }
+                        val sendIntent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            putExtra(Intent.EXTRA_TEXT, shareText)
+                            type = "text/plain"
+                        }
+                        context.startActivity(Intent.createChooser(sendIntent, "Share Scorecard"))
+                    }) {
+                        Icon(Icons.Default.Share, "Share")
+                    }
+                }
+            )
+        }
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
@@ -127,6 +162,7 @@ fun ScoringScreen(matchId: String?, onBack: () -> Unit) {
                                     holes = holes.toMutableList().apply {
                                         this[index] = newScore.filter { it.isDigit() }
                                     }
+                                    hapticPerformer(HapticFeedbackHelper.HapticType.CLOCK_TICK)
                                 },
                                 modifier = Modifier.width(80.dp),
                                 keyboardOptions = KeyboardOptions(
@@ -169,6 +205,7 @@ fun ScoringScreen(matchId: String?, onBack: () -> Unit) {
 
                 if (successMessage != null) {
                     item {
+                        hapticPerformer(HapticFeedbackHelper.HapticType.SUCCESS)
                         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
                             Text(text = successMessage ?: "", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
@@ -177,6 +214,7 @@ fun ScoringScreen(matchId: String?, onBack: () -> Unit) {
 
                 if (errorMessage != null) {
                     item {
+                        hapticPerformer(HapticFeedbackHelper.HapticType.ERROR)
                         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
                             Text(text = errorMessage ?: "", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onErrorContainer)
                         }
