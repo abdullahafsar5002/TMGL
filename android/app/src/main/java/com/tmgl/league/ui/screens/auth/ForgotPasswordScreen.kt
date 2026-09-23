@@ -11,6 +11,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
+import com.tmgl.league.auth.EncryptedAuthStorage
 import com.tmgl.league.data.repository.AuthRepository
 import kotlinx.coroutines.launch
 
@@ -18,7 +19,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ForgotPasswordScreen(navController: NavHostController) {
     val context = LocalContext.current
-    val authRepository = remember { AuthRepository(context) }
+    val authRepository = remember { AuthRepository(EncryptedAuthStorage(context)) }
     val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }

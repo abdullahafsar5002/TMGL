@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.tmgl.league.auth.EncryptedAuthStorage
 import com.tmgl.league.data.model.Course
 import com.tmgl.league.data.model.PracticeRound
 import com.tmgl.league.data.repository.AuthRepository
@@ -33,7 +34,7 @@ fun PracticeCreateScreen(
     var error by remember { mutableStateOf<String?>(null) }
     val repository = remember { PracticeRepository() }
     val context = LocalContext.current
-    val authRepository = remember { AuthRepository(context) }
+    val authRepository = remember { AuthRepository(EncryptedAuthStorage(context)) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {

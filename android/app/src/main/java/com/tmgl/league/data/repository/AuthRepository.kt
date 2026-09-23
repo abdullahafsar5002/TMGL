@@ -10,7 +10,6 @@ import io.github.jan.supabase.postgrest.query.Columns
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.interceptors.addInterceptor
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -52,16 +51,18 @@ class AuthRepository @Inject constructor(
                 isLenient = true
             })
         }
-        addInterceptor { chain ->
-            val original = chain.request()
-            val token = encryptedStorage.getAccessToken()
-            if (token != null) {
-                val request = original.newBuilder()
-                    .header("Authorization", "Bearer $token")
-                    .build()
-                chain.proceed(request)
-            } else {
-                chain.proceed(original)
+        engine {
+            addInterceptor { chain ->
+                val original = chain.request()
+                val token = encryptedStorage.getAccessToken()
+                if (token != null) {
+                    val request = original.newBuilder()
+                        .header("Authorization", "Bearer $token")
+                        .build()
+                    chain.proceed(request)
+                } else {
+                    chain.proceed(original)
+                }
             }
         }
     }
