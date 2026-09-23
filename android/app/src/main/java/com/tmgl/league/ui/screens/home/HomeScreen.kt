@@ -291,9 +291,11 @@ data class Shimmer(
 fun Modifier.shimmer(shimmer: Shimmer): Modifier {
     return this.background(
         brush = Brush.linearGradient(
-            colors = shimmer.colors,
-            startX = shimmer.translateAnim - 200f,
-            endX = shimmer.translateAnim
+            *shimmer.colors.mapIndexed { index, color ->
+                (index.toFloat() / (shimmer.colors.size - 1).coerceAtLeast(1)) to color
+            }.toTypedArray(),
+            start = androidx.compose.ui.geometry.Offset(shimmer.translateAnim - 200f, 0f),
+            end = androidx.compose.ui.geometry.Offset(shimmer.translateAnim, 0f)
         )
     )
 }

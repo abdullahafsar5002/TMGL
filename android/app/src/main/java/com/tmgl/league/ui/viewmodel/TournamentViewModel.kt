@@ -42,7 +42,7 @@ class TournamentViewModel @Inject constructor(
         }
     }
 
-    fun notifyRoundStarted(context: Context, tournamentName: String, roundName: String) {
-        NotificationHelper.notifyRoundStart(context, tournamentName, roundName)
+    fun notifyRoundStarted(context: Context, tournamentName: String, roundName: String, tournamentId: String) {
+        NotificationHelper.notifyRoundStart(context, tournamentName, roundName, tournamentId)
     }
 }

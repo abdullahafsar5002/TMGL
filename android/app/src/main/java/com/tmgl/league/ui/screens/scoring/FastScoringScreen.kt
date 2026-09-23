@@ -58,7 +58,7 @@ fun FastScoringScreen(
                     Spacer(Modifier.height(8.dp))
                     Text("${uiState.entries.count { it.strokes != null }} holes scored", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(24.dp))
-                    TmglButton(text = "Share Scorecard", onClick = { fastScoringViewModel.shareScore() })
+                    Button(onClick = { fastScoringViewModel.shareScore() }) { Text("Share Scorecard") }
                 }
             }
         } else {

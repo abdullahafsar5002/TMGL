@@ -338,7 +338,8 @@ fun TournamentDetailScreen(
                                                     NotificationHelper.notifyRoundStart(
                                                         context,
                                                         t.name,
-                                                        "Round ${round.roundNumber}: ${round.name}"
+                                                        "Round ${round.roundNumber}: ${round.name}",
+                                                        tournamentId
                                                     )
                                                 }) {
                                                     Text("Start Round")
@@ -358,14 +359,31 @@ fun TournamentDetailScreen(
                         item {
                             Button(
                                 onClick = {
-                                    val holes = mutableListOf<Triple<Int, Int, Int>>()
-                                    val uri = ScoreExportManager.exportScorecardCsv(
-                                        context,
-                                        t.name,
-                                        holes,
-                                        t.name
-                                    )
-                                    uri?.let { ScoreExportManager.shareFile(context, it) }
+                                    scope.launch {
+                                        try {
+                                            val allHoles = mutableListOf<Triple<Int, Int, Int>>()
+                                            for (sc in scorecardsWithHoles) {
+                                                for (hole in sc.holes) {
+                                                    allHoles.add(Triple(hole.holeNumber, hole.par, hole.strokes))
+                                                }
+                                            }
+                                            if (allHoles.isEmpty()) {
+                                                // Add default holes if no data
+                                                for (i in 1..18) {
+                                                    allHoles.add(Triple(i, 4, 0))
+                                                }
+                                            }
+                                            val uri = ScoreExportManager.exportScorecardCsv(
+                                                context,
+                                                t.name,
+                                                allHoles,
+                                                t.name
+                                            )
+                                            uri?.let { ScoreExportManager.shareFile(context, it) }
+                                        } catch (e: Exception) {
+                                            // Handle error silently
+                                        }
+                                    }
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(containerColor = TmglGreen)

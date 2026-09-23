@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
@@ -76,7 +77,7 @@ fun ScoringScreen(matchId: String?, onBack: () -> Unit) {
         topBar = {
             TopAppBar(
                 title = { Text("Score Entry") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back") } },
                 actions = {
                     IconButton(onClick = {
                         val totalStrokes = holes.sumOf { it.toIntOrNull() ?: 0 }

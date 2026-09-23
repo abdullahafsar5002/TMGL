@@ -15,6 +15,7 @@ import com.tmgl.league.data.repository.LiveScoringRepository
 import com.tmgl.league.data.repository.PracticeRepository
 import com.tmgl.league.data.repository.ScoringFormatsRepository
 import com.tmgl.league.data.repository.SocialRepository
+import com.tmgl.league.util.ImageLoaderProvider
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -86,4 +87,10 @@ object AppModule {
     @Provides
     @Singleton
     fun provideGlobalErrorHandler(): GlobalErrorHandler = GlobalErrorHandler()
+
+    @Provides
+    @Singleton
+    fun provideImageLoaderProvider(@ApplicationContext context: Context): ImageLoaderProvider {
+        return ImageLoaderProvider(context)
+    }
 }

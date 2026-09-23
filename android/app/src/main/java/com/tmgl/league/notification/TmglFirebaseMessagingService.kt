@@ -14,25 +14,31 @@ import com.tmgl.league.R
 import com.tmgl.league.data.SupabaseConfig
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.from
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 
 class TmglFirebaseMessagingService : FirebaseMessagingService() {
 
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        try {
-            runBlocking {
+        serviceScope.launch {
+            try {
+                val userId = SupabaseConfig.client.auth.currentUserOrNull()?.id ?: return@launch
                 SupabaseConfig.client.from("player_devices").upsert(
                     mapOf(
-                        "player_id" to SupabaseConfig.client.auth.currentUserOrNull()?.id,
+                        "player_id" to userId,
                         "fcm_token" to token,
                         "platform" to "android",
                         "updated_at" to Clock.System.now().toString()
                     )
                 )
-            }
-        } catch (_: Exception) { }
+            } catch (_: Exception) { }
+        }
     }
 
     override fun onMessageReceived(message: RemoteMessage) {

@@ -109,12 +109,12 @@ fun ProfileEditScreen(onBack: () -> Unit) {
                                         val ext = context.contentResolver.getType(it)?.substringAfterLast("/") ?: "jpg"
 
                                         val storageUrl = "${com.tmgl.league.BuildConfig.SUPABASE_URL}/storage/v1/object/avatars/$userId.$ext"
-                                        val apiKey = com.tmgl.league.BuildConfig.SUPABASE_ANON_KEY
+                                        val accessToken = authRepository.encryptedStorage.getAccessToken() ?: com.tmgl.league.BuildConfig.SUPABASE_ANON_KEY
 
                                         val connection = java.net.URL(storageUrl).openConnection() as java.net.HttpURLConnection
                                         connection.requestMethod = "POST"
-                                        connection.setRequestProperty("apikey", apiKey)
-                                        connection.setRequestProperty("Authorization", "Bearer $apiKey")
+                                        connection.setRequestProperty("apikey", com.tmgl.league.BuildConfig.SUPABASE_ANON_KEY)
+                                        connection.setRequestProperty("Authorization", "Bearer $accessToken")
                                         connection.setRequestProperty("Content-Type", "image/$ext")
                                         connection.setRequestProperty("x-upsert", "true")
                                         connection.doOutput = true

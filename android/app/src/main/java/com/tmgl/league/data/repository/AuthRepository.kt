@@ -10,6 +10,7 @@ import io.github.jan.supabase.postgrest.query.Columns
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.interceptors.addInterceptor
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -18,8 +19,11 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -40,7 +44,7 @@ sealed class AuthState {
 
 @Singleton
 class AuthRepository @Inject constructor(
-    private val encryptedStorage: EncryptedAuthStorage
+    val encryptedStorage: EncryptedAuthStorage
 ) {
     private val postgrest = SupabaseConfig.client
 
@@ -51,18 +55,16 @@ class AuthRepository @Inject constructor(
                 isLenient = true
             })
         }
-        engine {
-            addInterceptor { chain ->
-                val original = chain.request()
-                val token = encryptedStorage.getAccessToken()
-                if (token != null) {
-                    val request = original.newBuilder()
-                        .header("Authorization", "Bearer $token")
-                        .build()
-                    chain.proceed(request)
-                } else {
-                    chain.proceed(original)
-                }
+        addInterceptor { chain ->
+            val original = chain.request()
+            val token = encryptedStorage.getAccessToken()
+            if (token != null) {
+                val request = original.newBuilder()
+                    .header("Authorization", "Bearer $token")
+                    .build()
+                chain.proceed(request)
+            } else {
+                chain.proceed(original)
             }
         }
     }
@@ -71,19 +73,22 @@ class AuthRepository @Inject constructor(
 
     suspend fun signIn(email: String, password: String): AuthResult {
         return try {
+            val body = buildJsonObject {
+                put("email", email)
+                put("password", password)
+            }
             val response = httpClient.post(
                 "${BuildConfig.SUPABASE_URL}/auth/v1/token?grant_type=password"
             ) {
                 contentType(ContentType.Application.Json)
                 header("apikey", BuildConfig.SUPABASE_ANON_KEY)
-                setBody("""{"email":"$email","password":"$password"}""")
+                setBody(body.toString())
             }
             val text = response.bodyAsText()
             val jsonEl = json.parseToJsonElement(text).jsonObject
 
             val accessToken = jsonEl["access_token"]?.jsonPrimitive?.content
             val refreshToken = jsonEl["refresh_token"]?.jsonPrimitive?.content
-            val expiresIn = jsonEl["expires_in"]?.jsonPrimitive?.content?.toLongOrNull() ?: 3600
             val userObj = jsonEl["user"]?.jsonObject
             val userId = userObj?.get("id")?.jsonPrimitive?.content
             val userEmail = userObj?.get("email")?.jsonPrimitive?.content
@@ -104,12 +109,17 @@ class AuthRepository @Inject constructor(
 
     suspend fun signUp(email: String, password: String, fullName: String): AuthResult {
         return try {
+            val body = buildJsonObject {
+                put("email", email)
+                put("password", password)
+                put("full_name", fullName)
+            }
             val response = httpClient.post(
                 "${BuildConfig.SUPABASE_URL}/auth/v1/signup"
             ) {
                 contentType(ContentType.Application.Json)
                 header("apikey", BuildConfig.SUPABASE_ANON_KEY)
-                setBody("""{"email":"$email","password":"$password","data":{"full_name":"$fullName"}}""")
+                setBody(body.toString())
             }
             val text = response.bodyAsText()
             val jsonEl = json.parseToJsonElement(text).jsonObject
@@ -172,19 +182,21 @@ class AuthRepository @Inject constructor(
         }
 
         return try {
+            val body = buildJsonObject {
+                put("refresh_token", refreshToken)
+            }
             val response = httpClient.post(
                 "${BuildConfig.SUPABASE_URL}/auth/v1/token?grant_type=refresh_token"
             ) {
                 contentType(ContentType.Application.Json)
                 header("apikey", BuildConfig.SUPABASE_ANON_KEY)
-                setBody("""{"refresh_token":"$refreshToken"}""")
+                setBody(body.toString())
             }
             val text = response.bodyAsText()
             val jsonEl = json.parseToJsonElement(text).jsonObject
 
             val newAccessToken = jsonEl["access_token"]?.jsonPrimitive?.content
             val newRefreshToken = jsonEl["refresh_token"]?.jsonPrimitive?.content
-            val expiresIn = jsonEl["expires_in"]?.jsonPrimitive?.content?.toLongOrNull() ?: 3600
             val userObj = jsonEl["user"]?.jsonObject
             val userId = userObj?.get("id")?.jsonPrimitive?.content
             val userEmail = userObj?.get("email")?.jsonPrimitive?.content

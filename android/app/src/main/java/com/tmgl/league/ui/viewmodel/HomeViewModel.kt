@@ -97,8 +97,65 @@ class HomeViewModel @Inject constructor() : ViewModel() {
     fun refresh() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isRefreshing = true)
-            loadHomeData()
+            loadHomeDataSuspend()
             _uiState.value = _uiState.value.copy(isRefreshing = false)
+        }
+    }
+
+    private suspend fun loadHomeDataSuspend() {
+        _uiState.value = _uiState.value.copy(isLoading = false, error = null)
+        try {
+            val userId = SupabaseConfig.client.auth.currentUserOrNull()?.id
+            if (userId == null) {
+                _uiState.value = _uiState.value.copy(
+                    userName = "Player",
+                    handicap = "--",
+                    totalRounds = "0"
+                )
+                return
+            }
+
+            val profile = SupabaseConfig.client.from("profiles")
+                .select { filter { eq("id", userId) } }
+                .decodeList<Map<String, Any>>()
+                .firstOrNull()
+
+            val userName = profile?.get("full_name")?.toString() ?: "Player"
+            val handicap = profile?.get("handicap_index")?.toString() ?: "--"
+
+            val rounds = SupabaseConfig.client.from("practice_rounds")
+                .select { filter { eq("user_id", userId) } }
+                .decodeList<Map<String, Any>>()
+
+            val recentScores = try {
+                val scorecards = SupabaseConfig.client.from("scorecards")
+                    .select {
+                        filter { eq("player_id", userId) }
+                        order("created_at", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+                        limit(5)
+                    }
+                    .decodeList<Map<String, Any>>()
+                scorecards.map { sc ->
+                    val total = sc["total_strokes"]?.toString() ?: "0"
+                    val toPar = sc["total_score_to_par"]?.toString()?.toIntOrNull() ?: 0
+                    val label = sc["status"]?.toString() ?: "Round"
+                    val score = if (toPar == 0) "E" else if (toPar > 0) "+$toPar" else "$toPar"
+                    label to "$total ($score)"
+                }
+            } catch (_: Exception) {
+                emptyList()
+            }
+
+            _uiState.value = _uiState.value.copy(
+                userName = userName,
+                handicap = handicap,
+                totalRounds = rounds.size.toString(),
+                recentScores = recentScores
+            )
+        } catch (e: Exception) {
+            _uiState.value = _uiState.value.copy(
+                error = e.message ?: "Failed to load data"
+            )
         }
     }
 }

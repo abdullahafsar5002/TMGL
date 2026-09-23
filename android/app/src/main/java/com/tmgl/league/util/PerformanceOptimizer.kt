@@ -1,59 +1,72 @@
 package com.tmgl.league.util
 
+import android.content.ComponentCallbacks2
 import android.content.Context
 import android.os.Build
-import android.view.Choreographer
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.runtime.*
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import coil.ImageLoader
-import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
-import coil.request.ImageRequest
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import javax.inject.Inject
+import javax.inject.Singleton
 
-object PerformanceOptimizer {
+@Singleton
+class ImageLoaderProvider @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
+    val imageLoader: ImageLoader = ImageLoader.Builder(context)
+        .memoryCache {
+            MemoryCache.Builder(context)
+                .maxSizePercent(0.25)
+                .build()
+        }
+        .diskCache {
+            DiskCache.Builder()
+                .directory(File(context.cacheDir, "image_cache"))
+                .maxSizePercent(0.02)
+                .build()
+        }
+        .crossfade(true)
+        .build()
 
-    // Image cache configuration
-    fun createImageLoader(context: Context): ImageLoader {
-        return ImageLoaderFactory.create {
-            memoryCache {
-                MemoryCache.Builder(context)
-                    .maxSizePercent(0.25)
-                    .strongMemoryCache(Build.VERSION.SDK_INT < Build.VERSION_CODES.O)
-                    .build()
+    fun trimMemory(level: Int) {
+        when (level) {
+            ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN,
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW,
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> {
+                imageLoader.memoryCache?.clear()
             }
-            diskCache {
-                DiskCache.Builder()
-                    .directory(File(context.cacheDir, "image_cache"))
-                    .maxSizePercent(0.02)
-                    .build()
-            }
-            crossfade(true)
-            allowHardware(true)
-            bitmapConfig(android.graphics.Bitmap.Config.RGB_565)
         }
     }
 
+    fun clearDiskCache() {
+        imageLoader.diskCache?.clear()
+    }
+}
+
+object PerformanceOptimizer {
+
     // Frame drop monitoring
-    @Composable
+    @androidx.compose.runtime.Composable
     fun rememberFrameDropDetector(
         onFrameDrop: (Long) -> Unit = {}
     ): FrameDropDetector {
-        val detector = remember { FrameDropDetector() }
-        LaunchedEffect(Unit) {
+        val detector = androidx.compose.runtime.remember { FrameDropDetector() }
+        androidx.compose.runtime.LaunchedEffect(Unit) {
             detector.startMonitoring(onFrameDrop)
         }
-        DisposableEffect(Unit) {
+        androidx.compose.runtime.DisposableEffect(Unit) {
             onDispose { detector.stopMonitoring() }
         }
         return detector
     }
 
     class FrameDropDetector {
-        private var choreographer: Choreographer? = null
+        private var choreographer: android.view.Choreographer? = null
         private var lastFrameTime = 0L
         private var isMonitoring = false
 
@@ -61,12 +74,12 @@ object PerformanceOptimizer {
             if (isMonitoring) return
             isMonitoring = true
 
-            choreographer = Choreographer.getInstance()
-            val frameCallback = object : Choreographer.FrameCallback {
+            choreographer = android.view.Choreographer.getInstance()
+            val frameCallback = object : android.view.Choreographer.FrameCallback {
                 override fun doFrame(frameTimeNanos: Long) {
                     if (lastFrameTime != 0L) {
                         val elapsedMs = (frameTimeNanos - lastFrameTime) / 1_000_000
-                        if (elapsedMs > 32) { // More than 2 frames at 60fps
+                        if (elapsedMs > 32) {
                             onFrameDrop(elapsedMs)
                         }
                     }
@@ -85,25 +98,14 @@ object PerformanceOptimizer {
         }
     }
 
-    // Lazy list scroll performance
-    @Composable
-    fun rememberOptimizedScrollState(): LazyListState {
-        return rememberLazyListState()
-    }
-
-    @Composable
-    private fun rememberLazyListState(): LazyListState {
-        return remember { LazyListState() }
-    }
-
     // Debounced search
-    @Composable
+    @androidx.compose.runtime.Composable
     fun <T> rememberDebouncedState(
         value: T,
         delayMs: Long = 300
-    ): State<T> {
-        val debouncedState = remember { mutableStateOf(value) }
-        LaunchedEffect(value) {
+    ): androidx.compose.runtime.State<T> {
+        val debouncedState = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(value) }
+        androidx.compose.runtime.LaunchedEffect(value) {
             kotlinx.coroutines.delay(delayMs)
             debouncedState.value = value
         }
@@ -112,26 +114,8 @@ object PerformanceOptimizer {
 
     // Background processing
     suspend fun <T> processInBackground(block: suspend () -> T): T {
-        return withContext(Dispatchers.Default) {
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
             block()
-        }
-    }
-
-    // Memory cleanup
-    fun trimMemory(context: Context, level: Int) {
-        when (level) {
-            android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN -> {
-                // Clean up image cache
-                val imageLoader = createImageLoader(context)
-                imageLoader.memoryCache?.clear()
-            }
-            android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW,
-            android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> {
-                // More aggressive cleanup
-                val imageLoader = createImageLoader(context)
-                imageLoader.memoryCache?.clear()
-                imageLoader.diskCache?.clear()
-            }
         }
     }
 }

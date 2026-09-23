@@ -6,6 +6,8 @@ import com.tmgl.league.data.SupabaseConfig
 import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -32,14 +34,16 @@ object OfflineScoreQueue {
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing
     private val queue = mutableListOf<PendingScore>()
+    private val mutex = Mutex()
 
     fun load(context: Context) {
         try {
             val file = File(context.filesDir, QUEUE_FILE)
             if (file.exists()) {
                 val json = file.readText()
+                val loadedQueue = Json.decodeFromString<List<PendingScore>>(json)
                 queue.clear()
-                queue.addAll(Json.decodeFromString<List<PendingScore>>(json))
+                queue.addAll(loadedQueue)
                 _pendingCount.value = queue.size
             }
         } catch (e: Exception) {
@@ -47,7 +51,7 @@ object OfflineScoreQueue {
         }
     }
 
-    fun add(context: Context, score: PendingScore) {
+    suspend fun add(context: Context, score: PendingScore) = mutex.withLock {
         queue.add(score)
         save(context)
         _pendingCount.value = queue.size
@@ -65,30 +69,32 @@ object OfflineScoreQueue {
     suspend fun syncAll(context: Context) {
         if (_isSyncing.value || queue.isEmpty()) return
         _isSyncing.value = true
-        val iterator = queue.iterator()
-        while (iterator.hasNext()) {
-            val score = iterator.next()
-            try {
-                SupabaseConfig.client.from("scorecard_holes").insert(
-                    mapOf<String, Any>(
-                        "match_id" to score.matchId,
-                        "hole_number" to score.holeNumber,
-                        "par" to score.par,
-                        "strokes" to score.strokes,
-                        "score_to_par" to score.scoreToPar,
-                        "putts" to score.putts,
-                        "fairway_hit" to score.fairwayHit,
-                        "green_in_regulation" to score.gir
+        mutex.withLock {
+            val iterator = queue.iterator()
+            while (iterator.hasNext()) {
+                val score = iterator.next()
+                try {
+                    SupabaseConfig.client.from("scorecard_holes").insert(
+                        mapOf<String, Any>(
+                            "match_id" to score.matchId,
+                            "hole_number" to score.holeNumber,
+                            "par" to score.par,
+                            "strokes" to score.strokes,
+                            "score_to_par" to score.scoreToPar,
+                            "putts" to score.putts,
+                            "fairway_hit" to score.fairwayHit,
+                            "green_in_regulation" to score.gir
+                        )
                     )
-                )
-                iterator.remove()
-            } catch (e: Exception) {
-                Log.e("OfflineScoreQueue", "Sync failed for score", e)
-                break
+                    iterator.remove()
+                } catch (e: Exception) {
+                    Log.e("OfflineScoreQueue", "Sync failed for score", e)
+                    break
+                }
             }
+            save(context)
+            _pendingCount.value = queue.size
         }
-        save(context)
-        _pendingCount.value = queue.size
         _isSyncing.value = false
     }
 }
