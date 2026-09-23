@@ -2,7 +2,10 @@ package com.tmgl.league.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tmgl.league.auth.BiometricAuthManager
+import com.tmgl.league.auth.EncryptedAuthStorage
 import com.tmgl.league.data.crashlytics.CrashlyticsHelper
+import com.tmgl.league.data.offline.OfflineCache
 import com.tmgl.league.data.repository.AuthRepository
 import com.tmgl.league.data.repository.AuthState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,7 +16,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val encryptedStorage: EncryptedAuthStorage,
+    private val biometricAuthManager: BiometricAuthManager
 ) : ViewModel() {
     private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
     val authState: StateFlow<AuthState> = _authState

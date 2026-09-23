@@ -90,12 +90,6 @@ android {
         xmlReport true
     }
 
-    androidResources {
-        additionalAssets {
-            // Pre-optimize PNGs
-        }
-    }
-
     packaging {
         resources { excludes += '/META-INF/{AL2.0,LGPL2.1}' }
     }
@@ -142,6 +136,9 @@ dependencies {
 
     // Biometric Authentication
     implementation "androidx.biometric:biometric:1.2.0-alpha05"
+
+    // Encrypted SharedPreferences
+    implementation "androidx.security:security-crypto:1.1.0-alpha06"
 
     // DataStore
     implementation "androidx.datastore:datastore-preferences:1.1.1"
