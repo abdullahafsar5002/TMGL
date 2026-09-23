@@ -90,7 +90,7 @@ fun LoginScreen(
                     onValueChange = { email = it; error = null },
                     label = "Email",
                     leadingIcon = Icons.Default.Email,
-                    error = error
+                    error = null
                 )
 
                 TmglTextField(

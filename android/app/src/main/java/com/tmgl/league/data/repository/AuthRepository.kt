@@ -100,13 +100,14 @@ class AuthRepository @Inject constructor(
                 encryptedStorage.saveSession(accessToken, refreshToken ?: "", userId, userEmail)
                 AuthResult.Success
             } else {
-                val errorMsg = jsonEl["error_description"]?.jsonPrimitive?.content
+                val rawError = jsonEl["error_description"]?.jsonPrimitive?.content
                     ?: jsonEl["msg"]?.jsonPrimitive?.content
+                    ?: jsonEl["error"]?.jsonPrimitive?.content
                     ?: "Invalid login credentials"
-                AuthResult.Error(errorMsg)
+                AuthResult.Error(mapAuthError(rawError))
             }
         } catch (e: Exception) {
-            AuthResult.Error(e.message ?: "Sign in failed")
+            AuthResult.Error("Network error. Please check your connection and try again.")
         }
     }
 
@@ -220,6 +221,28 @@ class AuthRepository @Inject constructor(
         } catch (e: Exception) {
             encryptedStorage.clearSession()
             AuthState.Unauthenticated
+        }
+    }
+
+    private fun mapAuthError(rawError: String): String {
+        return when {
+            rawError.contains("Invalid login credentials", ignoreCase = true) ->
+                "Incorrect email or password. Please try again."
+            rawError.contains("Email not confirmed", ignoreCase = true) ->
+                "Please confirm your email address before signing in."
+            rawError.contains("User not found", ignoreCase = true) ->
+                "No account found with this email. Please sign up first."
+            rawError.contains("Pin verification", ignoreCase = true) ->
+                "Incorrect email or password. Please try again."
+            rawError.contains("rate limit", ignoreCase = true) ->
+                "Too many attempts. Please wait a moment and try again."
+            rawError.contains("Invalid email", ignoreCase = true) ->
+                "Please enter a valid email address."
+            rawError.contains("Password should be", ignoreCase = true) ->
+                "Password must be at least 6 characters."
+            rawError.contains("Signup is disabled", ignoreCase = true) ->
+                "Registration is currently disabled. Please contact support."
+            else -> rawError
         }
     }
 
