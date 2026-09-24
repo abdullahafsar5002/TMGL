@@ -14,9 +14,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tmgl.league.data.SupabaseConfig
-import com.tmgl.league.data.repository.CompetitionRepository
 import com.tmgl.league.data.repository.DataResult
 import com.tmgl.league.ui.theme.*
+import com.tmgl.league.ui.viewmodel.CompetitionViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import io.github.jan.supabase.postgrest.from
 import kotlinx.serialization.Serializable
 
@@ -37,7 +38,8 @@ fun TournamentLeaderboardScreen(
     var entries by remember { mutableStateOf<List<TournamentLeaderboardEntry>>(emptyList()) }
     var tournamentName by remember { mutableStateOf("Tournament") }
     var isLoading by remember { mutableStateOf(true) }
-    val repository = remember { CompetitionRepository() }
+    val viewModel: CompetitionViewModel = hiltViewModel()
+    val repository = viewModel.repository
 
     LaunchedEffect(tournamentId) {
         try {

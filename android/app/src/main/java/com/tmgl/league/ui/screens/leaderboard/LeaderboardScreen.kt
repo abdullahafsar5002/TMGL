@@ -39,7 +39,6 @@ fun LeaderboardScreen(
     var selectedTournamentId by remember { mutableStateOf<String?>(null) }
     var selectedTournamentName by remember { mutableStateOf<String?>(null) }
     var showTournamentMenu by remember { mutableStateOf(false) }
-    var isRefreshing by remember { mutableStateOf(false) }
     val pullRefreshState = rememberPullToRefreshState()
     val listState = rememberLazyListState()
 
@@ -65,18 +64,16 @@ fun LeaderboardScreen(
 
     Scaffold(topBar = { TmglTopBar(title = "Leaderboard", onBack = onBack) }) { paddingValues ->
         PullToRefreshBox(
-            isRefreshing = isRefreshing,
+            isRefreshing = isLoading,
             onRefresh = {
-                isRefreshing = true
                 selectedTournamentId?.let {
                     leaderboardViewModel.loadLeaderboardForTournament(it)
                 }
-                isRefreshing = false
             },
             state = pullRefreshState
         ) {
             when {
-                isLoading && !isRefreshing -> LoadingIndicator(modifier = Modifier.padding(paddingValues))
+                isLoading && entries.isEmpty() -> LoadingIndicator(modifier = Modifier.padding(paddingValues))
                 error != null -> ErrorState(message = error ?: "", onRetry = {
                     selectedTournamentId?.let {
                         leaderboardViewModel.loadLeaderboardForTournament(it)
@@ -89,7 +86,6 @@ fun LeaderboardScreen(
                     modifier = Modifier.padding(paddingValues)
                 )
                 else -> {
-                    isRefreshing = false
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.padding(paddingValues),

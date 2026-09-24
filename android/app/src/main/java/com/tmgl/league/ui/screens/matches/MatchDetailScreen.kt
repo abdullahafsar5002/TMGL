@@ -12,9 +12,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tmgl.league.data.model.Match
-import com.tmgl.league.data.repository.CompetitionRepository
 import com.tmgl.league.data.repository.DataResult
 import com.tmgl.league.ui.components.*
+import com.tmgl.league.ui.viewmodel.CompetitionViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
 fun MatchDetailScreen(
@@ -25,7 +26,8 @@ fun MatchDetailScreen(
     var match by remember { mutableStateOf<Match?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    val repository = remember { CompetitionRepository() }
+    val viewModel: CompetitionViewModel = hiltViewModel()
+    val repository = viewModel.repository
 
     LaunchedEffect(matchId) {
         when (val result = repository.getMatch(matchId)) {

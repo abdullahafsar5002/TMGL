@@ -22,10 +22,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.tmgl.league.data.model.ScorecardHole
 import com.tmgl.league.data.model.ScorecardStatus
-import com.tmgl.league.data.repository.CompetitionRepository
 import com.tmgl.league.data.repository.DataResult
 import com.tmgl.league.ui.components.*
+import com.tmgl.league.ui.viewmodel.CompetitionViewModel
 import com.tmgl.league.util.HapticFeedbackHelper
+import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,7 +39,8 @@ fun ScoringScreen(matchId: String?, onBack: () -> Unit) {
     var successMessage by remember { mutableStateOf<String?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var scorecardId by remember { mutableStateOf<String?>(null) }
-    val repository = remember { CompetitionRepository() }
+    val viewModel: CompetitionViewModel = hiltViewModel()
+    val repository = viewModel.repository
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current

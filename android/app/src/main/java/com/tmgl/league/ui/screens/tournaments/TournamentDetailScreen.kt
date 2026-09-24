@@ -23,13 +23,14 @@ import com.tmgl.league.data.model.Tournament
 import com.tmgl.league.data.model.Round
 import com.tmgl.league.data.model.Scorecard
 import com.tmgl.league.data.model.ScorecardHole
-import com.tmgl.league.data.repository.CompetitionRepository
 import com.tmgl.league.data.repository.DataResult
 import com.tmgl.league.ui.components.*
 import com.tmgl.league.ui.screens.export.ScoreExportManager
 import com.tmgl.league.ui.theme.TmglGreen
+import com.tmgl.league.ui.viewmodel.CompetitionViewModel
 import com.tmgl.league.notification.NotificationHelper
 import com.tmgl.league.data.SupabaseConfig
+import androidx.hilt.navigation.compose.hiltViewModel
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.from
 import androidx.compose.runtime.mutableIntStateOf
@@ -71,7 +72,8 @@ fun TournamentDetailScreen(
     var showJoinDialog by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    val repository = remember { CompetitionRepository() }
+    val viewModel: CompetitionViewModel = hiltViewModel()
+    val repository = viewModel.repository
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(tournamentId) {
