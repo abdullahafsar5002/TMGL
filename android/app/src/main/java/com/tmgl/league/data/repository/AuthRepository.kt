@@ -2,14 +2,11 @@ package com.tmgl.league.data.repository
 
 import com.tmgl.league.BuildConfig
 import com.tmgl.league.auth.EncryptedAuthStorage
-import com.tmgl.league.data.SupabaseConfig
 import com.tmgl.league.data.model.Profile
-import io.github.jan.supabase.gotrue.auth
-import io.github.jan.supabase.postgrest.from
-import io.github.jan.supabase.postgrest.query.Columns
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -18,6 +15,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
@@ -45,8 +43,6 @@ sealed class AuthState {
 class AuthRepository @Inject constructor(
     val encryptedStorage: EncryptedAuthStorage
 ) {
-    private val postgrest = SupabaseConfig.client
-
     private val httpClient = HttpClient(OkHttp) {
         install(ContentNegotiation) {
             json(Json {
@@ -151,7 +147,16 @@ class AuthRepository @Inject constructor(
     }
 
     suspend fun resetPassword(email: String) {
-        SupabaseConfig.client.auth.resetPasswordForEmail(email)
+        val body = buildJsonObject {
+            put("email", email)
+        }
+        httpClient.post(
+            "${BuildConfig.SUPABASE_URL}/auth/v1/recover"
+        ) {
+            contentType(ContentType.Application.Json)
+            header("apikey", BuildConfig.SUPABASE_ANON_KEY)
+            setBody(body.toString())
+        }
     }
 
     suspend fun signOut() {
@@ -250,13 +255,18 @@ class AuthRepository @Inject constructor(
 
     private suspend fun fetchProfile(userId: String): Profile? {
         return try {
-            postgrest.from("profiles")
-                .select(Columns.raw("id, full_name, email, avatar_url, role, handicap_index, created_at, updated_at")) {
-                    filter { eq("id", userId) }
-                }
-                .decodeList<Profile>()
-                .firstOrNull()
+            val token = encryptedStorage.getAccessToken() ?: return null
+            val response = httpClient.get(
+                "${BuildConfig.SUPABASE_URL}/rest/v1/profiles?id=eq.$userId&select=id,full_name,email,avatar_url,role,handicap_index,created_at,updated_at"
+            ) {
+                header("apikey", BuildConfig.SUPABASE_ANON_KEY)
+                header("Authorization", "Bearer $token")
+            }
+            val text = response.bodyAsText()
+            val arr = json.parseToJsonElement(text) as? JsonArray
+            arr?.firstOrNull()?.let { json.decodeFromString<Profile>(it.toString()) }
         } catch (e: Exception) {
+            android.util.Log.e("AuthRepository", "fetchProfile failed", e)
             null
         }
     }
