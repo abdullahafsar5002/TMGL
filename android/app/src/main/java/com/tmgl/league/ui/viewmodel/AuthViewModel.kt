@@ -45,8 +45,16 @@ class AuthViewModel @Inject constructor(
                 val result = authRepository.signIn(email, password)
                 when (result) {
                     is com.tmgl.league.data.repository.AuthResult.Success -> {
-                        _authState.value = authRepository.getCurrentUser()
+                        val userId = encryptedStorage.getUserId() ?: ""
+                        val userEmail = encryptedStorage.getUserEmail()
+                        _authState.value = com.tmgl.league.data.repository.AuthState.Authenticated(userId, userEmail, null)
                         onSuccess()
+                        viewModelScope.launch {
+                            try {
+                                val fullState = authRepository.getCurrentUser()
+                                _authState.value = fullState
+                            } catch (_: Exception) {}
+                        }
                     }
                     is com.tmgl.league.data.repository.AuthResult.Error -> {
                         onError(result.message)
@@ -65,8 +73,16 @@ class AuthViewModel @Inject constructor(
                 val result = authRepository.signUp(email, password, fullName)
                 when (result) {
                     is com.tmgl.league.data.repository.AuthResult.Success -> {
-                        _authState.value = authRepository.getCurrentUser()
+                        val userId = encryptedStorage.getUserId() ?: ""
+                        val userEmail = encryptedStorage.getUserEmail()
+                        _authState.value = com.tmgl.league.data.repository.AuthState.Authenticated(userId, userEmail, null)
                         onSuccess()
+                        viewModelScope.launch {
+                            try {
+                                val fullState = authRepository.getCurrentUser()
+                                _authState.value = fullState
+                            } catch (_: Exception) {}
+                        }
                     }
                     is com.tmgl.league.data.repository.AuthResult.Error -> {
                         onError(result.message)
