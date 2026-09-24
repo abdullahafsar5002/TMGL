@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Trophy, Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -25,7 +25,7 @@ export function LoginPage() {
     }
   }, [isAuthenticated, authLoading, navigate, from]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
 

@@ -18,17 +18,13 @@ import type {
   LeaderboardEntry,
   TournamentStatus,
   MatchStatus,
+  PaginatedResult,
 } from '@/types/database';
 import type { ServiceResult } from '@/types/service';
 
 // -------------------------------------------------------------------
 // Tournaments
 // -------------------------------------------------------------------
-
-export interface PaginatedResult<T> {
-  data: T[];
-  total: number;
-}
 
 export async function getTournamentsPaginated(
   page: number,

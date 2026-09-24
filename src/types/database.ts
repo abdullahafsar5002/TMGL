@@ -2,6 +2,11 @@
  * Database Types reflecting TMGL schema (migrations 0001-0009)
  */
 
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+}
+
 export type UserRole = 'super_admin' | 'league_manager' | 'player' | 'public';
 export type SeasonStatus = 'draft' | 'active' | 'completed' | 'archived';
 export type TournamentStatus = 'draft' | 'open' | 'closed' | 'live' | 'completed' | 'cancelled';

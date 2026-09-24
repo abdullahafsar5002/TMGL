@@ -39,6 +39,7 @@ const RATING_BG = {
 
 export function AdvancedAnalytics({ playerId }: AdvancedAnalyticsProps) {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [scores, setScores] = useState<PracticeScore[]>([]);
   const [consistency, setConsistency] = useState<ConsistencyResult | null>(null);
   const [parAnalysis, setParAnalysis] = useState<ParTypeAnalysis | null>(null);
@@ -46,25 +47,40 @@ export function AdvancedAnalytics({ playerId }: AdvancedAnalyticsProps) {
 
   useEffect(() => {
     async function load() {
-      const result = await getPlayerScoresForAnalytics(playerId);
-      if (result.data) {
-        setScores(result.data);
-        const grossScores = result.data.reduce<Map<string, number>>((map, s) => {
-          const existing = map.get(s.practice_round_id) ?? 0;
-          map.set(s.practice_round_id, existing + s.score);
-          return map;
-        }, new Map());
-        const totals = [...grossScores.values()];
-        setConsistency(calculateConsistency(totals));
-        setParAnalysis(analyzeParTypes(result.data));
-        setHoleDiff(analyzeHoleDifficulty(result.data));
+      try {
+        const result = await getPlayerScoresForAnalytics(playerId);
+        if (result.error) {
+          setError('Failed to load analytics data.');
+          setLoading(false);
+          return;
+        }
+        if (result.data) {
+          setScores(result.data);
+          const grossScores = result.data.reduce<Map<string, number>>((map, s) => {
+            const existing = map.get(s.practice_round_id) ?? 0;
+            map.set(s.practice_round_id, existing + s.score);
+            return map;
+          }, new Map());
+          const totals = [...grossScores.values()];
+          setConsistency(calculateConsistency(totals));
+          setParAnalysis(analyzeParTypes(result.data));
+          setHoleDiff(analyzeHoleDifficulty(result.data));
+        }
+      } catch {
+        setError('Something went wrong while analyzing your game.');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     load();
   }, [playerId]);
 
   if (loading) return <LoadingState message="Analyzing your game..." />;
+  if (error) return (
+    <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+      {error}
+    </div>
+  );
   if (scores.length < 5) return null;
 
   return (

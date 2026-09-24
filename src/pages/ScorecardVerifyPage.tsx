@@ -256,7 +256,7 @@ export function ScorecardVerifyPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => navigate(`/scorecards/${sc.id}`)}
+                    onClick={() => navigate(`/scorecard/${sc.id}`)}
                     className="ml-auto"
                   >
                     View <ChevronRight className="w-4 h-4 ml-1" />

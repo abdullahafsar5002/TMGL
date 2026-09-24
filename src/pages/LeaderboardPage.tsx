@@ -184,7 +184,7 @@ export function LeaderboardPage() {
                   </Badge>
                 )}
                 {entry.scorecard_id && (
-                  <button onClick={(e) => { e.stopPropagation(); navigate(`/scorecards/${entry.scorecard_id}`); }}
+                  <button onClick={(e) => { e.stopPropagation(); navigate(`/scorecard/${entry.scorecard_id}`); }}
                     className="text-xs text-tmgl-green-800 hover:underline flex items-center gap-0.5">
                     <FileText className="w-3 h-3" /> Scorecard
                   </button>

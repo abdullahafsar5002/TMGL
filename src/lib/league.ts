@@ -17,17 +17,13 @@ import type {
   TeamMember,
   Course,
   CourseHole,
+  PaginatedResult,
 } from '@/types/database';
 import type { ServiceResult } from '@/types/service';
 
 // -------------------------------------------------------------------
 // Seasons
 // -------------------------------------------------------------------
-
-export interface PaginatedResult<T> {
-  data: T[];
-  total: number;
-}
 
 export async function getSeasonsPaginated(
   page: number,

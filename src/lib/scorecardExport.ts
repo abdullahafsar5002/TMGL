@@ -261,7 +261,7 @@ export function generateRoundSummaryImage(data: RoundSummaryData): Promise<Blob>
     ctx.fillStyle = '#475569';
     ctx.font = '20px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Played on TMGL • toruk-makto.vercel.app', W / 2, y);
+    ctx.fillText('Played on TMGL • tmgl.vercel.app', W / 2, y);
 
     // Bottom accent bar
     ctx.fillStyle = '#22C55E';

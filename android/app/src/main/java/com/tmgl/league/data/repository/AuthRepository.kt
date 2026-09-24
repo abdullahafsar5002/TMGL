@@ -6,6 +6,7 @@ import com.tmgl.league.data.model.Profile
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -52,6 +53,9 @@ class AuthRepository @Inject constructor(
         }
         engine {
             config {
+                connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                writeTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
                 addInterceptor { chain ->
                     val original = chain.request()
                     val token = encryptedStorage.getAccessToken()

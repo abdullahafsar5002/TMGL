@@ -197,7 +197,7 @@ export function HomePage() {
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-tmgl-charcoal-800 text-center text-sm text-tmgl-charcoal-500">
-            © 2025 TMGL. All rights reserved.
+            © {new Date().getFullYear()} TMGL. All rights reserved.
           </div>
         </div>
       </footer>

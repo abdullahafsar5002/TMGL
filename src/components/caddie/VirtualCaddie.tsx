@@ -50,8 +50,16 @@ export function VirtualCaddie({ playerId }: VirtualCaddieProps) {
   const [loading, setLoading] = useState(false);
   const [tips, setTips] = useState<CaddieResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastCall, setLastCall] = useState(0);
 
   const generateTips = async () => {
+    // Rate limit: max 1 request per 30 seconds
+    const now = Date.now();
+    if (now - lastCall < 30000) {
+      setError('Please wait a moment before requesting new tips.');
+      return;
+    }
+    setLastCall(now);
     setLoading(true);
     setError(null);
 
@@ -142,40 +150,19 @@ Respond in this exact JSON format:
   ]
 }`;
 
-      // Call OpenAI API
-      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-      if (!apiKey) {
-        // Fallback: generate tips locally without AI
-        const localTips = generateLocalTips(roundSummaries);
-        setTips(localTips);
-        setLoading(false);
-        return;
-      }
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: analysisPrompt }],
-          temperature: 0.7,
-          max_tokens: 1000,
-        }),
+      // Call OpenAI via Supabase Edge Function (keeps API key secure server-side)
+      const { data: edgeData, error: edgeError } = await supabase.functions.invoke('openai-caddie', {
+        body: { prompt: analysisPrompt },
       });
 
-      if (!response.ok) {
+      if (edgeError || !edgeData?.content) {
         const localTips = generateLocalTips(roundSummaries);
         setTips(localTips);
         setLoading(false);
         return;
       }
 
-      const data = await response.json();
-      const content = data.choices[0]?.message?.content ?? '';
-      const parsed = JSON.parse(content) as CaddieResponse;
+      const parsed = JSON.parse(edgeData.content) as CaddieResponse;
       setTips(parsed);
     } catch {
       setError('Could not generate tips. Try again later.');

@@ -80,6 +80,7 @@ export function calculateMatchPlay(
 export function calculateBestBall(teams: PlayerHoleScores[][]): { 
   teamResults: { teamIndex: number; bestBallScores: HoleScore[] }[];
   totalScore: number;
+  teamTotals: number[];
 } {
   // Find max holes across all players
   const maxHoles = Math.max(...teams.flat().map(p => p.scores.length));
@@ -103,13 +104,15 @@ export function calculateBestBall(teams: PlayerHoleScores[][]): {
   });
 
   const totalScore = teamResults[0]?.bestBallScores.reduce((sum, s) => sum + s.strokes, 0) ?? 0;
-  return { teamResults, totalScore };
+  const teamTotals = teamResults.map(tr => tr.bestBallScores.reduce((sum, s) => sum + s.strokes, 0));
+  return { teamResults, totalScore, teamTotals };
 }
 
 // Scramble: team picks best shot, all play from there
 export function calculateScramble(teams: PlayerHoleScores[][]): {
   teamResults: { teamIndex: number; scrambleScores: HoleScore[] }[];
   totalScore: number;
+  teamTotals: number[];
 } {
   const maxHoles = Math.max(...teams.flat().map(p => p.scores.length));
 
@@ -133,7 +136,8 @@ export function calculateScramble(teams: PlayerHoleScores[][]): {
   });
 
   const totalScore = teamResults[0]?.scrambleScores.reduce((sum, s) => sum + s.strokes, 0) ?? 0;
-  return { teamResults, totalScore };
+  const teamTotals = teamResults.map(tr => tr.scrambleScores.reduce((sum, s) => sum + s.strokes, 0));
+  return { teamResults, totalScore, teamTotals };
 }
 
 // Main dispatcher function

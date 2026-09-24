@@ -39,8 +39,8 @@ import {
   getTeamsByPlayer,
   getTeamsByIds,
   getLeagueStats,
-  type PaginatedResult,
 } from './league';
+import type { PaginatedResult } from '@/types/database';
 import { validateCourse, validateCourseHoles } from './validation';
 import type { Course } from '@/types/database';
 

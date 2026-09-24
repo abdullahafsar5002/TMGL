@@ -499,7 +499,7 @@ export function PlayerDetailPage() {
                 ) : (
                   <div className="space-y-2">
                     {scorecards.map((sc) => (
-                      <button key={sc.id} onClick={() => navigate(`/scorecards/${sc.id}`)} className="w-full text-left">
+                      <button key={sc.id} onClick={() => navigate(`/scorecard/${sc.id}`)} className="w-full text-left">
                         <div className="flex items-center justify-between p-3 rounded-lg border border-tmgl-charcoal-200 hover:border-tmgl-green-300 transition-colors">
                           <div>
                             <p className="text-sm font-medium text-tmgl-charcoal-900">

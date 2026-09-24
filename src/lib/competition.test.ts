@@ -37,13 +37,12 @@ import {
   getDashboardStats,
   getLeagueAnalytics,
   getRecentActivity,
-  type PaginatedResult,
   type TournamentParticipant,
   type DashboardStats,
   type LeagueAnalytics,
   type ActivityItem,
 } from './competition';
-import type { Tournament } from '@/types/database';
+import type { Tournament, PaginatedResult } from '@/types/database';
 
 describe('Competition Service Layer', () => {
   describe('verifyScorecard', () => {

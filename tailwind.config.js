@@ -49,6 +49,8 @@ export default {
             900: '#111827',
             950: '#0B0F17'
           },
+          silver: '#C0C0C0',
+          dark: '#1A1A2E',
           fairway: '#10B981',
           rough: '#D97706',
           sand: '#EAB308',

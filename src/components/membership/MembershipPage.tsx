@@ -120,8 +120,8 @@ export function MembershipPage({ currentMembership, onUpgrade }: MembershipPageP
       });
 
       if (error || !data?.url) {
-        // Fallback: direct to pricing page
-        window.open('https://buy.stripe.com/YOUR_PRICING_LINK', '_blank');
+        // Fallback: direct to contact page for manual upgrade
+        window.open('/contact', '_blank');
       } else {
         window.location.href = data.url;
       }

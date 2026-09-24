@@ -3,7 +3,19 @@
  *
  * Pure functions for golf score calculations.
  * All functions are side-effect free and fully testable.
+ *
+ * Core scoring functions are shared from @/utils/golf.
+ * This module adds practice-specific summary calculations.
  */
+
+import {
+  calculateGrossScore as calcGross,
+  calculateTotalPar as calcTotalPar,
+  calculateToPar as calcToPar,
+  formatToPar as fmtToPar,
+  calculateNineHoleSplits as calcSplits,
+  getScoreTerminology as getTerminology,
+} from '@/utils/golf';
 
 export interface HoleScoreInput {
   hole_number: number;
@@ -42,55 +54,37 @@ export interface PracticeScoreSummary {
   holesCompleted: number;
 }
 
+// Re-export core functions with practice-compatible interface
+function toGolfInput(scores: HoleScoreInput[]) {
+  return scores.map(s => ({ holeNumber: s.hole_number, par: s.par, strokes: s.score }));
+}
+
 export function calculateHoleToPar(score: number, par: number): number {
   return score - par;
 }
 
 export function calculateGrossScore(scores: HoleScoreInput[]): number {
-  return scores.reduce((sum, s) => sum + s.score, 0);
+  return calcGross(toGolfInput(scores));
 }
 
 export function calculateTotalPar(scores: HoleScoreInput[]): number {
-  return scores.reduce((sum, s) => sum + s.par, 0);
+  return calcTotalPar(toGolfInput(scores));
 }
 
 export function calculateToPar(scores: HoleScoreInput[]): number {
-  return calculateGrossScore(scores) - calculateTotalPar(scores);
+  return calcToPar(toGolfInput(scores));
 }
 
 export function formatToPar(toPar: number): string {
-  if (toPar === 0) return 'E';
-  return toPar > 0 ? `+${toPar}` : `${toPar}`;
+  return fmtToPar(toPar);
 }
 
-export function calculateNineHoleSplits(scores: HoleScoreInput[]): {
-  front9Gross: number;
-  front9Par: number;
-  back9Gross: number;
-  back9Par: number;
-} {
-  const front9 = scores.filter(s => s.hole_number <= 9);
-  const back9 = scores.filter(s => s.hole_number > 9);
-
-  return {
-    front9Gross: front9.reduce((sum, s) => sum + s.score, 0),
-    front9Par: front9.reduce((sum, s) => sum + s.par, 0),
-    back9Gross: back9.reduce((sum, s) => sum + s.score, 0),
-    back9Par: back9.reduce((sum, s) => sum + s.par, 0),
-  };
+export function calculateNineHoleSplits(scores: HoleScoreInput[]) {
+  return calcSplits(toGolfInput(scores));
 }
 
 export function getScoreTerminology(strokes: number, par: number): string {
-  const diff = strokes - par;
-  if (strokes === 1) return 'Hole in One';
-  if (diff <= -3) return 'Albatross';
-  if (diff === -2) return 'Eagle';
-  if (diff === -1) return 'Birdie';
-  if (diff === 0) return 'Par';
-  if (diff === 1) return 'Bogey';
-  if (diff === 2) return 'Double Bogey';
-  if (diff === 3) return 'Triple Bogey';
-  return `+${diff}`;
+  return getTerminology(strokes, par);
 }
 
 export function calculatePracticeScoreSummary(scores: HoleScoreInput[]): PracticeScoreSummary {

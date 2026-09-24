@@ -73,7 +73,7 @@ export function CertificationCard({ clubName, partnerSince, features }: Certific
         )}
 
         <a
-          href="https://tmgl.vercel.app/certification"
+          href="/about"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1 text-xs text-tmgl-green hover:underline"
