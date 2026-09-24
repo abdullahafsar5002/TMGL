@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -304,7 +306,8 @@ fun Modifier.shimmer(shimmer: Shimmer): Modifier {
 private fun StatPill(label: String, value: String) {
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.15f)
+        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.15f),
+        modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = "$label: $value" }
     ) {
         Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f))
@@ -317,7 +320,7 @@ private fun StatPill(label: String, value: String) {
 @Composable
 private fun QuickAccessCard(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier.clickable(onClick = onClick),
+        modifier = modifier.clickable(onClick = onClick).semantics(mergeDescendants = true) { contentDescription = label },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)

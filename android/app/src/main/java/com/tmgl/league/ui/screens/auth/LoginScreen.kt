@@ -115,7 +115,7 @@ fun LoginScreen(
                     onClick = {
                         isLoading = true
                         error = null
-                        authViewModel.signIn(email, password,
+                        authViewModel.signIn(email.trim(), password,
                             onSuccess = {
                                 isLoading = false
                                 onLoginSuccess()
@@ -127,7 +127,7 @@ fun LoginScreen(
                         )
                     },
                     loading = isLoading,
-                    enabled = email.isNotBlank() && password.isNotBlank()
+                    enabled = email.isNotBlank() && password.isNotBlank() && !isLoading
                 )
 
                 TextButton(

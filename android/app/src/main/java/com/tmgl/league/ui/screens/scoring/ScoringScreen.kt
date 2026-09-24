@@ -22,6 +22,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.tmgl.league.data.model.ScorecardHole
 import com.tmgl.league.data.model.ScorecardStatus
+import com.tmgl.league.data.offline.NetworkMonitor
+import com.tmgl.league.data.offline.OfflineScoreQueue
+import com.tmgl.league.data.offline.PendingScore
 import com.tmgl.league.data.repository.DataResult
 import com.tmgl.league.ui.components.*
 import com.tmgl.league.ui.viewmodel.CompetitionViewModel
@@ -45,6 +48,7 @@ fun ScoringScreen(matchId: String?, onBack: () -> Unit) {
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
     val hapticPerformer = HapticFeedbackHelper.rememberHapticPerformer()
+    val maxStrokesPerHole = 15
 
     LaunchedEffect(matchId) {
         if (matchId == null) {
@@ -258,9 +262,23 @@ fun ScoringScreen(matchId: String?, onBack: () -> Unit) {
                                     return@launch
                                 }
 
+                                val offlineScores = validHoles.map { hole ->
+                                    PendingScore(
+                                        eventId = "",
+                                        matchId = matchId ?: "",
+                                        holeNumber = hole.holeNumber,
+                                        par = hole.par,
+                                        strokes = hole.strokes,
+                                        scoreToPar = hole.scoreToPar
+                                    )
+                                }
+
                                 val upsertResult = repository.upsertScorecardHoles(validHoles)
                                 if (upsertResult is DataResult.Error) {
-                                    errorMessage = upsertResult.message
+                                    for (score in offlineScores) {
+                                        OfflineScoreQueue.add(context, score)
+                                    }
+                                    successMessage = "Saved offline (${validHoles.size} holes). Will sync when connected."
                                     isSubmitting = false
                                     return@launch
                                 }
