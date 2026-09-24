@@ -6,7 +6,6 @@ import com.tmgl.league.data.model.Profile
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -14,6 +13,7 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
+import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -138,6 +138,7 @@ class AuthRepository @Inject constructor(
 
             if (accessToken != null && userId != null) {
                 encryptedStorage.saveSession(accessToken, refreshToken ?: "", userId, userEmail)
+                ensureProfileExists(userId, userEmail, fullName)
                 AuthResult.Success
             } else {
                 val errorMsg = jsonEl["error_description"]?.jsonPrimitive?.content
@@ -268,10 +269,48 @@ class AuthRepository @Inject constructor(
             }
             val text = response.bodyAsText()
             val arr = json.parseToJsonElement(text) as? JsonArray
-            arr?.firstOrNull()?.let { json.decodeFromString<Profile>(it.toString()) }
+            val profile = arr?.firstOrNull()?.let { json.decodeFromString<Profile>(it.toString()) }
+            if (profile == null) {
+                ensureProfileExists(userId, encryptedStorage.getUserEmail(), null)
+            }
+            profile
         } catch (e: Exception) {
             android.util.Log.e("AuthRepository", "fetchProfile failed", e)
             null
+        }
+    }
+
+    private suspend fun ensureProfileExists(userId: String, email: String?, fullName: String?) {
+        try {
+            val token = encryptedStorage.getAccessToken() ?: return
+            val checkResponse = httpClient.get(
+                "${BuildConfig.SUPABASE_URL}/rest/v1/profiles?id=eq.$userId&select=id"
+            ) {
+                header("apikey", BuildConfig.SUPABASE_ANON_KEY)
+                header("Authorization", "Bearer $token")
+            }
+            val checkText = checkResponse.bodyAsText()
+            val checkArr = json.parseToJsonElement(checkText) as? JsonArray
+            if (checkArr != null && checkArr.isNotEmpty()) return
+
+            val body = buildJsonObject {
+                put("id", userId)
+                put("email", email ?: "")
+                put("full_name", fullName ?: "TMGL Member")
+                put("role", "player")
+            }
+            httpClient.post(
+                "${BuildConfig.SUPABASE_URL}/rest/v1/profiles"
+            ) {
+                contentType(ContentType.Application.Json)
+                header("apikey", BuildConfig.SUPABASE_ANON_KEY)
+                header("Authorization", "Bearer $token")
+                header("Prefer", "return=minimal")
+                setBody(body.toString())
+            }
+            android.util.Log.e("AuthRepository", "Profile created for $userId")
+        } catch (e: Exception) {
+            android.util.Log.e("AuthRepository", "ensureProfileExists failed", e)
         }
     }
 }

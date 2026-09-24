@@ -11,6 +11,16 @@ def keystorePropertiesFile = rootProject.file("key.properties")
 def keystoreProperties = new Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    // Resolve env var references like ${VAR_NAME}
+    keystoreProperties.forEach { key, value ->
+        if (value instanceof String && value.startsWith('${') && value.endsWith('}')) {
+            def envName = value.substring(2, value.length() - 1)
+            def envValue = System.getenv(envName)
+            if (envValue != null) {
+                keystoreProperties.setProperty(key, envValue)
+            }
+        }
+    }
 }
 
 android {

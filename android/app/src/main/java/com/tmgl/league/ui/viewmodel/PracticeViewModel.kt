@@ -31,8 +31,9 @@ class PracticeViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true; _error.value = null
             val authState = authRepository.getCurrentUser()
-            if (authState is AuthState.Authenticated && authState.profile != null) {
-                when (val playerResult = practiceRepository.getPlayerByProfileId(authState.profile.id)) {
+            if (authState is AuthState.Authenticated) {
+                val profileId = authState.profile?.id ?: authState.userId
+                when (val playerResult = practiceRepository.getPlayerByProfileId(profileId)) {
                     is DataResult.Success -> {
                         when (val result = practiceRepository.getPracticeRoundsByPlayer(playerResult.data.id)) {
                             is DataResult.Success -> _rounds.value = result.data

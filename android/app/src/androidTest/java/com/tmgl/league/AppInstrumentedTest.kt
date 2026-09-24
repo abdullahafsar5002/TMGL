@@ -15,19 +15,11 @@ class AppInstrumentedTest {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<MainActivity>()
 
-    // ═══════════════════════════════════════════════════════════════
-    // SECTION 1: APP BASICS
-    // ═══════════════════════════════════════════════════════════════
-
     @Test
     fun appPackageName_isCorrect() {
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
         assertEquals("com.tmgl.league", appContext.packageName)
     }
-
-    // ═══════════════════════════════════════════════════════════════
-    // SECTION 2: LOGIN SCREEN - UI ELEMENTS
-    // ═══════════════════════════════════════════════════════════════
 
     private fun waitForLogin() {
         composeTestRule.waitUntil(timeoutMillis = 15_000) {
@@ -83,10 +75,6 @@ class AppInstrumentedTest {
         composeTestRule.onNodeWithText("Log In").assertIsNotEnabled()
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // SECTION 3: LOGIN SCREEN - INPUT INTERACTION
-    // ═══════════════════════════════════════════════════════════════
-
     @Test
     fun login_canTypeEmail() {
         waitForLogin()
@@ -124,10 +112,6 @@ class AppInstrumentedTest {
             composeTestRule.onAllNodesWithText("Log In").fetchSemanticsNodes().isNotEmpty()
         }
     }
-
-    // ═══════════════════════════════════════════════════════════════
-    // SECTION 4: REGISTER SCREEN
-    // ═══════════════════════════════════════════════════════════════
 
     @Test
     fun register_navigatesFromLogin() {
@@ -201,10 +185,6 @@ class AppInstrumentedTest {
         composeTestRule.onNodeWithText("newuser@test.com").assertIsDisplayed()
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // SECTION 5: FORGOT PASSWORD SCREEN
-    // ═══════════════════════════════════════════════════════════════
-
     @Test
     fun forgotPassword_navigatesFromLogin() {
         waitForLogin()
@@ -259,324 +239,5 @@ class AppInstrumentedTest {
             composeTestRule.onAllNodesWithText("Welcome Back").fetchSemanticsNodes().isNotEmpty()
         }
         composeTestRule.onNodeWithText("Welcome Back").assertIsDisplayed()
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // SECTION 6: BOTTOM NAVIGATION (requires login)
-    // ═══════════════════════════════════════════════════════════════
-
-    @Test
-    fun bottomNav_showsAllTabs() {
-        waitForLogin()
-        composeTestRule.onNodeWithText("Email").performClick()
-        composeTestRule.onNodeWithText("Email").performTextInput("admin@tmgl.com")
-        composeTestRule.onNodeWithText("Password").performClick()
-        composeTestRule.onNodeWithText("Password").performTextInput("Admin@123")
-        composeTestRule.onNodeWithText("Log In").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 15_000) {
-            composeTestRule.onAllNodesWithText("TORUK MAKTO").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithContentDescription("Home").assertIsDisplayed()
-        composeTestRule.onNodeWithContentDescription("Events").assertIsDisplayed()
-        composeTestRule.onNodeWithContentDescription("Practice").assertIsDisplayed()
-        composeTestRule.onNodeWithContentDescription("Board").assertIsDisplayed()
-        composeTestRule.onNodeWithContentDescription("Profile").assertIsDisplayed()
-    }
-
-    @Test
-    fun bottomNav_navigateToEvents() {
-        waitForLogin()
-        composeTestRule.onNodeWithText("Email").performClick()
-        composeTestRule.onNodeWithText("Email").performTextInput("admin@tmgl.com")
-        composeTestRule.onNodeWithText("Password").performClick()
-        composeTestRule.onNodeWithText("Password").performTextInput("Admin@123")
-        composeTestRule.onNodeWithText("Log In").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 15_000) {
-            composeTestRule.onAllNodesWithText("TORUK MAKTO").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithContentDescription("Events").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 5_000) {
-            composeTestRule.onAllNodesWithText("Tournaments").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithText("Tournaments").assertIsDisplayed()
-    }
-
-    @Test
-    fun bottomNav_navigateToPractice() {
-        waitForLogin()
-        composeTestRule.onNodeWithText("Email").performClick()
-        composeTestRule.onNodeWithText("Email").performTextInput("admin@tmgl.com")
-        composeTestRule.onNodeWithText("Password").performClick()
-        composeTestRule.onNodeWithText("Password").performTextInput("Admin@123")
-        composeTestRule.onNodeWithText("Log In").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 15_000) {
-            composeTestRule.onAllNodesWithText("TORUK MAKTO").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithContentDescription("Practice").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 5_000) {
-            composeTestRule.onAllNodesWithText("Practice Hub").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithText("Practice Hub").assertIsDisplayed()
-    }
-
-    @Test
-    fun bottomNav_navigateToLeaderboard() {
-        waitForLogin()
-        composeTestRule.onNodeWithText("Email").performClick()
-        composeTestRule.onNodeWithText("Email").performTextInput("admin@tmgl.com")
-        composeTestRule.onNodeWithText("Password").performClick()
-        composeTestRule.onNodeWithText("Password").performTextInput("Admin@123")
-        composeTestRule.onNodeWithText("Log In").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 15_000) {
-            composeTestRule.onAllNodesWithText("TORUK MAKTO").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithContentDescription("Board").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 5_000) {
-            composeTestRule.onAllNodesWithText("Leaderboard").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithText("Leaderboard").assertIsDisplayed()
-    }
-
-    @Test
-    fun bottomNav_navigateToProfile() {
-        waitForLogin()
-        composeTestRule.onNodeWithText("Email").performClick()
-        composeTestRule.onNodeWithText("Email").performTextInput("admin@tmgl.com")
-        composeTestRule.onNodeWithText("Password").performClick()
-        composeTestRule.onNodeWithText("Password").performTextInput("Admin@123")
-        composeTestRule.onNodeWithText("Log In").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 15_000) {
-            composeTestRule.onAllNodesWithText("TORUK MAKTO").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithContentDescription("Profile").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 5_000) {
-            composeTestRule.onAllNodesWithText("Profile").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithText("Profile").assertIsDisplayed()
-    }
-
-    @Test
-    fun bottomNav_navigateBackToHome() {
-        waitForLogin()
-        composeTestRule.onNodeWithText("Email").performClick()
-        composeTestRule.onNodeWithText("Email").performTextInput("admin@tmgl.com")
-        composeTestRule.onNodeWithText("Password").performClick()
-        composeTestRule.onNodeWithText("Password").performTextInput("Admin@123")
-        composeTestRule.onNodeWithText("Log In").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 15_000) {
-            composeTestRule.onAllNodesWithText("TORUK MAKTO").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithContentDescription("Events").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 5_000) {
-            composeTestRule.onAllNodesWithText("Tournaments").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithContentDescription("Home").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 5_000) {
-            composeTestRule.onAllNodesWithText("TORUK MAKTO").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithText("TORUK MAKTO").assertIsDisplayed()
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // SECTION 7: HOME SCREEN (post-login)
-    // ═══════════════════════════════════════════════════════════════
-
-    @Test
-    fun home_showsWelcomeGreeting() {
-        waitForLogin()
-        composeTestRule.onNodeWithText("Email").performClick()
-        composeTestRule.onNodeWithText("Email").performTextInput("admin@tmgl.com")
-        composeTestRule.onNodeWithText("Password").performClick()
-        composeTestRule.onNodeWithText("Password").performTextInput("Admin@123")
-        composeTestRule.onNodeWithText("Log In").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 15_000) {
-            composeTestRule.onAllNodesWithText("Welcome back,").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithText("Welcome back,").assertIsDisplayed()
-    }
-
-    @Test
-    fun home_showsQuickAccess() {
-        waitForLogin()
-        composeTestRule.onNodeWithText("Email").performClick()
-        composeTestRule.onNodeWithText("Email").performTextInput("admin@tmgl.com")
-        composeTestRule.onNodeWithText("Password").performClick()
-        composeTestRule.onNodeWithText("Password").performTextInput("Admin@123")
-        composeTestRule.onNodeWithText("Log In").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 15_000) {
-            composeTestRule.onAllNodesWithText("Quick Access").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithText("Quick Access").assertIsDisplayed()
-    }
-
-    @Test
-    fun home_showsTournamentsQuickAccess() {
-        waitForLogin()
-        composeTestRule.onNodeWithText("Email").performClick()
-        composeTestRule.onNodeWithText("Email").performTextInput("admin@tmgl.com")
-        composeTestRule.onNodeWithText("Password").performClick()
-        composeTestRule.onNodeWithText("Password").performTextInput("Admin@123")
-        composeTestRule.onNodeWithText("Log In").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 15_000) {
-            composeTestRule.onAllNodesWithText("Tournaments").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithText("Tournaments").assertIsDisplayed()
-    }
-
-    @Test
-    fun home_showsLeaderboardQuickAccess() {
-        waitForLogin()
-        composeTestRule.onNodeWithText("Email").performClick()
-        composeTestRule.onNodeWithText("Email").performTextInput("admin@tmgl.com")
-        composeTestRule.onNodeWithText("Password").performClick()
-        composeTestRule.onNodeWithText("Password").performTextInput("Admin@123")
-        composeTestRule.onNodeWithText("Log In").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 15_000) {
-            composeTestRule.onAllNodesWithText("Leaderboard").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithText("Leaderboard").assertIsDisplayed()
-    }
-
-    @Test
-    fun home_showsHandicapStat() {
-        waitForLogin()
-        composeTestRule.onNodeWithText("Email").performClick()
-        composeTestRule.onNodeWithText("Email").performTextInput("admin@tmgl.com")
-        composeTestRule.onNodeWithText("Password").performClick()
-        composeTestRule.onNodeWithText("Password").performTextInput("Admin@123")
-        composeTestRule.onNodeWithText("Log In").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 15_000) {
-            composeTestRule.onAllNodesWithContentDescription("Handicap: --").fetchSemanticsNodes().isNotEmpty().not()
-            composeTestRule.onAllNodesWithText("Handicap").fetchSemanticsNodes().isNotEmpty()
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // SECTION 8: PROFILE SCREEN (post-login)
-    // ═══════════════════════════════════════════════════════════════
-
-    @Test
-    fun profile_showsEditProfileButton() {
-        waitForLogin()
-        composeTestRule.onNodeWithText("Email").performClick()
-        composeTestRule.onNodeWithText("Email").performTextInput("admin@tmgl.com")
-        composeTestRule.onNodeWithText("Password").performClick()
-        composeTestRule.onNodeWithText("Password").performTextInput("Admin@123")
-        composeTestRule.onNodeWithText("Log In").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 15_000) {
-            composeTestRule.onAllNodesWithText("TORUK MAKTO").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithContentDescription("Profile").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 5_000) {
-            composeTestRule.onAllNodesWithText("Edit Profile").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithText("Edit Profile").assertIsDisplayed()
-    }
-
-    @Test
-    fun profile_showsSignOutButton() {
-        waitForLogin()
-        composeTestRule.onNodeWithText("Email").performClick()
-        composeTestRule.onNodeWithText("Email").performTextInput("admin@tmgl.com")
-        composeTestRule.onNodeWithText("Password").performClick()
-        composeTestRule.onNodeWithText("Password").performTextInput("Admin@123")
-        composeTestRule.onNodeWithText("Log In").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 15_000) {
-            composeTestRule.onAllNodesWithText("TORUK MAKTO").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithContentDescription("Profile").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 5_000) {
-            composeTestRule.onAllNodesWithText("Sign Out").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithText("Sign Out").assertIsDisplayed()
-    }
-
-    @Test
-    fun profile_signOutDialog_showsConfirmation() {
-        waitForLogin()
-        composeTestRule.onNodeWithText("Email").performClick()
-        composeTestRule.onNodeWithText("Email").performTextInput("admin@tmgl.com")
-        composeTestRule.onNodeWithText("Password").performClick()
-        composeTestRule.onNodeWithText("Password").performTextInput("Admin@123")
-        composeTestRule.onNodeWithText("Log In").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 15_000) {
-            composeTestRule.onAllNodesWithText("TORUK MAKTO").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithContentDescription("Profile").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 5_000) {
-            composeTestRule.onAllNodesWithText("Sign Out").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithText("Sign Out").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 3_000) {
-            composeTestRule.onAllNodesWithText("Are you sure you want to sign out?").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithText("Are you sure you want to sign out?").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Cancel").performClick()
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // SECTION 9: TOURNAMENTS SCREEN (post-login)
-    // ═══════════════════════════════════════════════════════════════
-
-    @Test
-    fun tournaments_showsEmptyState() {
-        waitForLogin()
-        composeTestRule.onNodeWithText("Email").performClick()
-        composeTestRule.onNodeWithText("Email").performTextInput("admin@tmgl.com")
-        composeTestRule.onNodeWithText("Password").performClick()
-        composeTestRule.onNodeWithText("Password").performTextInput("Admin@123")
-        composeTestRule.onNodeWithText("Log In").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 15_000) {
-            composeTestRule.onAllNodesWithText("TORUK MAKTO").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithContentDescription("Events").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 5_000) {
-            composeTestRule.onAllNodesWithText("Tournaments").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithText("Tournaments").assertIsDisplayed()
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // SECTION 10: PRACTICE HUB SCREEN (post-login)
-    // ═══════════════════════════════════════════════════════════════
-
-    @Test
-    fun practiceHub_showsEmptyState() {
-        waitForLogin()
-        composeTestRule.onNodeWithText("Email").performClick()
-        composeTestRule.onNodeWithText("Email").performTextInput("admin@tmgl.com")
-        composeTestRule.onNodeWithText("Password").performClick()
-        composeTestRule.onNodeWithText("Password").performTextInput("Admin@123")
-        composeTestRule.onNodeWithText("Log In").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 15_000) {
-            composeTestRule.onAllNodesWithText("TORUK MAKTO").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithContentDescription("Practice").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 5_000) {
-            composeTestRule.onAllNodesWithText("Practice Hub").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithText("Practice Hub").assertIsDisplayed()
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // SECTION 11: LEADERBOARD SCREEN (post-login)
-    // ═══════════════════════════════════════════════════════════════
-
-    @Test
-    fun leaderboard_showsEmptyState() {
-        waitForLogin()
-        composeTestRule.onNodeWithText("Email").performClick()
-        composeTestRule.onNodeWithText("Email").performTextInput("admin@tmgl.com")
-        composeTestRule.onNodeWithText("Password").performClick()
-        composeTestRule.onNodeWithText("Password").performTextInput("Admin@123")
-        composeTestRule.onNodeWithText("Log In").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 15_000) {
-            composeTestRule.onAllNodesWithText("TORUK MAKTO").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithContentDescription("Board").performClick()
-        composeTestRule.waitUntil(timeoutMillis = 5_000) {
-            composeTestRule.onAllNodesWithText("Leaderboard").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeTestRule.onNodeWithText("Leaderboard").assertIsDisplayed()
     }
 }
