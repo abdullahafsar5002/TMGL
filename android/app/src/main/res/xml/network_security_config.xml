@@ -6,17 +6,6 @@
         <domain includeSubdomains="true">localhost</domain>
     </domain-config>
 
-    <!-- Production config with certificate pinning -->
-    <domain-config>
-        <domain includeSubdomains="true">supabase.co</domain>
-        <pin-set expiration="2027-01-01">
-            <!-- Supabase primary pin -->
-            <pin digest="SHA-256">YLh1dUR9y6Kja30RrAn7JKnbQG/uEtLMkBgFF2Fuihg=</pin>
-            <!-- Backup pin -->
-            <pin digest="SHA-256">sRHdihwgkaib1P1gNlBfbS4Krp4LU3mKG6FqMBeyxAc=</pin>
-        </pin-set>
-    </domain-config>
-
     <!-- Default security config -->
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>

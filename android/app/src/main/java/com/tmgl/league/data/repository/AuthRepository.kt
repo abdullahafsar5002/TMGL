@@ -107,7 +107,9 @@ class AuthRepository @Inject constructor(
                 AuthResult.Error(mapAuthError(rawError))
             }
         } catch (e: Exception) {
-            AuthResult.Error("Network error. Please check your connection and try again.")
+            android.util.Log.e("AuthRepository", "Sign in failed", e)
+            val detail = e.message ?: "Unknown error"
+            AuthResult.Error("Sign in failed: $detail")
         }
     }
 
