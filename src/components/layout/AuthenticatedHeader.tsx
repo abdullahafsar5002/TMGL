@@ -63,6 +63,7 @@ export function AuthenticatedHeader() {
 
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuPanelRef = useRef<HTMLDivElement>(null);
   const profileButtonRef = useRef<HTMLButtonElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -110,17 +111,21 @@ export function AuthenticatedHeader() {
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (
-        mobileMenuRef.current && !mobileMenuRef.current.contains(target) &&
-        mobileMenuButtonRef.current && !mobileMenuButtonRef.current.contains(target)
-      ) {
+    const handlePointerDownOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node;
+      const insideButton = mobileMenuButtonRef.current?.contains(target) ?? false;
+      const insideWrapper = mobileMenuRef.current?.contains(target) ?? false;
+      const insidePanel = mobileMenuPanelRef.current?.contains(target) ?? false;
+      if (!insideButton && !insideWrapper && !insidePanel) {
         setMobileMenuOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handlePointerDownOutside);
+    document.addEventListener('touchstart', handlePointerDownOutside);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDownOutside);
+      document.removeEventListener('touchstart', handlePointerDownOutside);
+    };
   }, [mobileMenuOpen]);
 
   useEffect(() => {
@@ -309,6 +314,7 @@ export function AuthenticatedHeader() {
         {mobileMenuOpen && (
           <div
             id={MOBILE_MENU_ID}
+            ref={mobileMenuPanelRef}
             className="lg:hidden py-3 border-t border-tmgl-green-800/80 max-h-[calc(100vh-4rem)] overflow-y-auto overscroll-contain"
           >
             <nav aria-label="Mobile" className="space-y-1">

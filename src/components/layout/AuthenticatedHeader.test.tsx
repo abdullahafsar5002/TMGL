@@ -65,6 +65,47 @@ describe('AuthenticatedHeader navigation', () => {
     }
   });
 
+  it('navigates on a real mobile tap sequence without the menu closing first', () => {
+    renderHeader();
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+
+    const nav = screen.getByRole('navigation', { name: 'Mobile' });
+    const link = within(nav).getByRole('link', { name: 'Practice' });
+
+    fireEvent.mouseDown(link);
+    expect(screen.queryByRole('navigation', { name: 'Mobile' })).not.toBeNull();
+
+    fireEvent.mouseUp(link);
+    fireEvent.click(link);
+
+    expect(screen.getByTestId('location')).toHaveTextContent('/practice');
+  });
+
+  it('navigates on a touch tap sequence', () => {
+    renderHeader();
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+
+    const nav = screen.getByRole('navigation', { name: 'Mobile' });
+    const link = within(nav).getByRole('link', { name: 'Leaderboard' });
+
+    fireEvent.touchStart(link);
+    expect(screen.queryByRole('navigation', { name: 'Mobile' })).not.toBeNull();
+
+    fireEvent.touchEnd(link);
+    fireEvent.click(link);
+
+    expect(screen.getByTestId('location')).toHaveTextContent('/dashboard/leaderboard');
+  });
+
+  it('still closes the mobile menu when tapping outside it', () => {
+    renderHeader();
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    expect(screen.queryByRole('navigation', { name: 'Mobile' })).not.toBeNull();
+
+    fireEvent.mouseDown(screen.getByTestId('location'));
+    expect(screen.queryByRole('navigation', { name: 'Mobile' })).toBeNull();
+  });
+
   it('navigates from the mobile menu and closes it after the route changes', async () => {
     renderHeader();
     fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));

@@ -32,6 +32,7 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuPanelRef = useRef<HTMLDivElement>(null);
 
   const closeMenu = useCallback((restoreFocus = false) => {
     setMobileMenuOpen(false);
@@ -51,17 +52,21 @@ export function Header() {
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
-    const handleClickOutside = (event: MouseEvent) => {
+    const handlePointerDownOutside = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node;
-      if (
-        menuRef.current && !menuRef.current.contains(target) &&
-        menuButtonRef.current && !menuButtonRef.current.contains(target)
-      ) {
+      const insideButton = menuButtonRef.current?.contains(target) ?? false;
+      const insideWrapper = menuRef.current?.contains(target) ?? false;
+      const insidePanel = menuPanelRef.current?.contains(target) ?? false;
+      if (!insideButton && !insideWrapper && !insidePanel) {
         closeMenu(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handlePointerDownOutside);
+    document.addEventListener('touchstart', handlePointerDownOutside);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDownOutside);
+      document.removeEventListener('touchstart', handlePointerDownOutside);
+    };
   }, [mobileMenuOpen, closeMenu]);
 
   return (
@@ -124,7 +129,11 @@ export function Header() {
         </div>
 
         {mobileMenuOpen && (
-          <div id="public-mobile-menu" className="md:hidden py-4 border-t border-tmgl-green-800/80">
+          <div
+            id="public-mobile-menu"
+            ref={menuPanelRef}
+            className="md:hidden py-4 border-t border-tmgl-green-800/80"
+          >
             <nav aria-label="Mobile" className="space-y-1">
               {publicNavLinks.map((link) => (
                 <NavLink
