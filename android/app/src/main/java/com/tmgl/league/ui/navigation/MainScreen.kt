@@ -18,9 +18,13 @@ import androidx.navigation.navDeepLink
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.tmgl.league.data.offline.OfflineCache
 import com.tmgl.league.data.offline.NetworkMonitor
+import com.tmgl.league.data.offline.OfflineScoreQueue
 import com.tmgl.league.data.error.GlobalErrorHandler
+import com.tmgl.league.data.model.ScoringTarget
 import com.tmgl.league.ui.components.ErrorSnackbarHost
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.tmgl.league.data.repository.AuthState
 import com.tmgl.league.data.SupabaseConfig
 import io.github.jan.supabase.postgrest.from
@@ -46,7 +50,6 @@ import com.tmgl.league.ui.screens.practice.PracticeDetailScreen
 import com.tmgl.league.ui.screens.practice.PracticeHubScreen
 import com.tmgl.league.ui.screens.profile.ProfileEditScreen
 import com.tmgl.league.ui.screens.profile.ProfileScreen
-import com.tmgl.league.ui.screens.scoring.FastScoringScreen
 import com.tmgl.league.ui.screens.scoring.ScoringScreen
 import com.tmgl.league.ui.screens.search.SearchScreen
 import com.tmgl.league.ui.screens.settings.SettingsScreen
@@ -78,6 +81,7 @@ fun MainScreen(
     onAuthStateChanged: (AuthState) -> Unit,
     networkMonitor: NetworkMonitor,
     errorHandler: GlobalErrorHandler,
+    onSignOut: () -> Unit = { onAuthStateChanged(AuthState.Unauthenticated) },
     initialDeepLink: android.net.Uri? = null
 ) {
     val navController = rememberNavController()
@@ -90,6 +94,8 @@ fun MainScreen(
         is AuthState.Authenticated -> state.profile?.fullName ?: state.email ?: "Player"
         else -> "Player"
     }
+
+    val currentUserId = (authState as? AuthState.Authenticated)?.userId.orEmpty()
 
     val isOnline by networkMonitor.isOnline.collectAsState()
 
@@ -106,6 +112,13 @@ fun MainScreen(
     LaunchedEffect(Unit) {
         DeepLinkHandler.setDeepLinkHandler { route ->
             navController.navigate(route)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        OfflineScoreQueue.initialize(context)
+        withContext(Dispatchers.IO) {
+            OfflineScoreQueue.syncAll(context)
         }
     }
 
@@ -221,7 +234,7 @@ fun MainScreen(
             composable(Screen.Profile.route) {
                 ProfileScreen(
                     onBack = { navController.popBackStack() },
-                    onSignOut = { onAuthStateChanged(AuthState.Unauthenticated) },
+                    onSignOut = onSignOut,
                     onEditProfile = { navController.navigate(Screen.ProfileEdit.route) }
                 )
             }
@@ -237,7 +250,13 @@ fun MainScreen(
                 TournamentDetailScreen(
                     tournamentId = backStackEntry.arguments?.getString("id") ?: "",
                     onBack = { navController.popBackStack() },
-                    onScoreRound = { roundId -> navController.navigate(Screen.Scoring.createRoute(roundId)) },
+                    onScoreRound = { roundId ->
+                        navController.navigate(
+                            Screen.Scoring.createRoute(
+                                ScoringTarget(roundId = roundId, playerId = currentUserId)
+                            )
+                        )
+                    },
                     isSuperAdmin = isSuperAdmin,
                     onViewLeaderboard = { id -> navController.navigate(Screen.TournamentLeaderboard.createRoute(id)) },
                     onViewSeasonStandings = { navController.navigate(Screen.SeasonStandings.route) },
@@ -373,26 +392,32 @@ fun MainScreen(
                 MatchDetailScreen(
                     matchId = backStackEntry.arguments?.getString("id") ?: "",
                     onBack = { navController.popBackStack() },
-                    onEnterScores = { id -> navController.navigate(Screen.Scoring.createRoute(id)) }
+                    onEnterScores = { id ->
+                        navController.navigate(
+                            Screen.Scoring.createRoute(
+                                ScoringTarget(playerId = currentUserId, matchId = id)
+                            )
+                        )
+                    }
                 )
             }
 
             composable(
                 Screen.Scoring.route,
-                arguments = listOf(navArgument("matchId") { type = NavType.StringType; nullable = true; defaultValue = null })
+                arguments = listOf(
+                    navArgument("roundId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("playerId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("matchId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("scorecardId") { type = NavType.StringType; nullable = true; defaultValue = null }
+                )
             ) { backStackEntry ->
                 ScoringScreen(
-                    matchId = backStackEntry.arguments?.getString("matchId"),
-                    onBack = { navController.popBackStack() }
-                )
-            }
-
-            composable(
-                Screen.FastScoring.route,
-                arguments = listOf(navArgument("matchId") { type = NavType.StringType; nullable = true; defaultValue = null })
-            ) { backStackEntry ->
-                FastScoringScreen(
-                    matchId = backStackEntry.arguments?.getString("matchId"),
+                    target = Screen.Scoring.parseTarget(
+                        roundId = backStackEntry.arguments?.getString("roundId"),
+                        playerId = backStackEntry.arguments?.getString("playerId"),
+                        matchId = backStackEntry.arguments?.getString("matchId"),
+                        scorecardId = backStackEntry.arguments?.getString("scorecardId")
+                    ),
                     onBack = { navController.popBackStack() }
                 )
             }
@@ -457,7 +482,7 @@ fun MainScreen(
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     onBack = { navController.popBackStack() },
-                    onSignOut = { onAuthStateChanged(AuthState.Unauthenticated) },
+                    onSignOut = onSignOut,
                     isDarkMode = isDarkMode,
                     onDarkModeChanged = { enabled ->
                         coroutineScope.launch {
@@ -497,7 +522,10 @@ fun MainScreen(
                 arguments = listOf(navArgument("id") { type = NavType.StringType })
             ) { backStackEntry ->
                 ScoringScreen(
-                    matchId = backStackEntry.arguments?.getString("id"),
+                    target = ScoringTarget(
+                        playerId = currentUserId,
+                        matchId = backStackEntry.arguments?.getString("id")
+                    ),
                     onBack = { navController.popBackStack() }
                 )
             }

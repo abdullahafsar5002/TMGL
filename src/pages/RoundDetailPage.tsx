@@ -13,9 +13,10 @@ import { canManageLeague } from '@/lib/roleGuards';
 import { getRound, getMatchesByRound, getTournament, updateRound, deleteRound } from '@/lib/competition';
 import { validateRound } from '@/lib/validation';
 import type { Round, Match, MatchStatus } from '@/types/database';
+import { ROUTES } from '@/router/routes';
 
 const STATUS_VARIANTS: Record<MatchStatus, BadgeVariant> = {
-  draft: 'outline', scheduled: 'warning', live: 'danger', completed: 'info', cancelled: 'outline',
+  scheduled: 'warning', live: 'danger', completed: 'info', cancelled: 'outline',
 };
 
 const STATUS_OPTIONS: MatchStatus[] = ['scheduled', 'live', 'completed', 'cancelled'];
@@ -142,7 +143,7 @@ export function RoundDetailPage() {
             <Button key={s} variant="outline" size="sm" onClick={() => handleStatusChange(s)}
               className="capitalize">{s}</Button>
           ))}
-          <Button variant="primary" size="sm" onClick={() => navigate(`/rounds/${id}/matches/new`)} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
+          <Button variant="primary" size="sm" onClick={() => navigate(ROUTES.roundMatchCreate(id!))} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
             <Plus className="w-4 h-4 mr-1.5" /> Add Match
           </Button>
         </div>
@@ -154,7 +155,7 @@ export function RoundDetailPage() {
 
       {matches.length === 0 ? (
         <EmptyState icon={Swords} title="No matches yet" description={canManage ? 'Add the first match to this round.' : 'Matches will appear here once created.'}
-          action={canManage ? <Button variant="primary" size="sm" onClick={() => navigate(`/rounds/${id}/matches/new`)} className="bg-tmgl-green-800 hover:bg-tmgl-green-700"><Plus className="w-4 h-4 mr-1.5" /> Add Match</Button> : undefined} />
+          action={canManage ? <Button variant="primary" size="sm" onClick={() => navigate(ROUTES.roundMatchCreate(id!))} className="bg-tmgl-green-800 hover:bg-tmgl-green-700"><Plus className="w-4 h-4 mr-1.5" /> Add Match</Button> : undefined} />
       ) : (
         <div className="space-y-2">
           {matches.map((match) => (

@@ -15,6 +15,7 @@ import { getPlayerStatistics } from '@/lib/statistics';
 import { formatToPar } from '@/utils/golf';
 import { VirtualCaddie } from '@/components/caddie/VirtualCaddie';
 import type { PracticeRound, PlayerStatistics } from '@/types/database';
+import { ROUTES } from '@/router/routes';
 
 export default function PracticeHubPage() {
   const { user } = useAuth();
@@ -146,7 +147,7 @@ export default function PracticeHubPage() {
                 {inProgressRounds.map(round => (
                   <Link
                     key={round.id}
-                    to={`/practice/${round.id}/score`}
+                    to={ROUTES.practiceScore(round.id)}
                     className="block p-3 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
                   >
                     <div className="flex items-center justify-between">

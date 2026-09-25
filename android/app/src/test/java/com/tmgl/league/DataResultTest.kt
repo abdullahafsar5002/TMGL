@@ -15,7 +15,7 @@ class DataResultTest {
 
     @Test
     fun `error contains message`() {
-        val result = DataResult.Error("not found")
+        val result = DataResult.Error<String>("not found")
         assertTrue(result is DataResult.Error)
         assertEquals("not found", (result as DataResult.Error).message)
     }
@@ -23,9 +23,9 @@ class DataResultTest {
     @Test
     fun `success and error are different types`() {
         val success = DataResult.Success(42)
-        val error = DataResult.Error("fail")
-        assertFalse(success is DataResult.Error)
-        assertFalse(error is DataResult.Success)
+        val error = DataResult.Error<String>("fail")
+        assertFalse(success is DataResult.Error<*>)
+        assertFalse(error is DataResult.Success<*>)
     }
 
     @Test
@@ -43,8 +43,8 @@ class DataResultTest {
 
     @Test
     fun `error with different messages`() {
-        val error1 = DataResult.Error("not found")
-        val error2 = DataResult.Error("timeout")
+        val error1 = DataResult.Error<String>("not found")
+        val error2 = DataResult.Error<String>("timeout")
         assertEquals("not found", (error1 as DataResult.Error).message)
         assertEquals("timeout", (error2 as DataResult.Error).message)
     }
@@ -81,7 +81,7 @@ class DataResultTest {
         } catch (e: Exception) {
             e.message ?: "unknown"
         }
-        val result = DataResult.Error(errorMsg)
+        val result = DataResult.Error<String>(errorMsg)
         assertEquals("network error", (result as DataResult.Error).message)
     }
 
@@ -97,7 +97,7 @@ class DataResultTest {
 
     @Test
     fun `error result in when expression`() {
-        val result: DataResult<String> = DataResult.Error("fail")
+        val result: DataResult<String> = DataResult.Error<String>("fail")
         val message = when (result) {
             is DataResult.Success -> "Got: ${result.data}"
             is DataResult.Error -> "Error: ${result.message}"

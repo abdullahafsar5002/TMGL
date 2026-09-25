@@ -1,9 +1,13 @@
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { PublicLayout } from '@/components/layout/PublicLayout';
 import { AuthenticatedLayout } from '@/components/layout/AuthenticatedLayout';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { LoadingState } from '@/components/common/LoadingState';
+import { useAuth } from '@/context/AuthContext';
+import { lazyNamed } from './pageLoader';
+import { ROUTE_PATTERNS } from './routes';
+import { getRequiredRoleForPath } from '@/components/layout/authNavigation';
 
 import { HomePage } from '@/pages/HomePage';
 import { LoginPage } from '@/pages/LoginPage';
@@ -18,6 +22,20 @@ function AdminPage({ children }: { children: React.ReactNode }) {
   return <ProtectedRoute requiredRole="league_manager"><AuthenticatedLayout>{children}</AuthenticatedLayout></ProtectedRoute>;
 }
 
+function ManagerPage({ children }: { children: React.ReactNode }) {
+  const requiredRole = getRequiredRoleForPath(MANAGER_ROUTE_ROOT) ?? 'league_manager';
+  return <ProtectedRoute requiredRole={requiredRole}><AuthenticatedLayout>{children}</AuthenticatedLayout></ProtectedRoute>;
+}
+
+function CompetitionLayout({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) return <PageLoader />;
+  return isAuthenticated
+    ? <AuthenticatedLayout>{children}</AuthenticatedLayout>
+    : <PublicLayout>{children}</PublicLayout>;
+}
+
 function PageLoader() {
   return (
     <div className="min-h-[50vh] flex items-center justify-center">
@@ -26,15 +44,10 @@ function PageLoader() {
   );
 }
 
-// Lazy loaders for named exports
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function lazyNamed(importFn: () => Promise<any>, name: string) {
-  return lazy(() => importFn().then((m: { [k: string]: React.ComponentType }) => ({ default: m[name] })));
-}
-
 // Public pages
 const TournamentsPage = lazyNamed(() => import('@/pages/TournamentsPage'), 'TournamentsPage');
 const TournamentDetailPage = lazyNamed(() => import('@/pages/TournamentDetailPage'), 'TournamentDetailPage');
+const TournamentCreatePage = lazyNamed(() => import('@/pages/TournamentCreatePage'), 'TournamentCreatePage');
 const LeaderboardPage = lazyNamed(() => import('@/pages/LeaderboardPage'), 'LeaderboardPage');
 const ForgotPasswordPage = lazyNamed(() => import('@/pages/ForgotPasswordPage'), 'ForgotPasswordPage');
 const ResetPasswordPage = lazyNamed(() => import('@/pages/ResetPasswordPage'), 'ResetPasswordPage');
@@ -92,6 +105,8 @@ const UnauthorizedPage = lazyNamed(() => import('@/pages/UnauthorizedPage'), 'Un
 // Membership
 const MembershipPage = lazyNamed(() => import('@/components/membership/MembershipPage'), 'MembershipPage');
 
+const MANAGER_ROUTE_ROOT = '/organizer';
+
 export function AppRouter() {
   return (
     <Suspense fallback={<PageLoader />}>
@@ -106,14 +121,19 @@ export function AppRouter() {
       <Route path="/contact" element={<PublicLayout><ContactPage /></PublicLayout>} />
       <Route path="/news" element={<PublicLayout><NewsPage /></PublicLayout>} />
       <Route path="/gallery" element={<PublicLayout><GalleryPage /></PublicLayout>} />
-      <Route path="/tournaments" element={<PublicLayout><TournamentsPage /></PublicLayout>} />
-      <Route path="/tournaments/:id" element={<PublicLayout><TournamentDetailPage /></PublicLayout>} />
-      <Route path="/leaderboard" element={<PublicLayout><LeaderboardPage /></PublicLayout>} />
+      <Route path="/tournaments" element={<CompetitionLayout><TournamentsPage /></CompetitionLayout>} />
+      <Route path="/tournaments/:id" element={<CompetitionLayout><TournamentDetailPage /></CompetitionLayout>} />
+      <Route path="/leaderboard" element={<CompetitionLayout><LeaderboardPage /></CompetitionLayout>} />
       <Route path="/unauthorized" element={<PublicLayout><UnauthorizedPage /></PublicLayout>} />
 
       {/* ── Authenticated Routes ── */}
       <Route path="/dashboard" element={<AuthPage><DashboardPage /></AuthPage>} />
+      <Route path={ROUTE_PATTERNS.authenticatedEvents} element={<AuthPage><TournamentsPage /></AuthPage>} />
+      <Route path={ROUTE_PATTERNS.authenticatedLeaderboard} element={<AuthPage><LeaderboardPage /></AuthPage>} />
       <Route path="/profile/settings" element={<AuthPage><ProfileSettingsPage /></AuthPage>} />
+
+      <Route path="/tournaments/new" element={<AdminPage><TournamentCreatePage /></AdminPage>} />
+      <Route path={ROUTE_PATTERNS.tournamentRoundCreate} element={<AdminPage><RoundCreatePage /></AdminPage>} />
 
       {/* Players */}
       <Route path="/players" element={<AuthPage><PlayersPage /></AuthPage>} />
@@ -140,11 +160,10 @@ export function AppRouter() {
       {/* Matches */}
       <Route path="/matches" element={<AuthPage><MatchesPage /></AuthPage>} />
       <Route path="/matches/:id" element={<AuthPage><MatchDetailPage /></AuthPage>} />
-      <Route path="/matches/new" element={<AdminPage><MatchCreatePage /></AdminPage>} />
 
       {/* Rounds & Scoring */}
+      <Route path={ROUTE_PATTERNS.roundMatchCreate} element={<AdminPage><MatchCreatePage /></AdminPage>} />
       <Route path="/rounds/:id" element={<AuthPage><RoundDetailPage /></AuthPage>} />
-      <Route path="/rounds/new" element={<AdminPage><RoundCreatePage /></AdminPage>} />
       <Route path="/scorecard/:id" element={<AuthPage><ScorecardPage /></AuthPage>} />
       <Route path="/scorecard/:id/verify" element={<AdminPage><ScorecardVerifyPage /></AdminPage>} />
       <Route path="/scoring/:matchId?" element={<AuthPage><ScoringPage /></AuthPage>} />
@@ -157,13 +176,18 @@ export function AppRouter() {
       <Route path="/practice/new" element={<AuthPage><PracticeCreatePage /></AuthPage>} />
       <Route path="/practice/:id" element={<AuthPage><PracticeDetailPage /></AuthPage>} />
       <Route path="/practice/history" element={<AuthPage><PracticeHistoryPage /></AuthPage>} />
-      <Route path="/practice/:id/scorecard" element={<AuthPage><PracticeScorecardPage /></AuthPage>} />
+      <Route path={ROUTE_PATTERNS.practiceScore} element={<AuthPage><PracticeScorecardPage /></AuthPage>} />
+      <Route path={ROUTE_PATTERNS.practiceScorecard} element={<AuthPage><PracticeScorecardPage /></AuthPage>} />
 
       {/* Friendly Matches */}
-      <Route path="/friendly-matches" element={<AuthPage><FriendlyMatchesPage /></AuthPage>} />
-      <Route path="/friendly-matches/new" element={<AuthPage><FriendlyMatchCreatePage /></AuthPage>} />
-      <Route path="/friendly-matches/:id" element={<AuthPage><FriendlyMatchDetailPage /></AuthPage>} />
-      <Route path="/friendly-matches/:id/score" element={<AuthPage><FriendlyMatchScorePage /></AuthPage>} />
+      <Route path={ROUTE_PATTERNS.friendlyMatches} element={<AuthPage><FriendlyMatchesPage /></AuthPage>} />
+      <Route path={ROUTE_PATTERNS.friendlyMatchCreate} element={<AuthPage><FriendlyMatchCreatePage /></AuthPage>} />
+      <Route path={ROUTE_PATTERNS.friendlyMatch} element={<AuthPage><FriendlyMatchDetailPage /></AuthPage>} />
+      <Route path={ROUTE_PATTERNS.friendlyMatchScore} element={<AuthPage><FriendlyMatchScorePage /></AuthPage>} />
+      <Route path={ROUTE_PATTERNS.legacyFriendlyMatches} element={<AuthPage><FriendlyMatchesPage /></AuthPage>} />
+      <Route path={ROUTE_PATTERNS.legacyFriendlyMatchCreate} element={<AuthPage><FriendlyMatchCreatePage /></AuthPage>} />
+      <Route path={ROUTE_PATTERNS.legacyFriendlyMatch} element={<AuthPage><FriendlyMatchDetailPage /></AuthPage>} />
+      <Route path={ROUTE_PATTERNS.legacyFriendlyMatchScore} element={<AuthPage><FriendlyMatchScorePage /></AuthPage>} />
 
       {/* Announcements & Notifications */}
       <Route path="/announcements" element={<AuthPage><AnnouncementsPage /></AuthPage>} />
@@ -173,7 +197,7 @@ export function AppRouter() {
 
       {/* Admin & Analytics */}
       <Route path="/admin" element={<AdminPage><AdminDashboardPage /></AdminPage>} />
-      <Route path="/organizer" element={<AuthPage><OrganizerDashboardPage /></AuthPage>} />
+      <Route path="/organizer" element={<ManagerPage><OrganizerDashboardPage /></ManagerPage>} />
       <Route path="/analytics" element={<AdminPage><AnalyticsPage /></AdminPage>} />
 
       {/* Membership */}

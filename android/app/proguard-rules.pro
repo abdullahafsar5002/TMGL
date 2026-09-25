@@ -97,3 +97,7 @@
 -optimizationpasses 5
 -repackageclasses ''
 -allowaccessmodification
+
+# ── SLF4J (missing class in release) ─────────────────────
+-dontwarn org.slf4j.impl.StaticLoggerBinder
+-dontwarn org.slf4j.**

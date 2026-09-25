@@ -81,18 +81,18 @@ class ScoringFormatsRepository @Inject constructor() {
             back9 = back9Result,
             total = totalResult,
             front9Status = when {
-                front9Result > 0 -> "Player 1 +${front9Result}"
-                front9Result < 0 -> "Player 2 +${-front9Result}"
+                front9Result < 0 -> "Player 1 +${-front9Result}"
+                front9Result > 0 -> "Player 2 +${front9Result}"
                 else -> "tied"
             },
             back9Status = when {
-                back9Result > 0 -> "Player 1 +${back9Result}"
-                back9Result < 0 -> "Player 2 +${-back9Result}"
+                back9Result < 0 -> "Player 1 +${-back9Result}"
+                back9Result > 0 -> "Player 2 +${back9Result}"
                 else -> "tied"
             },
             totalStatus = when {
-                totalResult > 0 -> "Player 1 +${totalResult}"
-                totalResult < 0 -> "Player 2 +${-totalResult}"
+                totalResult < 0 -> "Player 1 +${-totalResult}"
+                totalResult > 0 -> "Player 2 +${totalResult}"
                 else -> "tied"
             }
         )

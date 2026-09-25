@@ -1,8 +1,8 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { Trophy, Menu, X } from 'lucide-react';
 import { Container } from '@/components/common/Container';
-import { Button } from '@/components/common/Button';
+import { cn } from '@/lib/utils';
 
 const publicNavLinks = [
   { label: 'Home', path: '/' },
@@ -12,21 +12,38 @@ const publicNavLinks = [
   { label: 'News', path: '/news' },
 ];
 
+const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  cn(
+    'text-sm font-medium py-2 border-b-2 transition-colors',
+    isActive
+      ? 'text-tmgl-gold border-tmgl-gold'
+      : 'text-tmgl-charcoal-200 hover:text-tmgl-gold border-transparent'
+  );
+
+const mobileNavLinkClass = ({ isActive }: { isActive: boolean }) =>
+  cn(
+    'block w-full text-left px-3 py-3 rounded-md text-sm font-medium transition-colors',
+    isActive
+      ? 'bg-tmgl-green-800 text-tmgl-gold'
+      : 'text-tmgl-charcoal-100 hover:bg-tmgl-green-800'
+  );
+
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const navigate = useNavigate();
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const closeMenu = useCallback(() => {
+  const closeMenu = useCallback((restoreFocus = false) => {
     setMobileMenuOpen(false);
-    menuButtonRef.current?.focus();
+    if (restoreFocus) {
+      requestAnimationFrame(() => menuButtonRef.current?.focus());
+    }
   }, []);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeMenu();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeMenu(true);
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
@@ -34,10 +51,13 @@ export function Header() {
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node) &&
-          menuButtonRef.current && !menuButtonRef.current.contains(e.target as Node)) {
-        closeMenu();
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        menuRef.current && !menuRef.current.contains(target) &&
+        menuButtonRef.current && !menuButtonRef.current.contains(target)
+      ) {
+        closeMenu(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -47,16 +67,16 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 bg-tmgl-green-900 border-b border-tmgl-green-700/50 text-white shadow-md">
       <Container size="lg">
-        <div className="flex items-center justify-between h-16">
-          <button
-            onClick={() => navigate('/')}
-            className="flex items-center gap-3 touch-target"
+        <div className="flex items-center justify-between h-16 gap-3">
+          <Link
+            to="/"
+            className="flex items-center gap-3 touch-target shrink-0"
             aria-label="Go to home"
           >
             <div className="w-10 h-10 rounded-lg bg-tmgl-green-800 border border-tmgl-gold/60 flex items-center justify-center shadow-inner">
               <Trophy className="w-5 h-5 text-tmgl-gold" />
             </div>
-            <div>
+            <div className="min-w-0">
               <span className="font-extrabold tracking-wider text-base sm:text-lg uppercase text-white">
                 TMGL
               </span>
@@ -64,38 +84,39 @@ export function Header() {
                 Toruk Maktu Golf League
               </span>
             </div>
-          </button>
+          </Link>
 
-          <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
+          <nav aria-label="Main" className="hidden md:flex items-center space-x-6 text-sm font-medium">
             {publicNavLinks.map((link) => (
-              <button
-                key={link.label}
-                onClick={() => navigate(link.path)}
-                className="text-tmgl-charcoal-200 hover:text-tmgl-gold transition-colors py-2"
+              <NavLink
+                key={link.path}
+                to={link.path}
+                end={link.path === '/'}
+                className={navLinkClass}
               >
                 {link.label}
-              </button>
+              </NavLink>
             ))}
           </nav>
 
           <div className="hidden sm:flex items-center gap-3">
-            <Button
-              variant="gold"
-              size="sm"
-              onClick={() => navigate('/login')}
-              className="font-bold tracking-wide"
+            <Link
+              to="/login"
+              className="inline-flex items-center justify-center px-3 py-1.5 min-h-[38px] rounded-lg bg-tmgl-gold text-tmgl-charcoal-950 text-xs font-semibold shadow-sm hover:bg-tmgl-gold-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tmgl-gold touch-target"
             >
               Sign in
-            </Button>
+            </Link>
           </div>
 
-          <div className="sm:hidden flex items-center" ref={menuRef}>
+          <div className="md:hidden flex items-center" ref={menuRef}>
             <button
               ref={menuButtonRef}
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              type="button"
+              onClick={() => setMobileMenuOpen((open) => !open)}
               className="p-2 rounded-lg text-tmgl-charcoal-200 hover:text-white hover:bg-tmgl-green-800 touch-target focus:outline-none focus:ring-2 focus:ring-tmgl-gold"
               aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={mobileMenuOpen}
+              aria-controls="public-mobile-menu"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -103,25 +124,28 @@ export function Header() {
         </div>
 
         {mobileMenuOpen && (
-          <div className="sm:hidden py-4 border-t border-tmgl-green-800/80 space-y-2">
-            {publicNavLinks.map((link) => (
-              <button
-                key={link.label}
-                onClick={() => { closeMenu(); navigate(link.path); }}
-                className="block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-tmgl-charcoal-100 hover:bg-tmgl-green-800"
-              >
-                {link.label}
-              </button>
-            ))}
-            <div className="pt-2 border-t border-tmgl-green-800">
-              <Button
-                variant="gold"
-                fullWidth
-                size="md"
-                onClick={() => { closeMenu(); navigate('/login'); }}
+          <div id="public-mobile-menu" className="md:hidden py-4 border-t border-tmgl-green-800/80">
+            <nav aria-label="Mobile" className="space-y-1">
+              {publicNavLinks.map((link) => (
+                <NavLink
+                  key={link.path}
+                  to={link.path}
+                  end={link.path === '/'}
+                  onClick={() => closeMenu(false)}
+                  className={mobileNavLinkClass}
+                >
+                  {link.label}
+                </NavLink>
+              ))}
+            </nav>
+            <div className="pt-3 mt-3 border-t border-tmgl-green-800 sm:hidden">
+              <Link
+                to="/login"
+                onClick={() => closeMenu(false)}
+                className="flex w-full items-center justify-center px-4 py-3 min-h-[44px] rounded-lg bg-tmgl-gold text-tmgl-charcoal-950 text-sm font-semibold shadow-sm hover:bg-tmgl-gold-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tmgl-gold"
               >
                 Sign in
-              </Button>
+              </Link>
             </div>
           </div>
         )}

@@ -4,10 +4,10 @@ import { Trophy, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
-import { getSeasons } from '@/lib/league';
+import { getSeasons, getCourses } from '@/lib/league';
 import { createTournament } from '@/lib/competition';
 import { validateTournament } from '@/lib/validation';
-import type { Season, TournamentStatus } from '@/types/database';
+import type { Course, Season, TournamentStatus } from '@/types/database';
 import { useEffect } from 'react';
 import { useToast } from '@/context/ToastContext';
 
@@ -15,9 +15,11 @@ export function TournamentCreatePage() {
   const navigate = useNavigate();
   const toast = useToast();
   const [seasons, setSeasons] = useState<Season[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [seasonId, setSeasonId] = useState('');
+  const [courseId, setCourseId] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [status, setStatus] = useState<TournamentStatus>('draft');
   const [errors, setErrors] = useState<string[]>([]);
@@ -26,6 +28,7 @@ export function TournamentCreatePage() {
 
   useEffect(() => {
     getSeasons().then((res) => { if (res.data) setSeasons(res.data); });
+    getCourses().then((res) => { if (res.data) setCourses(res.data); });
   }, []);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
@@ -33,19 +36,19 @@ export function TournamentCreatePage() {
     setErrors([]);
     setServerError(null);
 
-    const validation = validateTournament({ name, season_id: seasonId, description, event_date: eventDate || null, course_id: null });
+    const validation = validateTournament({ name, season_id: seasonId, description, event_date: eventDate || null, course_id: courseId || null });
     if (!validation.isValid) { setErrors(validation.errors); return; }
 
     setIsSubmitting(true);
     const result = await createTournament({
       season_id: seasonId, name, description: description || null,
-      event_date: eventDate || null, course_id: null, status,
+      event_date: eventDate || null, course_id: courseId || null, status,
     });
     setIsSubmitting(false);
 
     if (result.error) { setServerError(result.error); toast.error(result.error); return; }
     if (result.data) { toast.success('Tournament created successfully'); navigate(`/tournaments/${result.data.id}`); }
-  }, [name, description, seasonId, eventDate, status, navigate]);
+  }, [name, description, seasonId, courseId, eventDate, status, navigate, toast]);
 
   return (
     <Container size="lg" className="space-y-4 py-4">
@@ -75,6 +78,15 @@ export function TournamentCreatePage() {
               className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700">
               <option value="">Select a season</option>
               {seasons.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Course</label>
+            <select value={courseId} onChange={(e) => setCourseId(e.target.value)}
+              className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700">
+              <option value="">Select a course</option>
+              {courses.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.holes_count} holes)</option>)}
             </select>
           </div>
 

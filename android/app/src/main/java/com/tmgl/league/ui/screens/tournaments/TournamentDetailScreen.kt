@@ -12,13 +12,15 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import com.tmgl.league.data.competition.TournamentRegistrationState
+import com.tmgl.league.data.competition.canChangeTournamentRegistration
+import com.tmgl.league.data.competition.canEnterTournamentScores
 import com.tmgl.league.data.model.Tournament
 import com.tmgl.league.data.model.Round
 import com.tmgl.league.data.model.Scorecard
@@ -31,9 +33,7 @@ import com.tmgl.league.ui.viewmodel.CompetitionViewModel
 import com.tmgl.league.notification.NotificationHelper
 import com.tmgl.league.data.SupabaseConfig
 import androidx.hilt.navigation.compose.hiltViewModel
-import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.from
-import androidx.compose.runtime.mutableIntStateOf
 import kotlinx.coroutines.launch
 
 data class ScorecardWithHoles(
@@ -66,15 +66,16 @@ fun TournamentDetailScreen(
     var tournament by remember { mutableStateOf<Tournament?>(null) }
     var rounds by remember { mutableStateOf<List<Round>>(emptyList()) }
     var scorecardsWithHoles by remember { mutableStateOf<List<ScorecardWithHoles>>(emptyList()) }
-    var isRegistered by remember { mutableStateOf(false) }
-    var registrationId by remember { mutableStateOf<String?>(null) }
-    var playerCount by rememberSaveable { mutableIntStateOf(0) }
+    var registrationState by remember { mutableStateOf(TournamentRegistrationState()) }
+    var registrationError by remember { mutableStateOf<String?>(null) }
+    var isChangingRegistration by remember { mutableStateOf(false) }
     var showJoinDialog by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     val viewModel: CompetitionViewModel = hiltViewModel()
     val repository = viewModel.repository
     val scope = rememberCoroutineScope()
+    val canEnterScores = canEnterTournamentScores(registrationState, isSuperAdmin)
 
     LaunchedEffect(tournamentId) {
         if (tournamentId.isNotEmpty()) {
@@ -83,23 +84,10 @@ fun TournamentDetailScreen(
             when (val result = repository.getTournament(tournamentId)) {
                 is DataResult.Success -> {
                     tournament = result.data
-                    try {
-                        val user = com.tmgl.league.data.SupabaseConfig.client.auth.currentUserOrNull()
-                        val userId = user?.id
-                        if (userId != null) {
-                            val regs = com.tmgl.league.data.SupabaseConfig.client.from("tournament_registrations")
-                                .select() {
-                                    filter { eq("tournament_id", tournamentId) }
-                                }
-                                .decodeList<com.tmgl.league.data.model.TournamentRegistration>()
-                            playerCount = regs.size
-                            val myReg = regs.find { it.playerId == userId }
-                            if (myReg != null) {
-                                isRegistered = true
-                                registrationId = myReg.id
-                            }
-                        }
-                    } catch (_: Exception) {}
+                    when (val registration = repository.getTournamentRegistrationState(tournamentId)) {
+                        is DataResult.Success -> registrationState = registration.data
+                        is DataResult.Error -> registrationError = registration.message
+                    }
                     when (val roundsResult = repository.getRoundsByTournament(tournamentId)) {
                         is DataResult.Success -> {
                             rounds = roundsResult.data
@@ -223,39 +211,58 @@ fun TournamentDetailScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("$playerCount players registered", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Button(
-                                onClick = {
-                                    scope.launch {
-                                        try {
-                                            val user = com.tmgl.league.data.SupabaseConfig.client.auth.currentUserOrNull()
-                                            val userId = user?.id ?: return@launch
-                                            if (isRegistered) {
-                                                registrationId?.let { id ->
-                                                    com.tmgl.league.data.SupabaseConfig.client.from("tournament_registrations")
-                                                        .delete { filter { eq("id", id) } }
-                                                }
-                                                isRegistered = false
-                                                playerCount = (playerCount - 1).coerceAtLeast(0)
+                            Text(
+                                "${registrationState.playerCount} players registered",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (canChangeTournamentRegistration(registrationState)) {
+                                Button(
+                                    enabled = !isChangingRegistration,
+                                    onClick = {
+                                        scope.launch {
+                                            isChangingRegistration = true
+                                            registrationError = null
+                                            val result = if (registrationState.isRegistered) {
+                                                repository.leaveTournament(tournamentId)
                                             } else {
-                                                val reg = com.tmgl.league.data.model.TournamentRegistration(
-                                                    tournamentId = tournamentId,
-                                                    playerId = userId
-                                                )
-                                                com.tmgl.league.data.SupabaseConfig.client.from("tournament_registrations").insert(reg)
-                                                isRegistered = true
-                                                playerCount++
+                                                repository.registerForTournament(tournamentId)
                                             }
-                                        } catch (e: Exception) {
-                                            error = e.message
+                                            when (result) {
+                                                is DataResult.Success -> registrationState = result.data
+                                                is DataResult.Error -> registrationError = result.message
+                                            }
+                                            isChangingRegistration = false
                                         }
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isRegistered) MaterialTheme.colorScheme.error else TmglGreen
-                                )
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (registrationState.isRegistered) {
+                                            MaterialTheme.colorScheme.error
+                                        } else {
+                                            TmglGreen
+                                        }
+                                    )
+                                ) {
+                                    Text(
+                                        if (registrationState.isRegistered) "Leave Tournament" else "Join Tournament",
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (registrationError != null) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
                             ) {
-                                Text(if (isRegistered) "Leave Tournament" else "Join Tournament", color = Color.White)
+                                Text(
+                                    text = registrationError ?: "",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.padding(16.dp)
+                                )
                             }
                         }
                     }
@@ -332,10 +339,10 @@ fun TournamentDetailScreen(
                                         Text(text = round.date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Text(text = "Status: ${round.status}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    if (isSuperAdmin) {
+                                    if (canEnterScores) {
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            if (round.status == "draft") {
+                                            if (isSuperAdmin && round.status == "draft") {
                                                 Button(onClick = {
                                                     NotificationHelper.notifyRoundStart(
                                                         context,
@@ -350,8 +357,10 @@ fun TournamentDetailScreen(
                                             Button(onClick = { onScoreRound(round.id) }) {
                                                 Text("Enter Scores")
                                             }
-                                            Button(onClick = { onViewPairings(tournamentId, round.id) }) {
-                                                Text("Pairings")
+                                            if (isSuperAdmin) {
+                                                Button(onClick = { onViewPairings(tournamentId, round.id) }) {
+                                                    Text("Pairings")
+                                                }
                                             }
                                         }
                                     }

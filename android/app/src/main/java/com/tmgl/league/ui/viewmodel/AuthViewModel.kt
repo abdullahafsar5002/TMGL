@@ -3,7 +3,6 @@ package com.tmgl.league.ui.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.tmgl.league.auth.EncryptedAuthStorage
 import com.tmgl.league.data.crashlytics.CrashlyticsHelper
 import com.tmgl.league.data.repository.AuthRepository
 import com.tmgl.league.data.repository.AuthResult
@@ -17,8 +16,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val authRepository: AuthRepository,
-    private val encryptedStorage: EncryptedAuthStorage
+    private val authRepository: AuthRepository
 ) : ViewModel() {
     private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
     val authState: StateFlow<AuthState> = _authState
@@ -29,20 +27,16 @@ class AuthViewModel @Inject constructor(
 
     fun checkAuth() {
         viewModelScope.launch {
-            val state = withTimeoutOrNull(10_000L) {
+            val state = withTimeoutOrNull(15_000L) {
                 authRepository.getCurrentUser()
             } ?: AuthState.Unauthenticated
-            _authState.value = state
-            if (state is AuthState.Authenticated) {
-                CrashlyticsHelper.setUserId(state.userId)
-                CrashlyticsHelper.setCustomKey("user_role", state.profile?.role?.name ?: "unknown")
-            }
+            applyState(state)
         }
     }
 
     fun signIn(email: String, password: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
-            val result = withTimeoutOrNull(15_000L) {
+            val result = withTimeoutOrNull(20_000L) {
                 try {
                     authRepository.signIn(email, password)
                 } catch (e: Exception) {
@@ -52,26 +46,20 @@ class AuthViewModel @Inject constructor(
             }
 
             if (result == null) {
-                Log.e("AuthViewModel", "signIn timed out")
-                onError("Connection timed out. Check your internet and try again.")
+                if (authRepository.hasActiveSession()) {
+                    onSessionEstablished()
+                    onSuccess()
+                } else {
+                    Log.e("AuthViewModel", "signIn timed out")
+                    onError("Connection timed out. Check your internet and try again.")
+                }
                 return@launch
             }
 
             when (result) {
                 is AuthResult.Success -> {
-                    val userId = encryptedStorage.getUserId() ?: ""
-                    val userEmail = encryptedStorage.getUserEmail()
-                    Log.d("AuthViewModel", "signIn success: userId=$userId")
-                    _authState.value = AuthState.Authenticated(userId, userEmail, null)
+                    onSessionEstablished()
                     onSuccess()
-                    viewModelScope.launch {
-                        try {
-                            val fullState = authRepository.getCurrentUser()
-                            _authState.value = fullState
-                        } catch (e: Exception) {
-                            Log.e("AuthViewModel", "background profile fetch failed", e)
-                        }
-                    }
                 }
                 is AuthResult.Error -> {
                     Log.e("AuthViewModel", "signIn error: ${result.message}")
@@ -83,7 +71,7 @@ class AuthViewModel @Inject constructor(
 
     fun signUp(email: String, password: String, fullName: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
-            val result = withTimeoutOrNull(15_000L) {
+            val result = withTimeoutOrNull(20_000L) {
                 try {
                     authRepository.signUp(email, password, fullName)
                 } catch (e: Exception) {
@@ -93,24 +81,23 @@ class AuthViewModel @Inject constructor(
             }
 
             if (result == null) {
-                onError("Connection timed out. Check your internet and try again.")
+                if (authRepository.hasActiveSession()) {
+                    onSessionEstablished()
+                    onSuccess()
+                } else {
+                    Log.e("AuthViewModel", "signUp timed out")
+                    onError("Connection timed out. Check your internet and try again.")
+                }
                 return@launch
             }
 
             when (result) {
                 is AuthResult.Success -> {
-                    val userId = encryptedStorage.getUserId() ?: ""
-                    val userEmail = encryptedStorage.getUserEmail()
-                    _authState.value = AuthState.Authenticated(userId, userEmail, null)
+                    onSessionEstablished()
                     onSuccess()
-                    viewModelScope.launch {
-                        try {
-                            val fullState = authRepository.getCurrentUser()
-                            _authState.value = fullState
-                        } catch (_: Exception) {}
-                    }
                 }
                 is AuthResult.Error -> {
+                    Log.e("AuthViewModel", "signUp error: ${result.message}")
                     onError(result.message)
                 }
             }
@@ -120,6 +107,7 @@ class AuthViewModel @Inject constructor(
     fun signOut() {
         viewModelScope.launch {
             authRepository.signOut()
+            CrashlyticsHelper.setUserId("")
             _authState.value = AuthState.Unauthenticated
         }
     }
@@ -132,6 +120,29 @@ class AuthViewModel @Inject constructor(
             } catch (e: Exception) {
                 onError(e.message ?: "Reset failed")
             }
+        }
+    }
+
+    private fun onSessionEstablished() {
+        val userId = authRepository.currentUserId().orEmpty()
+        val email = authRepository.currentUserEmail()
+        _authState.value = AuthState.Authenticated(userId, email, null)
+        if (userId.isNotEmpty()) {
+            CrashlyticsHelper.setUserId(userId)
+        }
+        viewModelScope.launch {
+            val state = authRepository.getCurrentUser()
+            if (state is AuthState.Authenticated) {
+                applyState(state)
+            }
+        }
+    }
+
+    private fun applyState(state: AuthState) {
+        _authState.value = state
+        if (state is AuthState.Authenticated) {
+            CrashlyticsHelper.setUserId(state.userId)
+            CrashlyticsHelper.setCustomKey("user_role", state.profile?.role?.name ?: "unknown")
         }
     }
 }

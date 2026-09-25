@@ -10,7 +10,7 @@ import { LoadingState } from '@/components/common/LoadingState';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { canManageLeague } from '@/lib/roleGuards';
-import { getScorecardsByRound, getRound, getTournament, verifyScorecard, rejectScorecard } from '@/lib/competition';
+import { getScorecardsByRound, getRound, getTournament, verifyScorecard, rejectScorecard, getScorecardsCompletionByRound, type ScorecardCompletion } from '@/lib/competition';
 import { supabase } from '@/lib/supabase';
 import { formatToPar } from '@/utils/golf';
 import type { Scorecard, ScorecardStatus } from '@/types/database';
@@ -31,6 +31,7 @@ export function ScorecardVerifyPage() {
   const toast = useToast();
 
   const [scorecards, setScorecards] = useState<Scorecard[]>([]);
+  const [completion, setCompletion] = useState<Record<string, ScorecardCompletion>>({});
   const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
   const [round, setRound] = useState<{ tournament_id: string; round_number: number; name: string } | null>(null);
   const [tournamentName, setTournamentName] = useState('');
@@ -62,6 +63,13 @@ export function ScorecardVerifyPage() {
     const cards = scRes.data ?? [];
     setScorecards(cards);
 
+    const completionRes = await getScorecardsCompletionByRound(id);
+    if (completionRes.data) {
+      const map: Record<string, ScorecardCompletion> = {};
+      completionRes.data.forEach((c) => { map[c.scorecard_id] = c; });
+      setCompletion(map);
+    }
+
     if (roundRes.data) {
       setRound({
         tournament_id: roundRes.data.tournament_id,
@@ -92,6 +100,12 @@ export function ScorecardVerifyPage() {
   useEffect(() => { load(); }, [load]);
 
   const handleVerify = async (scId: string) => {
+    const card = completion[scId];
+    if (card && !card.is_complete) {
+      toast.error(`Cannot verify an incomplete scorecard (${card.holes_completed}/${card.total_holes} holes scored).`);
+      return;
+    }
+
     setActionLoading(scId);
     const result = await verifyScorecard(scId);
     setActionLoading(null);
@@ -204,7 +218,11 @@ export function ScorecardVerifyPage() {
         />
       ) : (
         <div className="space-y-2">
-          {scorecards.map((sc) => (
+          {scorecards.map((sc) => {
+            const card = completion[sc.id];
+            const isComplete = card ? card.is_complete : true;
+
+            return (
             <Card key={sc.id}>
               <CardHeader>
                 <div className="min-w-0 flex-1">
@@ -218,11 +236,19 @@ export function ScorecardVerifyPage() {
                         {formatToPar(sc.total_score_to_par)}
                       </span>
                     )}
+                    {card && (
+                      <span className={isComplete ? 'text-tmgl-charcoal-500' : 'text-amber-700 font-semibold'}>
+                        {card.holes_completed}/{card.total_holes} holes
+                      </span>
+                    )}
                   </div>
                 </div>
-                <Badge variant={STATUS_VARIANTS[sc.status]}>
-                  {sc.status?.replace('_', ' ')}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  {!isComplete && <Badge variant="warning">incomplete</Badge>}
+                  <Badge variant={STATUS_VARIANTS[sc.status]}>
+                    {sc.status?.replace('_', ' ')}
+                  </Badge>
+                </div>
               </CardHeader>
 
               {canManage && (
@@ -232,7 +258,8 @@ export function ScorecardVerifyPage() {
                       variant="primary"
                       size="sm"
                       onClick={() => handleVerify(sc.id)}
-                      disabled={actionLoading === sc.id}
+                      disabled={actionLoading === sc.id || !isComplete}
+                      title={isComplete ? undefined : 'Scorecard is incomplete and cannot be verified'}
                       className="bg-tmgl-green-800 hover:bg-tmgl-green-700"
                     >
                       {actionLoading === sc.id ? (
@@ -264,7 +291,8 @@ export function ScorecardVerifyPage() {
                 </div>
               )}
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 

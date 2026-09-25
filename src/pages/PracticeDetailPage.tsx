@@ -10,6 +10,7 @@ import { StatsCard } from '@/components/common/StatsCard';
 import { getPracticeRound, getPracticeScores } from '@/lib/practice';
 import { calculatePracticeScoreSummary, formatToPar } from '@/utils/practiceCalculations';
 import type { PracticeRound, PracticeScore } from '@/types/database';
+import { ROUTES } from '@/router/routes';
 
 const STATUS_VARIANTS: Record<string, 'default' | 'success' | 'warning' | 'info' | 'danger'> = {
   draft: 'default',
@@ -92,7 +93,7 @@ export default function PracticeDetailPage() {
           {round.status.replace('_', ' ')}
         </Badge>
         {isEditable && (
-          <Link to={`/practice/${round.id}/score`}>
+          <Link to={ROUTES.practiceScore(round.id)}>
             <Button variant="primary" size="sm">
               <Edit className="h-4 w-4 mr-1" />
               Edit
@@ -198,7 +199,7 @@ export default function PracticeDetailPage() {
           <CardContent className="p-8 text-center">
             <p className="text-gray-500">No scores recorded yet.</p>
             {isEditable && (
-              <Link to={`/practice/${round.id}/score`} className="mt-4 inline-block">
+              <Link to={ROUTES.practiceScore(round.id)} className="mt-4 inline-block">
                 <Button variant="primary" size="sm">Enter Scores</Button>
               </Link>
             )}

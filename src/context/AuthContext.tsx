@@ -46,29 +46,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // 1. Get any existing session (handles page refresh persistence)
-    supabase.auth.getSession().then(async ({ data: { session: existingSession } }) => {
-      if (!mounted) return;
-      setSession(existingSession);
-      setUser(existingSession?.user ?? null);
-      if (existingSession?.user) {
-        await loadProfile(existingSession.user.id);
+    void (async () => {
+      try {
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
+        if (!mounted) return;
+        setSession(existingSession);
+        setUser(existingSession?.user ?? null);
+        try {
+          if (existingSession?.user) {
+            await loadProfile(existingSession.user.id);
+          } else {
+            setProfile(null);
+          }
+        } catch {
+          if (mounted) setProfile(null);
+        }
+      } catch {
+        if (mounted) {
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+        }
+      } finally {
+        if (mounted) setIsLoading(false);
       }
-      setIsLoading(false);
-    });
+    })();
 
-    // 2. Subscribe to future auth events (sign in, sign out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, newSession) => {
         if (!mounted) return;
         setSession(newSession);
         setUser(newSession?.user ?? null);
-        if (newSession?.user) {
-          await loadProfile(newSession.user.id);
-        } else {
-          setProfile(null);
+        try {
+          if (newSession?.user) {
+            await loadProfile(newSession.user.id);
+          } else {
+            setProfile(null);
+          }
+        } catch {
+          if (mounted) setProfile(null);
+        } finally {
+          if (mounted) setIsLoading(false);
         }
-        setIsLoading(false);
       }
     );
 

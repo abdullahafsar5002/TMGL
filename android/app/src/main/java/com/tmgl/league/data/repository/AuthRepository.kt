@@ -1,26 +1,19 @@
 package com.tmgl.league.data.repository
 
-import com.tmgl.league.BuildConfig
+import android.util.Log
 import com.tmgl.league.auth.EncryptedAuthStorage
+import com.tmgl.league.data.SupabaseConfig
 import com.tmgl.league.data.model.Profile
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.okhttp.OkHttp
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.get
-import io.ktor.client.request.header
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
-import io.ktor.http.isSuccess
-import io.ktor.serialization.kotlinx.json.json
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
+import io.github.jan.supabase.gotrue.SignOutScope
+import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.gotrue.exception.AuthRestException
+import io.github.jan.supabase.gotrue.providers.builtin.Email
+import io.github.jan.supabase.gotrue.user.UserSession
+import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.query.Columns
+import kotlinx.datetime.Clock
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -40,277 +33,174 @@ sealed class AuthState {
     ) : AuthState()
 }
 
+internal const val PROFILE_COLUMNS = "id,full_name,avatar_url,role,handicap_index,created_at,updated_at"
+
+private const val PROFILE_LOOKUP_TIMEOUT_MS = 5_000L
+
+internal fun profileInsertPayload(userId: String, fullName: String?): Map<String, String> = mapOf(
+    "id" to userId,
+    "full_name" to (fullName?.trim()?.takeIf { it.isNotEmpty() } ?: "TMGL Member"),
+    "role" to "player"
+)
+
 @Singleton
 class AuthRepository @Inject constructor(
     val encryptedStorage: EncryptedAuthStorage
 ) {
-    private val httpClient = HttpClient(OkHttp) {
-        install(ContentNegotiation) {
-            json(Json {
-                ignoreUnknownKeys = true
-                isLenient = true
-            })
-        }
-        engine {
-            config {
-                connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-                readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-                writeTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-                addInterceptor { chain ->
-                    val original = chain.request()
-                    val token = encryptedStorage.getAccessToken()
-                    if (token != null) {
-                        val request = original.newBuilder()
-                            .header("Authorization", "Bearer $token")
-                            .build()
-                        chain.proceed(request)
-                    } else {
-                        chain.proceed(original)
-                    }
-                }
-            }
-        }
-    }
+    private val auth get() = SupabaseConfig.client.auth
 
-    private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+    fun currentUserId(): String? = auth.currentUserOrNull()?.id
+
+    fun currentUserEmail(): String? = auth.currentUserOrNull()?.email
+
+    fun hasActiveSession(): Boolean = auth.currentSessionOrNull() != null
 
     suspend fun signIn(email: String, password: String): AuthResult {
         return try {
-            val body = buildJsonObject {
-                put("email", email)
-                put("password", password)
+            auth.signInWith(Email) {
+                this.email = email.trim()
+                this.password = password
             }
-            val response = httpClient.post(
-                "${BuildConfig.SUPABASE_URL}/auth/v1/token?grant_type=password"
-            ) {
-                contentType(ContentType.Application.Json)
-                header("apikey", BuildConfig.SUPABASE_ANON_KEY)
-                setBody(body.toString())
-            }
-            val text = response.bodyAsText()
-            val jsonEl = json.parseToJsonElement(text).jsonObject
-
-            val accessToken = jsonEl["access_token"]?.jsonPrimitive?.content
-            val refreshToken = jsonEl["refresh_token"]?.jsonPrimitive?.content
-            val userObj = jsonEl["user"]?.jsonObject
-            val userId = userObj?.get("id")?.jsonPrimitive?.content
-            val userEmail = userObj?.get("email")?.jsonPrimitive?.content
-
-            if (accessToken != null && userId != null) {
-                encryptedStorage.saveSession(accessToken, refreshToken ?: "", userId, userEmail)
-                AuthResult.Success
+            val user = auth.currentUserOrNull()
+            if (user == null) {
+                AuthResult.Error("Sign in failed: no session was created")
             } else {
-                val rawError = jsonEl["error_description"]?.jsonPrimitive?.content
-                    ?: jsonEl["msg"]?.jsonPrimitive?.content
-                    ?: jsonEl["error"]?.jsonPrimitive?.content
-                    ?: "Invalid login credentials"
-                AuthResult.Error(mapAuthError(rawError))
+                Log.d("AuthRepository", "Sign in succeeded for ${user.id}")
+                AuthResult.Success
             }
         } catch (e: Exception) {
-            android.util.Log.e("AuthRepository", "Sign in failed", e)
-            val detail = e.message ?: "Unknown error"
-            AuthResult.Error("Sign in failed: $detail")
+            Log.e("AuthRepository", "Sign in failed", e)
+            AuthResult.Error(mapAuthError(e))
         }
     }
 
     suspend fun signUp(email: String, password: String, fullName: String): AuthResult {
         return try {
-            val body = buildJsonObject {
-                put("email", email)
-                put("password", password)
-                put("full_name", fullName)
+            auth.signUpWith(Email) {
+                this.email = email.trim()
+                this.password = password
+                data = buildJsonObject { put("full_name", fullName.trim()) }
             }
-            val response = httpClient.post(
-                "${BuildConfig.SUPABASE_URL}/auth/v1/signup"
-            ) {
-                contentType(ContentType.Application.Json)
-                header("apikey", BuildConfig.SUPABASE_ANON_KEY)
-                setBody(body.toString())
-            }
-            val text = response.bodyAsText()
-            val jsonEl = json.parseToJsonElement(text).jsonObject
-
-            val accessToken = jsonEl["access_token"]?.jsonPrimitive?.content
-            val refreshToken = jsonEl["refresh_token"]?.jsonPrimitive?.content
-            val userObj = jsonEl["user"]?.jsonObject
-            val userId = userObj?.get("id")?.jsonPrimitive?.content
-            val userEmail = userObj?.get("email")?.jsonPrimitive?.content
-
-            if (accessToken != null && userId != null) {
-                encryptedStorage.saveSession(accessToken, refreshToken ?: "", userId, userEmail)
-                ensureProfileExists(userId, userEmail, fullName)
-                AuthResult.Success
+            val user = auth.currentUserOrNull()
+            if (user == null) {
+                AuthResult.Error("Check your email to confirm your account, then sign in.")
             } else {
-                val errorMsg = jsonEl["error_description"]?.jsonPrimitive?.content
-                    ?: jsonEl["msg"]?.jsonPrimitive?.content
-                    ?: "Sign up failed"
-                AuthResult.Error(errorMsg)
+                ensureProfileExists(user.id, fullName)
+                AuthResult.Success
             }
         } catch (e: Exception) {
-            AuthResult.Error(e.message ?: "Sign up failed")
+            Log.e("AuthRepository", "Sign up failed", e)
+            AuthResult.Error(mapAuthError(e))
         }
     }
 
     suspend fun resetPassword(email: String) {
-        val body = buildJsonObject {
-            put("email", email)
-        }
-        httpClient.post(
-            "${BuildConfig.SUPABASE_URL}/auth/v1/recover"
-        ) {
-            contentType(ContentType.Application.Json)
-            header("apikey", BuildConfig.SUPABASE_ANON_KEY)
-            setBody(body.toString())
-        }
+        auth.resetPasswordForEmail(email.trim())
     }
 
     suspend fun signOut() {
-        encryptedStorage.clearSession()
+        try {
+            auth.signOut(SignOutScope.LOCAL)
+        } catch (e: Exception) {
+            Log.w("AuthRepository", "Remote sign out failed, clearing local session", e)
+        } finally {
+            runCatching { auth.clearSession() }
+            encryptedStorage.clearSession()
+        }
     }
 
     suspend fun getCurrentUser(): AuthState {
-        val accessToken = encryptedStorage.getAccessToken()
-        val userId = encryptedStorage.getUserId()
-        val email = encryptedStorage.getUserEmail()
-
-        if (accessToken == null || userId == null) {
-            return AuthState.Unauthenticated
-        }
-
-        if (encryptedStorage.isTokenExpired()) {
-            return refreshSession()
-        }
-
         return try {
-            val profile = fetchProfile(userId)
-            AuthState.Authenticated(userId, email, profile)
+            auth.awaitInitialization()
+            if (restoreSession() == null) return clearSessionState()
+            val user = auth.currentUserOrNull() ?: return clearSessionState()
+            val profile = withTimeoutOrNull(PROFILE_LOOKUP_TIMEOUT_MS) { fetchProfile(user.id) }
+            if (profile == null) {
+                ensureProfileExists(user.id, null)
+            }
+            AuthState.Authenticated(user.id, user.email, profile)
         } catch (e: Exception) {
-            encryptedStorage.clearSession()
+            Log.e("AuthRepository", "Session restore failed", e)
             AuthState.Unauthenticated
         }
     }
 
-    suspend fun refreshSession(): AuthState {
-        val refreshToken = encryptedStorage.getRefreshToken()
-        if (refreshToken == null) {
-            encryptedStorage.clearSession()
-            return AuthState.Unauthenticated
-        }
-
+    private suspend fun restoreSession(): UserSession? {
+        val session = auth.currentSessionOrNull() ?: return null
+        if (session.expiresAt > Clock.System.now()) return session
         return try {
-            val body = buildJsonObject {
-                put("refresh_token", refreshToken)
-            }
-            val response = httpClient.post(
-                "${BuildConfig.SUPABASE_URL}/auth/v1/token?grant_type=refresh_token"
-            ) {
-                contentType(ContentType.Application.Json)
-                header("apikey", BuildConfig.SUPABASE_ANON_KEY)
-                setBody(body.toString())
-            }
-            val text = response.bodyAsText()
-            val jsonEl = json.parseToJsonElement(text).jsonObject
-
-            val newAccessToken = jsonEl["access_token"]?.jsonPrimitive?.content
-            val newRefreshToken = jsonEl["refresh_token"]?.jsonPrimitive?.content
-            val userObj = jsonEl["user"]?.jsonObject
-            val userId = userObj?.get("id")?.jsonPrimitive?.content
-            val userEmail = userObj?.get("email")?.jsonPrimitive?.content
-
-            if (newAccessToken != null && userId != null) {
-                encryptedStorage.saveSession(
-                    newAccessToken,
-                    newRefreshToken ?: refreshToken,
-                    userId,
-                    userEmail
-                )
-                val profile = fetchProfile(userId)
-                AuthState.Authenticated(userId, userEmail, profile)
-            } else {
+            auth.refreshCurrentSession()
+            auth.currentSessionOrNull()
+        } catch (e: Exception) {
+            if (e is AuthRestException) {
+                Log.w("AuthRepository", "Session refresh rejected, signing out", e)
+                runCatching { auth.clearSession() }
                 encryptedStorage.clearSession()
-                AuthState.Unauthenticated
+                null
+            } else {
+                Log.w("AuthRepository", "Session refresh failed, keeping stored session", e)
+                auth.currentSessionOrNull()
             }
-        } catch (e: Exception) {
-            encryptedStorage.clearSession()
-            AuthState.Unauthenticated
         }
     }
 
-    private fun mapAuthError(rawError: String): String {
-        return when {
-            rawError.contains("Invalid login credentials", ignoreCase = true) ->
-                "Incorrect email or password. Please try again."
-            rawError.contains("Email not confirmed", ignoreCase = true) ->
-                "Please confirm your email address before signing in."
-            rawError.contains("User not found", ignoreCase = true) ->
-                "No account found with this email. Please sign up first."
-            rawError.contains("Pin verification", ignoreCase = true) ->
-                "Incorrect email or password. Please try again."
-            rawError.contains("rate limit", ignoreCase = true) ->
-                "Too many attempts. Please wait a moment and try again."
-            rawError.contains("Invalid email", ignoreCase = true) ->
-                "Please enter a valid email address."
-            rawError.contains("Password should be", ignoreCase = true) ->
-                "Password must be at least 6 characters."
-            rawError.contains("Signup is disabled", ignoreCase = true) ->
-                "Registration is currently disabled. Please contact support."
-            else -> rawError
-        }
+    private fun clearSessionState(): AuthState {
+        encryptedStorage.clearSession()
+        return AuthState.Unauthenticated
     }
 
     private suspend fun fetchProfile(userId: String): Profile? {
         return try {
-            val token = encryptedStorage.getAccessToken() ?: return null
-            val response = httpClient.get(
-                "${BuildConfig.SUPABASE_URL}/rest/v1/profiles?id=eq.$userId&select=id,full_name,email,avatar_url,role,handicap_index,created_at,updated_at"
-            ) {
-                header("apikey", BuildConfig.SUPABASE_ANON_KEY)
-                header("Authorization", "Bearer $token")
-            }
-            val text = response.bodyAsText()
-            val arr = json.parseToJsonElement(text) as? JsonArray
-            val profile = arr?.firstOrNull()?.let { json.decodeFromString<Profile>(it.toString()) }
-            if (profile == null) {
-                ensureProfileExists(userId, encryptedStorage.getUserEmail(), null)
-            }
-            profile
+            SupabaseConfig.client.from("profiles")
+                .select(Columns.raw(PROFILE_COLUMNS)) { filter { eq("id", userId) } }
+                .decodeList<Profile>()
+                .firstOrNull()
         } catch (e: Exception) {
-            android.util.Log.e("AuthRepository", "fetchProfile failed", e)
+            Log.e("AuthRepository", "Profile fetch failed", e)
             null
         }
     }
 
-    private suspend fun ensureProfileExists(userId: String, email: String?, fullName: String?) {
+    private suspend fun ensureProfileExists(userId: String, fullName: String?) {
         try {
-            val token = encryptedStorage.getAccessToken() ?: return
-            val checkResponse = httpClient.get(
-                "${BuildConfig.SUPABASE_URL}/rest/v1/profiles?id=eq.$userId&select=id"
-            ) {
-                header("apikey", BuildConfig.SUPABASE_ANON_KEY)
-                header("Authorization", "Bearer $token")
-            }
-            val checkText = checkResponse.bodyAsText()
-            val checkArr = json.parseToJsonElement(checkText) as? JsonArray
-            if (checkArr != null && checkArr.isNotEmpty()) return
+            val existing = SupabaseConfig.client.from("profiles")
+                .select(Columns.raw("id")) { filter { eq("id", userId) } }
+                .decodeList<Map<String, Any>>()
+            if (existing.isNotEmpty()) return
 
-            val body = buildJsonObject {
-                put("id", userId)
-                put("email", email ?: "")
-                put("full_name", fullName ?: "TMGL Member")
-                put("role", "player")
-            }
-            httpClient.post(
-                "${BuildConfig.SUPABASE_URL}/rest/v1/profiles"
-            ) {
-                contentType(ContentType.Application.Json)
-                header("apikey", BuildConfig.SUPABASE_ANON_KEY)
-                header("Authorization", "Bearer $token")
-                header("Prefer", "return=minimal")
-                setBody(body.toString())
-            }
-            android.util.Log.e("AuthRepository", "Profile created for $userId")
+            SupabaseConfig.client.from("profiles").insert(profileInsertPayload(userId, fullName))
         } catch (e: Exception) {
-            android.util.Log.e("AuthRepository", "ensureProfileExists failed", e)
+            Log.w("AuthRepository", "Profile self-provisioning skipped for $userId", e)
         }
+    }
+
+    private fun mapAuthError(error: Throwable): String {
+        val detail = error.message?.trim().orEmpty()
+        val message = when {
+            detail.contains("Invalid login credentials", ignoreCase = true) ->
+                "Incorrect email or password. Please try again."
+            detail.contains("Email not confirmed", ignoreCase = true) ->
+                "Please confirm your email address before signing in."
+            detail.contains("User not found", ignoreCase = true) ->
+                "No account found with this email. Please sign up first."
+            detail.contains("already registered", ignoreCase = true) ||
+                detail.contains("already been registered", ignoreCase = true) ->
+                "An account with this email already exists."
+            detail.contains("rate limit", ignoreCase = true) ||
+                detail.contains("too many requests", ignoreCase = true) ->
+                "Too many attempts. Please wait a moment and try again."
+            detail.contains("unable to validate email", ignoreCase = true) ||
+                detail.contains("invalid email", ignoreCase = true) ->
+                "Please enter a valid email address."
+            detail.contains("Password should be", ignoreCase = true) ||
+                detail.contains("at least 6 characters", ignoreCase = true) ->
+                "Password must be at least 6 characters."
+            detail.contains("Signup is disabled", ignoreCase = true) ->
+                "Registration is currently disabled. Please contact support."
+            detail.isBlank() -> "Something went wrong. Please try again."
+            else -> detail
+        }
+        Log.w("AuthRepository", "Mapped auth error: $detail")
+        return message
     }
 }

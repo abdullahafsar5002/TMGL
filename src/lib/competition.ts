@@ -9,6 +9,15 @@
  */
 
 import { supabase } from '@/lib/supabase';
+import {
+  LEADERBOARD_ELIGIBLE_STATUSES,
+  countCompletedHoles,
+  filterLeaderboardEligibleScorecards,
+  isLeaderboardEligibleStatus,
+  isScorecardComplete,
+} from '@/lib/scorecardEligibility';
+import { resolveScoringTarget } from '@/lib/scoringTarget';
+import { resolveExpectedHoleNumbers, DEFAULT_HOLES_COUNT } from '@/lib/validation';
 import type {
   Tournament,
   Round,
@@ -21,6 +30,13 @@ import type {
   PaginatedResult,
 } from '@/types/database';
 import type { ServiceResult } from '@/types/service';
+
+export {
+  LEADERBOARD_ELIGIBLE_STATUSES,
+  filterLeaderboardEligibleScorecards,
+  isLeaderboardEligibleStatus,
+  isScorecardComplete,
+} from '@/lib/scorecardEligibility';
 
 // -------------------------------------------------------------------
 // Tournaments
@@ -340,6 +356,7 @@ export async function createScorecard(
       player_id: scorecard.player_id,
       match_id: scorecard.match_id || null,
       course_id: scorecard.course_id || null,
+      status: 'draft',
     })
     .select()
     .single();
@@ -348,7 +365,258 @@ export async function createScorecard(
   return { data: data as Scorecard, error: null };
 }
 
+export interface CourseContext {
+  courseId: string | null;
+  pars: Record<number, number>;
+  expectedHoles: number[];
+  holeCount: number;
+}
+
+export async function getCourseContextForCourse(courseId: string): Promise<ServiceResult<CourseContext>> {
+  const { data: course } = await supabase
+    .from('courses')
+    .select('id, holes_count')
+    .eq('id', courseId)
+    .maybeSingle();
+
+  const { data: courseHoles } = await supabase
+    .from('course_holes')
+    .select('hole_number, par')
+    .eq('course_id', courseId)
+    .order('hole_number');
+
+  const target = resolveScoringTarget({
+    round: null,
+    course: course ?? { id: courseId, holes_count: null },
+    courseHoles: courseHoles ?? [],
+  });
+
+  return {
+    data: { courseId, pars: target.pars, expectedHoles: target.expectedHoles, holeCount: target.holeCount },
+    error: null,
+  };
+}
+
+export async function getCourseContextForRound(roundId: string): Promise<ServiceResult<CourseContext>> {
+  const { data: round, error: roundError } = await supabase
+    .from('rounds')
+    .select('id, tournament_id')
+    .eq('id', roundId)
+    .maybeSingle();
+
+  if (roundError) return { data: null, error: roundError.message };
+  if (!round?.tournament_id) return { data: null, error: 'Round not found.' };
+
+  const { data: tournament, error: tournamentError } = await supabase
+    .from('tournaments')
+    .select('id, course_id')
+    .eq('id', round.tournament_id)
+    .maybeSingle();
+
+  if (tournamentError) return { data: null, error: tournamentError.message };
+
+  const courseId = tournament?.course_id ?? null;
+  if (courseId) return getCourseContextForCourse(courseId);
+
+  const target = resolveScoringTarget({ round, tournament, course: null, courseHoles: [] });
+  return {
+    data: { courseId: null, pars: target.pars, expectedHoles: target.expectedHoles, holeCount: target.holeCount },
+    error: null,
+  };
+}
+
+export async function getRoundHoleCount(roundId: string): Promise<number> {
+  const { data: round } = await supabase
+    .from('rounds')
+    .select('tournament_id')
+    .eq('id', roundId)
+    .maybeSingle();
+
+  if (!round?.tournament_id) return DEFAULT_HOLES_COUNT;
+
+  const { data: tournament } = await supabase
+    .from('tournaments')
+    .select('course_id')
+    .eq('id', round.tournament_id)
+    .maybeSingle();
+
+  if (!tournament?.course_id) return DEFAULT_HOLES_COUNT;
+
+  const { data: course } = await supabase
+    .from('courses')
+    .select('holes_count')
+    .eq('id', tournament.course_id)
+    .maybeSingle();
+
+  const { data: courseHoles } = await supabase
+    .from('course_holes')
+    .select('hole_number')
+    .eq('course_id', tournament.course_id);
+
+  return resolveExpectedHoleNumbers({
+    holesCount: course?.holes_count ?? null,
+    courseHoleNumbers: (courseHoles ?? []).map((h) => h.hole_number),
+  }).length;
+}
+
+export interface ScorecardCompletion {
+  scorecard_id: string;
+  player_id: string;
+  course_id: string | null;
+  holes_completed: number;
+  total_holes: number;
+  is_complete: boolean;
+}
+
+function buildCompletion(
+  scorecard: Pick<Scorecard, 'id' | 'player_id' | 'course_id'>,
+  holeNumbers: Array<number | null>,
+  totalHoles: number
+): ScorecardCompletion {
+  const holesCompleted = countCompletedHoles(holeNumbers);
+  return {
+    scorecard_id: scorecard.id,
+    player_id: scorecard.player_id,
+    course_id: scorecard.course_id,
+    holes_completed: holesCompleted,
+    total_holes: totalHoles,
+    is_complete: isScorecardComplete({ holes_completed: holesCompleted, total_holes: totalHoles }),
+  };
+}
+
+export async function getScorecardCompletion(
+  scorecardId: string
+): Promise<ServiceResult<ScorecardCompletion>> {
+  const { data: scorecard, error } = await supabase
+    .from('scorecards')
+    .select('id, round_id, player_id, course_id')
+    .eq('id', scorecardId)
+    .maybeSingle();
+
+  if (error) return { data: null, error: error.message };
+  if (!scorecard) return { data: null, error: 'Scorecard not found.' };
+
+  const courseId = scorecard.course_id;
+  let expectedHoles: number[] = [];
+
+  if (courseId) {
+    const context = await getCourseContextForCourse(courseId);
+    if (context.error) return { data: null, error: context.error };
+    expectedHoles = context.data?.expectedHoles ?? [];
+  } else {
+    const context = await getCourseContextForRound(scorecard.round_id);
+    if (context.error) return { data: null, error: context.error };
+    expectedHoles = context.data?.expectedHoles ?? [];
+  }
+
+  const { data: holeRows, error: holesError } = await supabase
+    .from('scorecard_holes')
+    .select('hole_number')
+    .eq('scorecard_id', scorecardId);
+
+  if (holesError) return { data: null, error: holesError.message };
+
+  return {
+    data: buildCompletion(
+      { id: scorecard.id, player_id: scorecard.player_id, course_id: scorecard.course_id },
+      (holeRows ?? []).map((h) => h.hole_number),
+      expectedHoles.length
+    ),
+    error: null,
+  };
+}
+
+export async function getScorecardsCompletionByRound(
+  roundId: string
+): Promise<ServiceResult<ScorecardCompletion[]>> {
+  const { data: scorecards, error } = await supabase
+    .from('scorecards')
+    .select('id, player_id, course_id')
+    .eq('round_id', roundId);
+
+  if (error) return { data: null, error: error.message };
+  const cards = (scorecards ?? []) as Array<Pick<Scorecard, 'id' | 'player_id' | 'course_id'>>;
+  if (cards.length === 0) return { data: [], error: null };
+
+  const courseIds = Array.from(new Set(cards.map((c) => c.course_id).filter((c): c is string => Boolean(c))));
+
+  let fallbackTotal = 0;
+  if (courseIds.length < cards.length) {
+    const roundContext = await getCourseContextForRound(roundId);
+    fallbackTotal = roundContext.data?.expectedHoles.length ?? 0;
+  }
+
+  const holesCountByCourse = new Map<string, number | null>();
+  if (courseIds.length > 0) {
+    const { data: courseRows, error: courseError } = await supabase
+      .from('courses')
+      .select('id, holes_count')
+      .in('id', courseIds);
+    if (courseError) return { data: null, error: courseError.message };
+    for (const course of (courseRows ?? []) as Array<{ id: string; holes_count: number | null }>) {
+      holesCountByCourse.set(course.id, course.holes_count ?? null);
+    }
+  }
+
+  const unknownLayoutCourses = courseIds.filter((id) => holesCountByCourse.get(id) == null);
+  const holeNumbersByCourse = new Map<string, number[]>();
+  if (unknownLayoutCourses.length > 0) {
+    const { data: rows, error: courseHoleError } = await supabase
+      .from('course_holes')
+      .select('course_id, hole_number')
+      .in('course_id', unknownLayoutCourses);
+    if (courseHoleError) return { data: null, error: courseHoleError.message };
+    for (const row of (rows ?? []) as Array<{ course_id: string | null; hole_number: number }>) {
+      const owner = row.course_id ?? unknownLayoutCourses[0];
+      const list = holeNumbersByCourse.get(owner) ?? [];
+      list.push(row.hole_number);
+      holeNumbersByCourse.set(owner, list);
+    }
+  }
+
+  const totalByCourse = new Map<string, number>();
+  for (const courseId of courseIds) {
+    totalByCourse.set(
+      courseId,
+      resolveExpectedHoleNumbers({
+        holesCount: holesCountByCourse.get(courseId) ?? null,
+        courseHoleNumbers: holeNumbersByCourse.get(courseId) ?? [],
+      }).length
+    );
+  }
+
+  const { data: holeRows, error: holesError } = await supabase
+    .from('scorecard_holes')
+    .select('scorecard_id, hole_number')
+    .in('scorecard_id', cards.map((c) => c.id));
+
+  if (holesError) return { data: null, error: holesError.message };
+
+  const holeNumbersByCard = new Map<string, number[]>();
+  for (const row of (holeRows ?? []) as Array<{ scorecard_id: string; hole_number: number }>) {
+    const list = holeNumbersByCard.get(row.scorecard_id) ?? [];
+    list.push(row.hole_number);
+    holeNumbersByCard.set(row.scorecard_id, list);
+  }
+
+  return {
+    data: cards.map((card) => {
+      const total = (card.course_id ? totalByCourse.get(card.course_id) : undefined) ?? fallbackTotal;
+      return buildCompletion(card, holeNumbersByCard.get(card.id) ?? [], total);
+    }),
+    error: null,
+  };
+}
+
 export async function verifyScorecard(scorecardId: string): Promise<ServiceResult<Scorecard>> {
+  const completion = await getScorecardCompletion(scorecardId);
+  if (completion.error) return { data: null, error: completion.error };
+  if (completion.data && !completion.data.is_complete) {
+    return {
+      data: null,
+      error: `Cannot verify an incomplete scorecard (${completion.data.holes_completed}/${completion.data.total_holes} holes scored).`,
+    };
+  }
   return updateScorecard(scorecardId, { status: 'verified' });
 }
 
@@ -434,21 +702,48 @@ export async function deleteScorecardHoles(scorecardId: string): Promise<Service
 // Leaderboard
 // -------------------------------------------------------------------
 
-export async function getLeaderboard(roundId: string): Promise<ServiceResult<LeaderboardEntry[]>> {
-  const { data: scorecards, error } = await supabase
-    .from('scorecards')
-    .select('*, players(id, full_name)')
-    .eq('round_id', roundId)
-    .not('total_strokes', 'is', null);
+export interface LeaderboardScorecardRow {
+  id: string;
+  player_id: string;
+  status: string | null;
+  total_strokes: number | null;
+  total_score_to_par: number | null;
+  players?: { id: string; full_name: string } | null;
+}
 
-  if (error) return { data: null, error: error.message };
+export function assignLeaderboardPositions(entries: LeaderboardEntry[]): LeaderboardEntry[] {
+  const sorted = [...entries].sort(
+    (a, b) => a.total_score_to_par - b.total_score_to_par || a.total_strokes - b.total_strokes
+  );
 
-  if (!scorecards || scorecards.length === 0) {
-    return { data: [], error: null };
+  let pos = 1;
+  for (let i = 0; i < sorted.length; i++) {
+    const previous = sorted[i - 1];
+    if (
+      previous &&
+      sorted[i].total_score_to_par === previous.total_score_to_par &&
+      sorted[i].total_strokes === previous.total_strokes
+    ) {
+      sorted[i].position = previous.position;
+    } else {
+      sorted[i].position = pos;
+    }
+    pos = i + 2;
   }
 
-  const entries: LeaderboardEntry[] = scorecards.map((sc, _index) => {
-    const player = sc.players as { id: string; full_name: string } | null;
+  return sorted;
+}
+
+export function buildLeaderboardEntries(
+  scorecards: LeaderboardScorecardRow[],
+  totalHoles: number
+): LeaderboardEntry[] {
+  const eligible = filterLeaderboardEligibleScorecards(scorecards).filter(
+    (sc) => sc.total_strokes != null
+  );
+
+  const entries: LeaderboardEntry[] = eligible.map((sc) => {
+    const player = sc.players ?? null;
     return {
       position: 0,
       player_id: sc.player_id,
@@ -457,26 +752,72 @@ export async function getLeaderboard(roundId: string): Promise<ServiceResult<Lea
       team_name: null,
       total_strokes: sc.total_strokes ?? 0,
       total_score_to_par: sc.total_score_to_par ?? 0,
-      holes_completed: 0,
-      total_holes: 18,
+      holes_completed: totalHoles,
+      total_holes: totalHoles,
       scorecard_id: sc.id,
-      scorecard_status: sc.status,
+      scorecard_status: (sc.status ?? null) as LeaderboardEntry['scorecard_status'],
     };
   });
 
-  entries.sort((a, b) => a.total_score_to_par - b.total_score_to_par || a.total_strokes - b.total_strokes);
+  return assignLeaderboardPositions(entries);
+}
 
-  let pos = 1;
-  for (let i = 0; i < entries.length; i++) {
-    if (i > 0 && entries[i].total_score_to_par === entries[i - 1].total_score_to_par && entries[i].total_strokes === entries[i - 1].total_strokes) {
-      entries[i].position = entries[i - 1].position;
+export function buildTournamentLeaderboardEntries(
+  scorecards: LeaderboardScorecardRow[],
+  totalHolesPerRound: number,
+  roundCount: number
+): LeaderboardEntry[] {
+  const eligible = filterLeaderboardEligibleScorecards(scorecards).filter(
+    (sc) => sc.total_strokes != null
+  );
+
+  const byPlayer = new Map<string, LeaderboardEntry>();
+
+  for (const sc of eligible) {
+    const player = sc.players ?? null;
+    const existing = byPlayer.get(sc.player_id);
+
+    if (existing) {
+      existing.total_strokes += sc.total_strokes ?? 0;
+      existing.total_score_to_par += sc.total_score_to_par ?? 0;
+      existing.holes_completed += totalHolesPerRound;
     } else {
-      entries[i].position = pos;
+      byPlayer.set(sc.player_id, {
+        position: 0,
+        player_id: sc.player_id,
+        player_name: player?.full_name ?? 'Unknown',
+        team_id: null,
+        team_name: null,
+        total_strokes: sc.total_strokes ?? 0,
+        total_score_to_par: sc.total_score_to_par ?? 0,
+        holes_completed: totalHolesPerRound,
+        total_holes: totalHolesPerRound * roundCount,
+        scorecard_id: sc.id,
+        scorecard_status: (sc.status ?? null) as LeaderboardEntry['scorecard_status'],
+      });
     }
-    pos = i + 2;
   }
 
-  return { data: entries, error: null };
+  return assignLeaderboardPositions(Array.from(byPlayer.values()));
+}
+
+export async function getLeaderboard(roundId: string): Promise<ServiceResult<LeaderboardEntry[]>> {
+  const { data: scorecards, error } = await supabase
+    .from('scorecards')
+    .select('*, players(id, full_name)')
+    .eq('round_id', roundId)
+    .in('status', LEADERBOARD_ELIGIBLE_STATUSES)
+    .not('total_strokes', 'is', null);
+
+  if (error) return { data: null, error: error.message };
+
+  if (!scorecards || scorecards.length === 0) {
+    return { data: [], error: null };
+  }
+
+  const totalHoles = await getRoundHoleCount(roundId);
+
+  return { data: buildLeaderboardEntries(scorecards as unknown as LeaderboardScorecardRow[], totalHoles), error: null };
 }
 
 // -------------------------------------------------------------------
@@ -611,52 +952,26 @@ export async function getTournamentLeaderboard(tournamentId: string): Promise<Se
     .from('scorecards')
     .select('*, players(id, full_name)')
     .in('round_id', roundIds)
+    .in('status', LEADERBOARD_ELIGIBLE_STATUSES)
     .not('total_strokes', 'is', null);
 
   if (error) return { data: null, error: error.message };
   if (!scorecards || scorecards.length === 0) return { data: [], error: null };
 
-  const playerMap = new Map<string, LeaderboardEntry>();
-
-  for (const sc of scorecards) {
-    const player = sc.players as { id: string; full_name: string } | null;
-    const pid = sc.player_id;
-    const existing = playerMap.get(pid);
-
-    if (existing) {
-      existing.total_strokes += sc.total_strokes ?? 0;
-      existing.total_score_to_par += sc.total_score_to_par ?? 0;
-    } else {
-      playerMap.set(pid, {
-        position: 0,
-        player_id: pid,
-        player_name: player?.full_name ?? 'Unknown',
-        team_id: null,
-        team_name: null,
-        total_strokes: sc.total_strokes ?? 0,
-        total_score_to_par: sc.total_score_to_par ?? 0,
-        holes_completed: 0,
-        total_holes: 18 * rounds.length,
-        scorecard_id: sc.id,
-        scorecard_status: sc.status,
-      });
-    }
+  let holesPerRound = DEFAULT_HOLES_COUNT;
+  const firstRound = roundIds[0];
+  if (firstRound) {
+    holesPerRound = await getRoundHoleCount(firstRound);
   }
 
-  const entries = Array.from(playerMap.values());
-  entries.sort((a, b) => a.total_score_to_par - b.total_score_to_par || a.total_strokes - b.total_strokes);
-
-  let pos = 1;
-  for (let i = 0; i < entries.length; i++) {
-    if (i > 0 && entries[i].total_score_to_par === entries[i - 1].total_score_to_par && entries[i].total_strokes === entries[i - 1].total_strokes) {
-      entries[i].position = entries[i - 1].position;
-    } else {
-      entries[i].position = pos;
-    }
-    pos = i + 2;
-  }
-
-  return { data: entries, error: null };
+  return {
+    data: buildTournamentLeaderboardEntries(
+      scorecards as unknown as LeaderboardScorecardRow[],
+      holesPerRound,
+      roundIds.length
+    ),
+    error: null,
+  };
 }
 
 // -------------------------------------------------------------------
@@ -710,7 +1025,7 @@ export async function getDashboardStats(): Promise<ServiceResult<DashboardStats>
       completedMatches: matches.filter((m) => m.status === 'completed').length,
       cancelledMatches: matches.filter((m) => m.status === 'cancelled').length,
       totalScorecards: scorecards.length,
-      completedScorecards: scorecards.filter((sc) => ['submitted', 'verified'].includes(sc.status)).length,
+      completedScorecards: scorecards.filter((sc) => isLeaderboardEligibleStatus(sc.status)).length,
     },
     error: null,
   };
@@ -757,7 +1072,9 @@ export async function getLeagueAnalytics(): Promise<ServiceResult<LeagueAnalytic
   const matches = (matchesRes.data ?? []) as { status: string }[];
   const scorecards = (scorecardsRes.data ?? []) as { status: string; total_strokes: number | null; total_score_to_par: number | null }[];
 
-  const completedScorecards = scorecards.filter((sc) => sc.total_strokes !== null);
+  const completedScorecards = scorecards.filter(
+    (sc) => isLeaderboardEligibleStatus(sc.status) && sc.total_strokes !== null
+  );
   const totalStrokes = completedScorecards.reduce((sum, sc) => sum + (sc.total_strokes ?? 0), 0);
   const totalScoreToPar = completedScorecards.reduce((sum, sc) => sum + (sc.total_score_to_par ?? 0), 0);
 

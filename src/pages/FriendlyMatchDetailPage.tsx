@@ -21,6 +21,7 @@ import {
   getMatchFormatLabel,
 } from '@/lib/friendly';
 import type { FriendlyMatch, FriendlyMatchPlayer, Player } from '@/types/database';
+import { ROUTES } from '@/router/routes';
 
 const STATUS_VARIANTS: Record<string, 'default' | 'success' | 'warning' | 'info' | 'danger'> = {
   pending: 'info',
@@ -135,7 +136,7 @@ export default function FriendlyMatchDetailPage() {
       setError(result.error);
     } else {
       toast.success('Match deleted.');
-      navigate('/friendly');
+      navigate(ROUTES.friendlyMatches);
     }
   }
 
@@ -352,7 +353,7 @@ export default function FriendlyMatchDetailPage() {
             )}
 
             {(match.status === 'active' || match.status === 'completed') && isParticipant && myInvitation && (
-              <Link to={`/friendly/${match.id}/score`}>
+              <Link to={ROUTES.friendlyMatchScore(match.id)}>
                 <Button variant="primary" fullWidth>
                   {match.status === 'active' ? 'Enter Scores' : 'View Scorecard'}
                 </Button>

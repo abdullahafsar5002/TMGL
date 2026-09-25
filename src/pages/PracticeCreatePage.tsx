@@ -10,6 +10,7 @@ import { getPlayerByProfileId, getCourses } from '@/lib/league';
 import { createPracticeRound } from '@/lib/practice';
 import { validatePracticeRound } from '@/lib/validation';
 import type { Course } from '@/types/database';
+import { ROUTES } from '@/router/routes';
 
 export default function PracticeCreatePage() {
   const navigate = useNavigate();
@@ -86,7 +87,7 @@ export default function PracticeCreatePage() {
         return;
       }
 
-      navigate(`/practice/${roundResult.data.id}/score`);
+      navigate(ROUTES.practiceScore(roundResult.data.id));
     } catch {
       setError('Failed to create practice round.');
     } finally {

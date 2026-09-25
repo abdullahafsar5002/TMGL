@@ -20,6 +20,7 @@ import {
 } from '@/lib/friendly';
 import { formatToPar } from '@/utils/golf';
 import type { FriendlyMatch, FriendlyMatchPlayer, CourseHole } from '@/types/database';
+import { ROUTES } from '@/router/routes';
 import { supabase } from '@/lib/supabase';
 
 interface HoleEntry {
@@ -185,7 +186,7 @@ export default function FriendlyMatchScorePage() {
       });
 
       toast.success('Scorecard submitted!');
-      navigate(`/friendly/${match.id}`);
+      navigate(ROUTES.friendlyMatch(match.id));
     } catch {
       setError('Failed to complete scorecard.');
     } finally {

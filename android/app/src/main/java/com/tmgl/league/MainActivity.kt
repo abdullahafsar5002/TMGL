@@ -38,7 +38,6 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        networkMonitor.startMonitoring()
 
         val deepLinkUri = intent?.data
 
@@ -85,6 +84,7 @@ class MainActivity : FragmentActivity() {
                                 onAuthStateChanged = { newState -> authState = newState },
                                 networkMonitor = networkMonitor,
                                 errorHandler = errorHandler,
+                                onSignOut = { authViewModel.signOut() },
                                 initialDeepLink = deepLinkUri
                             )
                         }
@@ -111,11 +111,6 @@ class MainActivity : FragmentActivity() {
             // Handle deep link when app is already running
             DeepLinkHandler.handleDeepLink(deepLinkUri)
         }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        networkMonitor.stopMonitoring()
     }
 
     companion object {

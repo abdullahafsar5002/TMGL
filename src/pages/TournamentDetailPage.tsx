@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef, type KeyboardEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Trophy, Plus, Calendar, MapPin, Loader2, AlertCircle, ArrowLeft, Edit3, Trash2, ChevronRight, Flag, Users, Swords, Medal, Shield, BarChart3, UserPlus, UserMinus } from 'lucide-react';
+import { Trophy, Plus, Calendar, MapPin, Loader2, AlertCircle, ArrowLeft, Edit3, Trash2, ChevronRight, Flag, Users, Swords, Medal, Shield, BarChart3, UserPlus, UserMinus, Handshake, ExternalLink, Star } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card, CardHeader, CardTitle } from '@/components/common/Card';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
@@ -14,17 +14,173 @@ import { getTournament, getRoundsByTournament, updateTournament, deleteTournamen
 import { finalizeTournament } from '@/lib/tournamentFinalize';
 import { joinTournament, leaveTournament, isRegistered, getRegistrationCount } from '@/lib/tournamentRegistration';
 import { getPlayerByProfileId } from '@/lib/league';
+import { getOfficialLeagueOverview, type OfficialTeamStandingView, type NotableRoundPerformanceView } from '@/lib/officialLeague';
 import { validateTournament } from '@/lib/validation';
 import { getSeasons } from '@/lib/league';
 import { supabase } from '@/lib/supabase';
-import type { Tournament, Round, TournamentStatus, Season, Match, Scorecard } from '@/types/database';
+import type { Tournament, Round, TournamentStatus, Season, Match, Scorecard, LeaguePartner } from '@/types/database';
 import { useToast } from '@/context/ToastContext';
+import { ROUTES } from '@/router/routes';
 
 const STATUS_VARIANTS: Record<TournamentStatus, BadgeVariant> = {
   draft: 'warning', open: 'success', closed: 'info', live: 'danger', completed: 'info', cancelled: 'outline',
 };
 
 const STATUS_OPTIONS: TournamentStatus[] = ['draft', 'open', 'live', 'completed', 'cancelled'];
+
+type DetailTab = 'rounds' | 'participants' | 'stats' | 'official';
+
+function rankLabel(standing: OfficialTeamStandingView): string {
+  return standing.tied ? `T${standing.position}` : String(standing.position);
+}
+
+function StandoutRoundCard({ performance }: { performance: NotableRoundPerformanceView }) {
+  return (
+    <Card variant="hover" className="flex flex-col gap-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-tmgl-charcoal-900 truncate">{performance.player_name}</p>
+          {performance.team_name && <p className="text-xs text-tmgl-charcoal-500 truncate">{performance.team_name}</p>}
+        </div>
+        <Badge variant="gold" className="shrink-0 gap-1">
+          <Star className="w-3 h-3" /> Standout
+        </Badge>
+      </div>
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="rounded-lg bg-tmgl-charcoal-50 border border-tmgl-charcoal-200 py-2 px-1">
+          <p className="text-lg font-bold text-tmgl-charcoal-900 leading-none">{performance.gross_score}</p>
+          <p className="text-[10px] font-medium text-tmgl-charcoal-500 mt-1 uppercase tracking-wide">Gross</p>
+        </div>
+        <div className="rounded-lg bg-tmgl-charcoal-50 border border-tmgl-charcoal-200 py-2 px-1">
+          <p className="text-lg font-bold text-tmgl-charcoal-900 leading-none">
+            {performance.net_score === null ? '—' : performance.net_score}
+          </p>
+          <p className="text-[10px] font-medium text-tmgl-charcoal-500 mt-1 uppercase tracking-wide">Net</p>
+        </div>
+        <div className="rounded-lg bg-tmgl-charcoal-50 border border-tmgl-charcoal-200 py-2 px-1">
+          <p className="text-lg font-bold text-tmgl-charcoal-900 leading-none">
+            {performance.handicap_index === null ? '—' : performance.handicap_index}
+          </p>
+          <p className="text-[10px] font-medium text-tmgl-charcoal-500 mt-1 uppercase tracking-wide">Handicap</p>
+        </div>
+      </div>
+      {performance.note && <p className="text-xs text-tmgl-charcoal-600">{performance.note}</p>}
+      {performance.player_code && (
+        <p className="text-[10px] font-mono text-tmgl-charcoal-400">{performance.player_code}</p>
+      )}
+    </Card>
+  );
+}
+
+function OfficialStandingsPanel({
+  standings,
+  performances,
+  partners,
+}: {
+  standings: OfficialTeamStandingView[];
+  performances: NotableRoundPerformanceView[];
+  partners: LeaguePartner[];
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-bold text-tmgl-charcoal-900">Official Standings</h2>
+          <p className="text-sm text-tmgl-charcoal-500">Published league records for this tournament.</p>
+        </div>
+        {standings.length > 0 && standings[0].source_url && (
+          <a href={standings[0].source_url} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-tmgl-green-700 hover:underline self-start sm:self-auto">
+            View source <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        )}
+      </div>
+
+      {standings.length > 0 ? (
+        <Card className="p-0 sm:p-0 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-sm">
+              <caption className="sr-only">Official team standings with combined gross, combined net and accumulated score</caption>
+              <thead>
+                <tr className="bg-tmgl-charcoal-50 border-b border-tmgl-charcoal-200">
+                  <th scope="col" className="px-3 sm:px-4 py-2.5 text-left text-xs font-semibold text-tmgl-charcoal-600 w-16">Rank</th>
+                  <th scope="col" className="px-3 sm:px-4 py-2.5 text-left text-xs font-semibold text-tmgl-charcoal-600">Team</th>
+                  <th scope="col" className="px-3 sm:px-4 py-2.5 text-left text-xs font-semibold text-tmgl-charcoal-600">Sponsor</th>
+                  <th scope="col" className="px-3 sm:px-4 py-2.5 text-right text-xs font-semibold text-tmgl-charcoal-600">Gross</th>
+                  <th scope="col" className="px-3 sm:px-4 py-2.5 text-right text-xs font-semibold text-tmgl-charcoal-600">Net</th>
+                  <th scope="col" className="px-3 sm:px-4 py-2.5 text-right text-xs font-semibold text-tmgl-charcoal-600">Accumulated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {standings.map((standing) => (
+                  <tr key={standing.id} className="border-b border-tmgl-charcoal-100 last:border-0 hover:bg-tmgl-green-50">
+                    <th scope="row" className="px-3 sm:px-4 py-3 text-left font-bold text-tmgl-charcoal-900 whitespace-nowrap">
+                      <span className="flex items-center gap-1.5">
+                        {rankLabel(standing)}
+                        {standing.tied && <span className="text-[10px] font-medium uppercase text-tmgl-charcoal-400">tie</span>}
+                      </span>
+                    </th>
+                    <td className="px-3 sm:px-4 py-3">
+                      <span className="flex items-center gap-2 min-w-0">
+                        <Shield className="w-4 h-4 text-tmgl-green-700 shrink-0" />
+                        <span className="min-w-0">
+                          <span className="block font-medium text-tmgl-charcoal-900 truncate">{standing.team_name}</span>
+                          {standing.franchise_type === 'additional' && (
+                            <span className="block text-[10px] uppercase tracking-wide text-tmgl-charcoal-400">Additional franchise</span>
+                          )}
+                        </span>
+                      </span>
+                    </td>
+                    <td className="px-3 sm:px-4 py-3 text-tmgl-charcoal-600">
+                      {standing.sponsor_name || <span className="text-tmgl-charcoal-400">—</span>}
+                    </td>
+                    <td className="px-3 sm:px-4 py-3 text-right font-mono text-tmgl-charcoal-900">{standing.combined_gross}</td>
+                    <td className="px-3 sm:px-4 py-3 text-right font-mono text-tmgl-charcoal-900">{standing.combined_net}</td>
+                    <td className="px-3 sm:px-4 py-3 text-right font-mono font-semibold text-tmgl-charcoal-900">{standing.accumulated_score}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      ) : (
+        <EmptyState icon={Trophy} title="No official standings" description="Official team standings for this tournament have not been published yet." />
+      )}
+
+      <div className="space-y-2">
+        <h3 className="text-base font-bold text-tmgl-charcoal-900 flex items-center gap-1.5">
+          <Star className="w-4 h-4 text-tmgl-gold-600" /> Standout Rounds ({performances.length})
+        </h3>
+        {performances.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {performances.map((performance) => (
+              <StandoutRoundCard key={performance.id} performance={performance} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState icon={Star} title="No standout rounds" description="Notable round performances for this tournament have not been published yet." />
+        )}
+      </div>
+
+      {partners.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-base font-bold text-tmgl-charcoal-900 flex items-center gap-1.5">
+            <Handshake className="w-4 h-4 text-tmgl-green-700" /> League Partners ({partners.length})
+          </h3>
+          <div className="flex flex-wrap gap-1.5">
+            {partners.map((partner) => (
+              <a key={partner.id} href={partner.source_url} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border border-tmgl-charcoal-200 bg-white text-tmgl-charcoal-700 hover:border-tmgl-green-400 transition-colors">
+                {partner.name}
+                <span className="text-[10px] uppercase tracking-wide text-tmgl-charcoal-400">{partner.category}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function TournamentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -34,11 +190,15 @@ export function TournamentDetailPage() {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
   const [participants, setParticipants] = useState<TournamentParticipant[]>([]);
-  const [activeTab, setActiveTab] = useState<'rounds' | 'participants' | 'stats'>('rounds');
+  const [activeTab, setActiveTab] = useState<DetailTab>('rounds');
   const [tournamentMatches, setTournamentMatches] = useState<Match[]>([]);
   const [tournamentScorecards, setTournamentScorecards] = useState<Scorecard[]>([]);
+  const [officialStandings, setOfficialStandings] = useState<OfficialTeamStandingView[]>([]);
+  const [officialPerformances, setOfficialPerformances] = useState<NotableRoundPerformanceView[]>([]);
+  const [leaguePartners, setLeaguePartners] = useState<LeaguePartner[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const tabRefs = useRef<Partial<Record<DetailTab, HTMLButtonElement | null>>>({});
 
   const [showEdit, setShowEdit] = useState(false);
   const [editName, setEditName] = useState('');
@@ -61,6 +221,47 @@ export function TournamentDetailPage() {
 
   const canManage = canManageLeague(profile?.role);
 
+  const hasOfficialData = officialStandings.length > 0 || officialPerformances.length > 0;
+
+  const tabs = useMemo(
+    () => [
+      { id: 'rounds' as DetailTab, label: `Rounds (${rounds.length})`, icon: Flag },
+      { id: 'participants' as DetailTab, label: `Participants (${participants.length})`, icon: Users },
+      { id: 'stats' as DetailTab, label: 'Stats', icon: BarChart3 },
+      ...(hasOfficialData ? [{ id: 'official' as DetailTab, label: 'Official Standings', icon: Trophy }] : []),
+    ],
+    [rounds.length, participants.length, hasOfficialData]
+  );
+
+  const selectTab = useCallback(
+    (tab: DetailTab) => {
+      setActiveTab(tab);
+      tabRefs.current[tab]?.focus();
+    },
+    []
+  );
+
+  useEffect(() => {
+    setActiveTab((current) => (tabs.some((tab) => tab.id === current) ? current : 'rounds'));
+  }, [tabs]);
+
+  const handleTabKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+      if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
+      if (tabs.length === 0) return;
+      event.preventDefault();
+
+      let nextIndex: number;
+      if (event.key === 'ArrowRight') nextIndex = (index + 1) % tabs.length;
+      else if (event.key === 'ArrowLeft') nextIndex = (index - 1 + tabs.length) % tabs.length;
+      else if (event.key === 'Home') nextIndex = 0;
+      else nextIndex = tabs.length - 1;
+
+      selectTab(tabs[nextIndex].id);
+    },
+    [tabs, selectTab]
+  );
+
   const load = useCallback(async () => {
     if (!id) return;
     setIsLoading(true);
@@ -81,6 +282,13 @@ export function TournamentDetailPage() {
         ]);
         if (matchesRes.data) setTournamentMatches(matchesRes.data as Match[]);
         if (scorecardsRes.data) setTournamentScorecards(scorecardsRes.data as Scorecard[]);
+      }
+
+      const officialRes = await getOfficialLeagueOverview(id);
+      if (officialRes.data) {
+        setOfficialStandings(officialRes.data.standings);
+        setOfficialPerformances(officialRes.data.performances);
+        setLeaguePartners(officialRes.data.partners);
       }
     }
     setIsLoading(false);
@@ -269,19 +477,28 @@ export function TournamentDetailPage() {
         </div>
       )}
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        <button onClick={() => navigate(`/tournaments/${id}`)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors ${activeTab === 'rounds' ? 'bg-tmgl-green-800 text-white border-tmgl-green-800' : 'bg-white text-tmgl-charcoal-700 border-tmgl-charcoal-200 hover:border-tmgl-green-400'}`}>
-          <Flag className="w-3.5 h-3.5" /> Rounds ({rounds.length})
-        </button>
-        <button onClick={() => setActiveTab('participants')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors ${activeTab === 'participants' ? 'bg-tmgl-green-800 text-white border-tmgl-green-800' : 'bg-white text-tmgl-charcoal-700 border-tmgl-charcoal-200 hover:border-tmgl-green-400'}`}>
-          <Users className="w-3.5 h-3.5" /> Participants ({participants.length})
-        </button>
-        <button onClick={() => setActiveTab('stats')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors ${activeTab === 'stats' ? 'bg-tmgl-green-800 text-white border-tmgl-green-800' : 'bg-white text-tmgl-charcoal-700 border-tmgl-charcoal-200 hover:border-tmgl-green-400'}`}>
-          <BarChart3 className="w-3.5 h-3.5" /> Stats
-        </button>
+      <div role="tablist" aria-label="Tournament sections" className="flex gap-2 overflow-x-auto pb-1">
+        {tabs.map((tab, index) => {
+          const isActive = activeTab === tab.id;
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              id={`tournament-tab-${tab.id}`}
+              ref={(node) => { tabRefs.current[tab.id] = node; }}
+              role="tab"
+              type="button"
+              aria-selected={isActive}
+              aria-controls={`tournament-panel-${tab.id}`}
+              tabIndex={isActive ? 0 : -1}
+              onClick={() => selectTab(tab.id)}
+              onKeyDown={(event) => handleTabKeyDown(event, index)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors focus:outline-none focus:ring-2 focus:ring-tmgl-green-700 focus:ring-offset-1 ${isActive ? 'bg-tmgl-green-800 text-white border-tmgl-green-800' : 'bg-white text-tmgl-charcoal-700 border-tmgl-charcoal-200 hover:border-tmgl-green-400'}`}
+            >
+              <Icon className="w-3.5 h-3.5" aria-hidden="true" /> {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1">
@@ -303,11 +520,11 @@ export function TournamentDetailPage() {
       </div>
 
       {activeTab === 'rounds' && (
-        <>
+        <div role="tabpanel" id="tournament-panel-rounds" aria-labelledby="tournament-tab-rounds" tabIndex={0} className="space-y-3 focus:outline-none focus:ring-2 focus:ring-tmgl-green-700 rounded-xl">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-tmgl-charcoal-900">Rounds ({rounds.length})</h2>
             {canManage && (
-              <Button variant="primary" size="sm" onClick={() => navigate(`/tournaments/${id}/rounds/new`)} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
+              <Button variant="primary" size="sm" onClick={() => navigate(ROUTES.tournamentRoundCreate(id!))} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
                 <Plus className="w-4 h-4 mr-1.5" /> Add Round
               </Button>
             )}
@@ -315,7 +532,7 @@ export function TournamentDetailPage() {
 
           {rounds.length === 0 ? (
             <EmptyState icon={Flag} title="No rounds yet" description={canManage ? 'Add the first round to this tournament.' : 'Rounds will appear here once created.'}
-              action={canManage ? <Button variant="primary" size="sm" onClick={() => navigate(`/tournaments/${id}/rounds/new`)} className="bg-tmgl-green-800 hover:bg-tmgl-green-700"><Plus className="w-4 h-4 mr-1.5" /> Add Round</Button> : undefined} />
+              action={canManage ? <Button variant="primary" size="sm" onClick={() => navigate(ROUTES.tournamentRoundCreate(id!))} className="bg-tmgl-green-800 hover:bg-tmgl-green-700"><Plus className="w-4 h-4 mr-1.5" /> Add Round</Button> : undefined} />
           ) : (
             <div className="space-y-2">
               {rounds.map((round) => (
@@ -336,11 +553,11 @@ export function TournamentDetailPage() {
               ))}
             </div>
           )}
-        </>
+        </div>
       )}
 
       {activeTab === 'stats' && (
-        <>
+        <div role="tabpanel" id="tournament-panel-stats" aria-labelledby="tournament-tab-stats" tabIndex={0} className="space-y-3 focus:outline-none focus:ring-2 focus:ring-tmgl-green-700 rounded-xl">
           <h2 className="text-lg font-bold text-tmgl-charcoal-900">Tournament Statistics</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {[
@@ -393,11 +610,11 @@ export function TournamentDetailPage() {
               <Medal className="w-4 h-4" /> View Leaderboard
             </button>
           </div>
-        </>
+        </div>
       )}
 
       {activeTab === 'participants' && (
-        <>
+        <div role="tabpanel" id="tournament-panel-participants" aria-labelledby="tournament-tab-participants" tabIndex={0} className="space-y-3 focus:outline-none focus:ring-2 focus:ring-tmgl-green-700 rounded-xl">
           <h2 className="text-lg font-bold text-tmgl-charcoal-900">Participants ({participants.length})</h2>
           {participants.length === 0 ? (
             <EmptyState icon={Users} title="No participants yet" description="Participants will appear here once matches are created." />
@@ -426,7 +643,17 @@ export function TournamentDetailPage() {
               ))}
             </div>
           )}
-        </>
+        </div>
+      )}
+
+      {activeTab === 'official' && hasOfficialData && (
+        <div role="tabpanel" id="tournament-panel-official" aria-labelledby="tournament-tab-official" tabIndex={0} className="focus:outline-none focus:ring-2 focus:ring-tmgl-green-700 rounded-xl">
+          <OfficialStandingsPanel
+            standings={officialStandings}
+            performances={officialPerformances}
+            partners={leaguePartners}
+          />
+        </div>
       )}
 
       {canManage && (

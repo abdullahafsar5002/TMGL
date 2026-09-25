@@ -73,7 +73,7 @@ class ScoringFormatsAdvancedTest {
         val p2 = listOf(5, 5, 4, 5, 5, 5, 4, 5, 5, 5, 4, 5, 5, 5, 4, 5, 5, 5)
         val result = repo.calculateMatchPlay(p1, p2)
         assertEquals(0, result.holesRemaining)
-        assertEquals(18, result.player1Wins)
+        assertEquals(14, result.player1Wins)
         assertEquals(0, result.player2Wins)
         assertTrue(result.status.contains("Player 1 wins"))
     }

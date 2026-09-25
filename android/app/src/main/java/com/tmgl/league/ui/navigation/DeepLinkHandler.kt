@@ -1,6 +1,7 @@
 package com.tmgl.league.ui.navigation
 
 import android.net.Uri
+import com.tmgl.league.data.model.ScoringTarget
 
 object DeepLinkHandler {
     private var onDeepLink: ((String) -> Unit)? = null
@@ -48,8 +49,13 @@ object DeepLinkHandler {
                 if (id.isNotEmpty()) "matches/$id" else "matches"
             }
             "scoring" -> {
-                val matchId = uri.getQueryParameter("match_id")
-                if (matchId != null) "scoring?match_id=$matchId" else "scoring"
+                val target = ScoringTarget(
+                    roundId = uri.getQueryParameter("round_id").orEmpty(),
+                    playerId = uri.getQueryParameter("player_id").orEmpty(),
+                    matchId = uri.getQueryParameter("match_id"),
+                    scorecardId = uri.getQueryParameter("scorecard_id")
+                )
+                if (target.isResolvable) Screen.Scoring.createRoute(target) else Screen.Tournaments.route
             }
             "players" -> {
                 val id = path.trimStart('/')

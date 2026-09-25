@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.tmgl.league.data.model.ScoringTarget
 
 sealed class Screen(val route: String) {
     data object Splash : Screen("splash")
@@ -19,11 +20,34 @@ sealed class Screen(val route: String) {
     data object MatchDetail : Screen("matches/{id}") {
         fun createRoute(id: String) = "matches/$id"
     }
-    data object Scoring : Screen("scoring?match_id={matchId}") {
-        fun createRoute(matchId: String? = null) = if (matchId != null) "scoring?match_id=$matchId" else "scoring"
-    }
-    data object FastScoring : Screen("fast_scoring?match_id={matchId}") {
-        fun createRoute(matchId: String? = null) = if (matchId != null) "fast_scoring?match_id=$matchId" else "fast_scoring"
+    data object Scoring : Screen("scoring?round_id={roundId}&player_id={playerId}&match_id={matchId}&scorecard_id={scorecardId}") {
+        private const val PATH = "scoring"
+
+        fun createRoute(target: ScoringTarget): String {
+            val params = buildList {
+                if (target.roundId.isNotBlank()) add("round_id" to target.roundId)
+                if (target.playerId.isNotBlank()) add("player_id" to target.playerId)
+                if (!target.matchId.isNullOrBlank()) add("match_id" to target.matchId)
+                if (!target.scorecardId.isNullOrBlank()) add("scorecard_id" to target.scorecardId)
+            }
+            if (params.isEmpty()) return PATH
+            return "$PATH?" + params.joinToString("&") { "${it.first}=${it.second}" }
+        }
+
+        fun parseTarget(
+            roundId: String?,
+            playerId: String?,
+            matchId: String?,
+            scorecardId: String?
+        ): ScoringTarget? {
+            val target = ScoringTarget(
+                roundId = roundId.orEmpty().trim(),
+                playerId = playerId.orEmpty().trim(),
+                matchId = matchId?.trim()?.takeIf { it.isNotEmpty() },
+                scorecardId = scorecardId?.trim()?.takeIf { it.isNotEmpty() }
+            )
+            return if (target.isResolvable) target else null
+        }
     }
     data object Leaderboard : Screen("leaderboard")
     data object Players : Screen("players")

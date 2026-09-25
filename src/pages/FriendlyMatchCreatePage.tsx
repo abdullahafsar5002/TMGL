@@ -9,6 +9,7 @@ import { LoadingState } from '@/components/common/LoadingState';
 import { getPlayerByProfileId, getCourses } from '@/lib/league';
 import { createFriendlyMatch } from '@/lib/friendly';
 import type { Course } from '@/types/database';
+import { ROUTES } from '@/router/routes';
 
 const MATCH_FORMATS = [
   { value: 'stroke_play', label: 'Stroke Play' },
@@ -94,7 +95,7 @@ export default function FriendlyMatchCreatePage() {
         return;
       }
 
-      navigate(`/friendly/${matchResult.data.id}`);
+      navigate(ROUTES.friendlyMatch(matchResult.data.id));
     } catch {
       setError('Failed to create friendly match.');
     } finally {

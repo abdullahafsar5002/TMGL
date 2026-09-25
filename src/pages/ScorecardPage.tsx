@@ -53,9 +53,11 @@ export function ScorecardPage() {
     const rRes = await getRound(scRes.data.round_id);
     if (rRes.data) {
       setRoundName(`Round ${rRes.data.round_number}: ${rRes.data.name}`);
-      setCourseId(rRes.data.course_id ?? null);
       const tRes = await getTournament(rRes.data.tournament_id);
-      if (tRes.data) setTournamentId(tRes.data.id);
+      if (tRes.data) {
+        setTournamentId(tRes.data.id);
+        setCourseId(tRes.data.course_id ?? null);
+      }
     }
 
     const { data: player } = await supabase.from('players').select('full_name').eq('id', scRes.data!.player_id).single();

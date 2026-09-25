@@ -46,5 +46,6 @@ local.properties
 *.aab
 build/
 .gradle/
+supabase/.temp/
 
 .vercel

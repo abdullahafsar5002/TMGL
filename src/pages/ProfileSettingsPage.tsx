@@ -104,10 +104,14 @@ export default function ProfileSettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSave} className="space-y-6">
+          <form onSubmit={handleSave} className="space-y-6" aria-labelledby="profile-form-heading">
+            <h2 id="profile-form-heading" className="sr-only">Personal information</h2>
+
             <div>
-              <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Email</label>
+              <label htmlFor="profile-email" className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Email</label>
               <input
+                id="profile-email"
+                name="email"
                 type="email"
                 value={user?.email ?? ''}
                 disabled
@@ -117,22 +121,29 @@ export default function ProfileSettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Full Name *</label>
+              <label htmlFor="profile-full-name" className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Full Name *</label>
               <input
+                id="profile-full-name"
+                name="fullName"
                 type="text"
                 value={fullName}
                 onChange={e => setFullName(e.target.value)}
                 required
+                autoComplete="name"
+                aria-required="true"
                 className="w-full border border-tmgl-charcoal-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-tmgl-green-500 focus:border-tmgl-green-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Phone</label>
+              <label htmlFor="profile-phone" className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Phone</label>
               <input
+                id="profile-phone"
+                name="phone"
                 type="tel"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
+                autoComplete="tel"
                 className="w-full border border-tmgl-charcoal-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-tmgl-green-500 focus:border-tmgl-green-500"
                 placeholder="+1 (555) 123-4567"
               />

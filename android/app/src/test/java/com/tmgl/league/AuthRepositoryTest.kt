@@ -3,10 +3,36 @@ package com.tmgl.league
 import com.tmgl.league.data.model.UserRole
 import com.tmgl.league.data.model.Profile
 import com.tmgl.league.data.repository.AuthState
+import com.tmgl.league.data.repository.PROFILE_COLUMNS
+import com.tmgl.league.data.repository.profileInsertPayload
 import org.junit.Assert.*
 import org.junit.Test
 
 class AuthRepositoryTest {
+
+    @Test
+    fun `profile select never requests an email column`() {
+        val columns = PROFILE_COLUMNS.split(",").map { it.trim() }
+        assertFalse(columns.contains("email"))
+        assertTrue(columns.contains("id"))
+        assertTrue(columns.contains("full_name"))
+    }
+
+    @Test
+    fun `profile insert never writes an email column`() {
+        val payload = profileInsertPayload("user-1", "Test Player")
+        assertFalse(payload.containsKey("email"))
+        assertEquals("user-1", payload["id"])
+        assertEquals("Test Player", payload["full_name"])
+        assertEquals("player", payload["role"])
+    }
+
+    @Test
+    fun `profile insert falls back to a default name`() {
+        val payload = profileInsertPayload("user-1", "   ")
+        assertEquals("TMGL Member", payload["full_name"])
+        assertFalse(profileInsertPayload("user-1", null).containsKey("email"))
+    }
 
     @Test
     fun `auth state loading is initial state`() {

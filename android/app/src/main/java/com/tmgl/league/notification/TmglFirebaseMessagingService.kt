@@ -28,7 +28,9 @@ class TmglFirebaseMessagingService : FirebaseMessagingService() {
         super.onNewToken(token)
         serviceScope.launch {
             try {
-                val userId = SupabaseConfig.client.auth.currentUserOrNull()?.id ?: return@launch
+                val auth = SupabaseConfig.client.auth
+                auth.awaitInitialization()
+                val userId = auth.currentUserOrNull()?.id ?: return@launch
                 SupabaseConfig.client.from("player_devices").upsert(
                     mapOf(
                         "player_id" to userId,

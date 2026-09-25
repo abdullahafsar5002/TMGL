@@ -13,6 +13,7 @@ import { getPlayerByProfileId } from '@/lib/league';
 import { getPracticeRoundsByPlayer } from '@/lib/practice';
 import { formatToPar } from '@/utils/golf';
 import type { PracticeRound } from '@/types/database';
+import { ROUTES } from '@/router/routes';
 
 const PAGE_SIZE = 10;
 
@@ -144,7 +145,7 @@ export default function PracticeHistoryPage() {
                           </Button>
                         </Link>
                         {(round.status === 'draft' || round.status === 'in_progress') && (
-                          <Link to={`/practice/${round.id}/score`}>
+                          <Link to={ROUTES.practiceScore(round.id)}>
                             <Button variant="ghost" size="sm">
                               <Edit className="h-4 w-4" />
                             </Button>

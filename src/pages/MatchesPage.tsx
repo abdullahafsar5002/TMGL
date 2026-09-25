@@ -12,7 +12,7 @@ import { getMatchesPaginated } from '@/lib/competition';
 import type { Match, MatchStatus } from '@/types/database';
 
 const STATUS_VARIANTS: Record<MatchStatus, BadgeVariant> = {
-  draft: 'outline', scheduled: 'warning', live: 'danger', completed: 'info', cancelled: 'outline',
+  scheduled: 'warning', live: 'danger', completed: 'info', cancelled: 'outline',
 };
 
 const PAGE_SIZE = 20;

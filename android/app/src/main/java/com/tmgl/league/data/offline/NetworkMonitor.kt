@@ -8,6 +8,7 @@ import android.net.NetworkRequest
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import java.util.concurrent.CopyOnWriteArrayList
 
 class NetworkMonitor(
     @ApplicationContext private val context: Context
@@ -16,33 +17,58 @@ class NetworkMonitor(
     val isOnline: StateFlow<Boolean> = _isOnline
 
     private val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    private val restorationListeners = CopyOnWriteArrayList<() -> Unit>()
+
+    @Volatile
+    private var monitoring = false
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            _isOnline.value = true
+            updateOnline(true)
         }
 
         override fun onLost(network: Network) {
-            _isOnline.value = false
+            updateOnline(isCurrentlyConnected())
         }
 
         override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
             val hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             val isValidated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-            _isOnline.value = hasInternet && isValidated
+            updateOnline(hasInternet && isValidated)
         }
     }
 
+    fun addOnConnectionRestoredListener(listener: () -> Unit) {
+        restorationListeners.addIfAbsent(listener)
+    }
+
+    fun removeOnConnectionRestoredListener(listener: () -> Unit) {
+        restorationListeners.remove(listener)
+    }
+
     fun startMonitoring() {
-        val request = NetworkRequest.Builder()
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .build()
-        connectivityManager.registerNetworkCallback(request, networkCallback)
-        _isOnline.value = isCurrentlyConnected()
+        if (!monitoring) {
+            val request = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+            connectivityManager.registerNetworkCallback(request, networkCallback)
+            monitoring = true
+        }
+        updateOnline(isCurrentlyConnected())
     }
 
     fun stopMonitoring() {
-        connectivityManager.unregisterNetworkCallback(networkCallback)
+        if (!monitoring) return
+        monitoring = false
+        runCatching { connectivityManager.unregisterNetworkCallback(networkCallback) }
+    }
+
+    private fun updateOnline(online: Boolean) {
+        val wasOnline = _isOnline.value
+        _isOnline.value = online
+        if (online && !wasOnline) {
+            restorationListeners.forEach { listener -> runCatching { listener() } }
+        }
     }
 
     private fun isCurrentlyConnected(): Boolean {

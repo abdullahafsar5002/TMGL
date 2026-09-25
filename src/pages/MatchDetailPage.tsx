@@ -15,7 +15,7 @@ import { supabase } from '@/lib/supabase';
 import type { Match, MatchStatus, Player, Team } from '@/types/database';
 
 const STATUS_VARIANTS: Record<MatchStatus, BadgeVariant> = {
-  draft: 'outline', scheduled: 'warning', live: 'danger', completed: 'info', cancelled: 'outline',
+  scheduled: 'warning', live: 'danger', completed: 'info', cancelled: 'outline',
 };
 
 const STATUS_OPTIONS: MatchStatus[] = ['scheduled', 'live', 'completed', 'cancelled'];

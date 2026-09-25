@@ -10,10 +10,12 @@ export interface PaginatedResult<T> {
 export type UserRole = 'super_admin' | 'league_manager' | 'player' | 'public';
 export type SeasonStatus = 'draft' | 'active' | 'completed' | 'archived';
 export type TournamentStatus = 'draft' | 'open' | 'closed' | 'live' | 'completed' | 'cancelled';
-export type MatchStatus = 'draft' | 'scheduled' | 'live' | 'completed' | 'cancelled';
+export type MatchStatus = 'scheduled' | 'live' | 'completed' | 'cancelled';
 export type ScorecardStatus = 'draft' | 'in_progress' | 'submitted' | 'verified' | 'rejected' | 'amended';
 export type MatchType = 'singles' | 'foursome' | 'fourball' | 'team';
 export type PracticeRoundStatus = 'draft' | 'in_progress' | 'completed' | 'cancelled';
+export type FranchiseType = 'official' | 'additional';
+export type LeaguePartnerCategory = 'media' | 'sponsor';
 
 export interface Profile {
   id: string;
@@ -71,6 +73,8 @@ export interface Team {
   logo_url: string | null;
   captain_player_id: string | null;
   vice_captain_player_id: string | null;
+  sponsor_name: string | null;
+  franchise_type: FranchiseType | null;
   created_at: string;
   updated_at: string;
 }
@@ -112,6 +116,9 @@ export interface Tournament {
   name: string;
   description: string | null;
   event_date: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  max_participants: number | null;
   status: TournamentStatus;
   created_at: string;
   updated_at: string;
@@ -122,7 +129,6 @@ export interface Round {
   tournament_id: string;
   round_number: number;
   name: string;
-  course_id?: string;
   date: string | null;
   status: MatchStatus;
   created_at: string;
@@ -334,6 +340,41 @@ export interface Announcement {
   updated_at: string;
 }
 
+export interface OfficialTeamStanding {
+  id: string;
+  tournament_id: string;
+  team_id: string;
+  position: number;
+  combined_gross: number;
+  combined_net: number;
+  accumulated_score: number;
+  source_url: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotableRoundPerformance {
+  id: string;
+  tournament_id: string;
+  player_id: string;
+  team_id: string | null;
+  gross_score: number;
+  handicap_index: number | null;
+  net_score: number | null;
+  note: string | null;
+  source_url: string;
+  created_at: string;
+}
+
+export interface LeaguePartner {
+  id: string;
+  name: string;
+  category: LeaguePartnerCategory;
+  source_url: string;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -441,6 +482,34 @@ export interface Database {
         Row: Announcement;
         Insert: Partial<Announcement> & { author_id: string; title: string; content: string };
         Update: Partial<Announcement>;
+      };
+      official_team_standings: {
+        Row: OfficialTeamStanding;
+        Insert: Partial<OfficialTeamStanding> & {
+          tournament_id: string;
+          team_id: string;
+          position: number;
+          combined_gross: number;
+          combined_net: number;
+          accumulated_score: number;
+          source_url: string;
+        };
+        Update: Partial<OfficialTeamStanding>;
+      };
+      notable_round_performances: {
+        Row: NotableRoundPerformance;
+        Insert: Partial<NotableRoundPerformance> & {
+          tournament_id: string;
+          player_id: string;
+          gross_score: number;
+          source_url: string;
+        };
+        Update: Partial<NotableRoundPerformance>;
+      };
+      league_partners: {
+        Row: LeaguePartner;
+        Insert: Partial<LeaguePartner> & { name: string; category: LeaguePartnerCategory; source_url: string };
+        Update: Partial<LeaguePartner>;
       };
     };
   };

@@ -413,6 +413,77 @@ export interface ScorecardHoleInput {
   strokes: number;
 }
 
+export interface ExpectedHolesInput {
+  holesCount?: number | null;
+  courseHoleNumbers?: Array<number | null | undefined> | null;
+}
+
+export const DEFAULT_HOLES_COUNT = 18;
+
+export function resolveExpectedHoleNumbers(input: ExpectedHolesInput): number[] {
+  if (
+    typeof input.holesCount === 'number' &&
+    Number.isInteger(input.holesCount) &&
+    input.holesCount > 0
+  ) {
+    return Array.from({ length: input.holesCount }, (_, i) => i + 1);
+  }
+
+  const defined = (input.courseHoleNumbers ?? []).filter(
+    (n): n is number => typeof n === 'number' && Number.isInteger(n) && n > 0
+  );
+
+  if (defined.length > 0) {
+    return Array.from(new Set(defined)).sort((a, b) => a - b);
+  }
+
+  return Array.from({ length: DEFAULT_HOLES_COUNT }, (_, i) => i + 1);
+}
+
+export function getMissingHoleNumbers(
+  scoredHoleNumbers: Array<number | null | undefined>,
+  expectedHoleNumbers: number[]
+): number[] {
+  const scored = new Set(
+    scoredHoleNumbers.filter(
+      (n): n is number => typeof n === 'number' && Number.isInteger(n) && n > 0
+    )
+  );
+  return expectedHoleNumbers.filter((holeNumber) => !scored.has(holeNumber));
+}
+
+export function validateScorecardCompletion(
+  holes: Array<Pick<ScorecardHoleInput, 'hole_number' | 'strokes'>>,
+  expectedHoleNumbers: number[]
+): ValidationResult {
+  const errors: string[] = [];
+
+  if (expectedHoleNumbers.length === 0) {
+    errors.push('Course hole layout could not be resolved.');
+    return fail(errors);
+  }
+
+  const missing = getMissingHoleNumbers(
+    holes.map((h) => h.hole_number),
+    expectedHoleNumbers
+  );
+
+  if (missing.length > 0) {
+    errors.push(
+      `All ${expectedHoleNumbers.length} holes must be scored before submitting. Missing: ${missing.join(', ')}.`
+    );
+  }
+
+  const unexpected = holes.filter((h) => !expectedHoleNumbers.includes(h.hole_number));
+  if (unexpected.length > 0) {
+    const list = Array.from(new Set(unexpected.map((h) => h.hole_number))).sort((a, b) => a - b);
+    errors.push(`Holes not part of this course: ${list.join(', ')}.`);
+  }
+
+  if (errors.length > 0) return fail(errors);
+  return ok();
+}
+
 export function validateScorecardHoles(
   holes: ScorecardHoleInput[],
   totalHoles: number = 18
