@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart3,
   Bell,
@@ -29,7 +29,6 @@ import {
   getAuthInitials,
   getAuthNavItems,
   getNotificationBadgeLabel,
-  isAuthNavItemActive,
   type AuthNavIcon,
 } from './authNavigation';
 import React from 'react';
@@ -161,6 +160,14 @@ export function AuthenticatedHeader() {
         : 'text-tmgl-charcoal-200 hover:text-tmgl-gold border-transparent'
     );
 
+  const mobileNavLinkClass = (isActive: boolean) =>
+    cn(
+      'flex items-center gap-3 px-3 py-3 rounded-md text-sm font-medium min-h-[44px]',
+      isActive
+        ? 'bg-tmgl-green-800 text-tmgl-gold'
+        : 'text-tmgl-charcoal-100 hover:bg-tmgl-green-800'
+    );
+
   return (
     <header className="sticky top-0 z-40 bg-tmgl-green-900 border-b border-tmgl-green-700/50 text-white shadow-md">
       <Container size="lg">
@@ -184,19 +191,16 @@ export function AuthenticatedHeader() {
           </Link>
 
           <nav aria-label="Main" className="hidden lg:flex items-center gap-4 xl:gap-5 flex-1 justify-center">
-            {desktopNavItems.map((item) => {
-              const isActive = isAuthNavItemActive(item, location.pathname);
-              return (
-                <Link
-                  key={item.id}
-                  to={item.path}
-                  className={navLinkClass(isActive)}
-                  aria-current={isActive ? 'page' : undefined}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
+            {desktopNavItems.map((item) => (
+              <NavLink
+                key={item.id}
+                to={item.path}
+                end={item.exact}
+                className={({ isActive }) => navLinkClass(isActive)}
+              >
+                {item.label}
+              </NavLink>
+            ))}
           </nav>
 
           <div className="flex items-center gap-2">
@@ -253,7 +257,6 @@ export function AuthenticatedHeader() {
                   <Link
                     to="/profile/settings"
                     role="menuitem"
-                    onClick={() => setProfileMenuOpen(false)}
                     className="flex items-center gap-3 px-4 py-3 text-sm text-tmgl-charcoal-700 hover:bg-tmgl-charcoal-50"
                   >
                     <User className="w-4 h-4 text-tmgl-green-700" />
@@ -263,7 +266,6 @@ export function AuthenticatedHeader() {
                   <Link
                     to="/notifications"
                     role="menuitem"
-                    onClick={() => setProfileMenuOpen(false)}
                     className="flex items-center gap-3 px-4 py-3 text-sm text-tmgl-charcoal-700 hover:bg-tmgl-charcoal-50"
                   >
                     <Bell className="w-4 h-4 text-tmgl-green-700" />
@@ -307,28 +309,21 @@ export function AuthenticatedHeader() {
         {mobileMenuOpen && (
           <div
             id={MOBILE_MENU_ID}
-            className="lg:hidden py-4 border-t border-tmgl-green-800/80"
+            className="lg:hidden py-3 border-t border-tmgl-green-800/80 max-h-[calc(100vh-4rem)] overflow-y-auto overscroll-contain"
           >
             <nav aria-label="Mobile" className="space-y-1">
               {navItems.map((item) => {
-                const isActive = isAuthNavItemActive(item, location.pathname);
                 const Icon = NAV_ICONS[item.icon];
                 return (
-                  <Link
+                  <NavLink
                     key={item.id}
                     to={item.path}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={cn(
-                      'flex items-center gap-3 px-3 py-3 rounded-md text-sm font-medium',
-                      isActive
-                        ? 'bg-tmgl-green-800 text-tmgl-gold'
-                        : 'text-tmgl-charcoal-100 hover:bg-tmgl-green-800'
-                    )}
-                    aria-current={isActive ? 'page' : undefined}
+                    end={item.exact}
+                    className={({ isActive }) => mobileNavLinkClass(isActive)}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className="w-4 h-4 shrink-0" />
                     {item.label}
-                  </Link>
+                  </NavLink>
                 );
               })}
             </nav>

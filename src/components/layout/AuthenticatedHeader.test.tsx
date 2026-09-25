@@ -1,8 +1,9 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { AuthenticatedHeader } from './AuthenticatedHeader';
+import { getAuthNavItems } from './authNavigation';
 
 const mocks = vi.hoisted(() => ({
   signOut: vi.fn().mockResolvedValue(undefined),
@@ -64,7 +65,7 @@ describe('AuthenticatedHeader navigation', () => {
     }
   });
 
-  it('navigates from the mobile menu and closes it', () => {
+  it('navigates from the mobile menu and closes it after the route changes', async () => {
     renderHeader();
     fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
 
@@ -72,7 +73,23 @@ describe('AuthenticatedHeader navigation', () => {
     fireEvent.click(within(nav).getByRole('link', { name: 'Events' }));
 
     expect(screen.getByTestId('location')).toHaveTextContent('/dashboard/tournaments');
-    expect(screen.queryByRole('navigation', { name: 'Mobile' })).toBeNull();
+    await waitFor(() => {
+      expect(screen.queryByRole('navigation', { name: 'Mobile' })).toBeNull();
+    });
+  });
+
+  it('navigates from every mobile menu link', () => {
+    for (const item of getAuthNavItems('player')) {
+      const view = renderHeader();
+      fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+      const nav = screen.getByRole('navigation', { name: 'Mobile' });
+      const link = within(nav).getByRole('link', { name: item.label });
+
+      expect(link.getAttribute('href')).toBe(item.path);
+      fireEvent.click(link);
+      expect(screen.getByTestId('location')).toHaveTextContent(item.path);
+      view.unmount();
+    }
   });
 
   it('navigates to profile settings from the account menu', () => {
