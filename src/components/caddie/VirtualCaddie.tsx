@@ -10,6 +10,7 @@ import { Sparkles, Loader2, AlertCircle, TrendingUp, Target, Shield } from 'luci
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { supabase } from '@/lib/supabase';
+import { env } from '@/config/env';
 import type { PracticeScore } from '@/types/database';
 
 interface CaddieTip {
@@ -150,10 +151,16 @@ Respond in this exact JSON format:
   ]
 }`;
 
-      // Call OpenAI via Supabase Edge Function (keeps API key secure server-side)
-      const { data: edgeData, error: edgeError } = await supabase.functions.invoke('openai-caddie', {
-        body: { prompt: analysisPrompt },
-      });
+      let edgeData: { content?: string } | null = null;
+      let edgeError: unknown = null;
+
+      if (env.aiCaddieEnabled) {
+        const result = await supabase.functions.invoke('openai-caddie', {
+          body: { prompt: analysisPrompt },
+        });
+        edgeData = result.data as { content?: string } | null;
+        edgeError = result.error;
+      }
 
       if (edgeError || !edgeData?.content) {
         const localTips = generateLocalTips(roundSummaries);
@@ -175,14 +182,14 @@ Respond in this exact JSON format:
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <Sparkles className="w-4 h-4 text-yellow-400" />
+          <Sparkles className="w-4 h-4 text-yellow-600" />
           Virtual Caddie AI
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {!tips && !loading && (
           <div className="text-center py-4">
-            <p className="text-sm text-tmgl-silver/60 mb-4">
+            <p className="text-sm text-tmgl-charcoal-600 mb-4">
               Get personalized tips based on your last rounds.
               Your caddie analyzes your scores, tendencies, and weaknesses.
             </p>
@@ -196,12 +203,12 @@ Respond in this exact JSON format:
         {loading && (
           <div className="text-center py-8">
             <Loader2 className="w-8 h-8 text-tmgl-green animate-spin mx-auto mb-3" />
-            <p className="text-sm text-tmgl-silver/60">Analyzing your game...</p>
+            <p className="text-sm text-tmgl-charcoal-600">Analyzing your game...</p>
           </div>
         )}
 
         {error && (
-          <div className="flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
+          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -209,29 +216,29 @@ Respond in this exact JSON format:
 
         {tips && (
           <div className="space-y-4">
-            <div className="text-center p-4 bg-tmgl-charcoal-800/50 rounded-xl">
-              <p className="text-lg font-bold text-tmgl-silver">{tips.overallRating}</p>
-              <p className="text-sm text-tmgl-silver/60 mt-1">{tips.summary}</p>
-              <p className="text-xs text-tmgl-green mt-2">Key Focus: {tips.keyImprovement}</p>
+            <div className="text-center p-4 bg-tmgl-charcoal-50 rounded-xl border border-tmgl-charcoal-200">
+              <p className="text-lg font-bold text-tmgl-charcoal-900">{tips.overallRating}</p>
+              <p className="text-sm text-tmgl-charcoal-600 mt-1">{tips.summary}</p>
+              <p className="text-xs font-semibold text-tmgl-green-800 mt-2">Key Focus: {tips.keyImprovement}</p>
             </div>
 
             <div className="space-y-3">
               {tips.tips.map((tip, i) => {
                 const Icon = CATEGORY_ICONS[tip.category];
                 return (
-                  <div key={i} className="p-3 bg-tmgl-charcoal-800/30 rounded-lg border border-tmgl-charcoal-700/50">
+                  <div key={i} className="p-3 bg-white rounded-lg border border-tmgl-charcoal-200">
                     <div className="flex items-center gap-2 mb-1.5">
                       <Icon className={`w-4 h-4 ${CATEGORY_COLORS[tip.category]}`} />
-                      <span className="font-semibold text-sm text-tmgl-silver">{tip.title}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                        tip.confidence === 'high' ? 'bg-green-500/20 text-green-400' :
-                        tip.confidence === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                        'bg-gray-500/20 text-gray-400'
+                      <span className="font-semibold text-sm text-tmgl-charcoal-900">{tip.title}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                        tip.confidence === 'high' ? 'bg-green-100 text-green-800' :
+                        tip.confidence === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-700'
                       }`}>
                         {tip.confidence}
                       </span>
                     </div>
-                    <p className="text-xs text-tmgl-silver/70 leading-relaxed">{tip.advice}</p>
+                    <p className="text-xs text-tmgl-charcoal-700 leading-relaxed">{tip.advice}</p>
                   </div>
                 );
               })}

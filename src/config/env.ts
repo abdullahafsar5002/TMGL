@@ -11,10 +11,12 @@ interface EnvConfig {
   supabaseUrl: string;
   supabaseAnonKey: string;
   isConfigured: boolean;
+  aiCaddieEnabled: boolean;
 }
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const aiCaddieEnabled = import.meta.env.VITE_AI_CADDIE_ENABLED === 'true';
 
 const isConfigured = Boolean(
   supabaseUrl &&
@@ -33,5 +35,6 @@ if (!isConfigured && import.meta.env.DEV) {
 export const env: EnvConfig = {
   supabaseUrl,
   supabaseAnonKey,
-  isConfigured
+  isConfigured,
+  aiCaddieEnabled
 };
