@@ -10,6 +10,10 @@ object DeepLinkHandler {
         onDeepLink = handler
     }
 
+    fun clearDeepLinkHandler() {
+        onDeepLink = null
+    }
+
     fun handleDeepLink(uri: Uri) {
         val route = parseDeepLink(uri)
         if (route != null) {
@@ -37,16 +41,16 @@ object DeepLinkHandler {
         return when (host) {
             "tournaments" -> {
                 val id = path.trimStart('/')
-                if (id.isNotEmpty()) "tournaments/$id" else "tournaments"
+                if (id.isNotEmpty()) Screen.TournamentDetail.createRoute(id) else Screen.Tournaments.route
             }
             "tournament_leaderboard" -> {
                 val id = path.trimStart('/')
-                if (id.isNotEmpty()) "tournament_leaderboard/$id" else null
+                if (id.isNotEmpty()) Screen.TournamentLeaderboard.createRoute(id) else null
             }
-            "leaderboard" -> "leaderboard"
+            "leaderboard" -> Screen.Leaderboard.route
             "matches" -> {
                 val id = path.trimStart('/')
-                if (id.isNotEmpty()) "matches/$id" else "matches"
+                if (id.isNotEmpty()) Screen.MatchDetail.createRoute(id) else Screen.Matches.route
             }
             "scoring" -> {
                 val target = ScoringTarget(
@@ -59,35 +63,35 @@ object DeepLinkHandler {
             }
             "players" -> {
                 val id = path.trimStart('/')
-                if (id.isNotEmpty()) "players/$id" else "players"
+                if (id.isNotEmpty()) Screen.PlayerDetail.createRoute(id) else Screen.Players.route
             }
             "teams" -> {
                 val id = path.trimStart('/')
-                if (id.isNotEmpty()) "teams/$id" else "teams"
+                if (id.isNotEmpty()) Screen.TeamDetail.createRoute(id) else Screen.Teams.route
             }
-            "profile" -> "profile"
-            "settings" -> "settings"
+            "profile" -> Screen.Profile.route
+            "settings" -> Screen.Settings.route
             "practice" -> {
                 val sub = path.trimStart('/')
-                if (sub == "create") "practice/create" else "practice"
+                if (sub == "create") Screen.PracticeCreate.route else Screen.Practice.route
             }
             "friendly_matches" -> {
                 val id = path.trimStart('/')
-                if (id.isNotEmpty()) "friendly_matches/$id" else "friendly_matches"
+                if (id.isNotEmpty()) Screen.FriendlyMatchDetail.createRoute(id) else Screen.FriendlyMatches.route
             }
-            "notifications" -> "notifications"
+            "notifications" -> Screen.Notifications.route
             "announcements" -> {
                 val id = path.trimStart('/')
-                if (id.isNotEmpty()) "announcements/$id" else "announcements"
+                if (id.isNotEmpty()) Screen.AnnouncementDetail.createRoute(id) else Screen.Announcements.route
             }
-            "course_search" -> "course_search"
+            "course_search" -> Screen.CourseSearch.route
             "course_gps" -> {
                 val id = path.trimStart('/')
-                if (id.isNotEmpty()) "course_gps/$id" else null
+                if (id.isNotEmpty()) Screen.CourseGps.createRoute(id) else Screen.CourseSearch.route
             }
             "live_leaderboard" -> {
                 val id = path.trimStart('/')
-                if (id.isNotEmpty()) "live_leaderboard/$id" else null
+                if (id.isNotEmpty()) Screen.LiveLeaderboard.createRoute(id) else Screen.Leaderboard.route
             }
             else -> null
         }
@@ -98,9 +102,9 @@ object DeepLinkHandler {
 
         return when {
             segments.isEmpty() -> null
-            segments[0] == "tournament" && segments.size >= 2 -> "tournaments/${segments[1]}"
-            segments[0] == "leaderboard" -> "leaderboard"
-            segments[0] == "match" && segments.size >= 2 -> "matches/${segments[1]}"
+            segments[0] == "tournament" && segments.size >= 2 -> Screen.TournamentDetail.createRoute(segments[1])
+            segments[0] == "leaderboard" -> Screen.Leaderboard.route
+            segments[0] == "match" && segments.size >= 2 -> Screen.MatchDetail.createRoute(segments[1])
             else -> null
         }
     }

@@ -14,6 +14,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
+private const val AUTH_CHECK_TIMEOUT_MS = 15_000L
+private const val AUTH_REQUEST_TIMEOUT_MS = 20_000L
+
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val authRepository: AuthRepository
@@ -27,16 +30,24 @@ class AuthViewModel @Inject constructor(
 
     fun checkAuth() {
         viewModelScope.launch {
-            val state = withTimeoutOrNull(15_000L) {
+            val state = withTimeoutOrNull(AUTH_CHECK_TIMEOUT_MS) {
                 authRepository.getCurrentUser()
-            } ?: AuthState.Unauthenticated
-            applyState(state)
+            }
+            if (state == null) {
+                val recovered = recoverFromTimeout()
+                applyState(recovered)
+                if (recovered is AuthState.Authenticated && recovered.profile == null) {
+                    refreshProfileInBackground()
+                }
+            } else {
+                applyState(state)
+            }
         }
     }
 
     fun signIn(email: String, password: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
-            val result = withTimeoutOrNull(20_000L) {
+            val result = withTimeoutOrNull(AUTH_REQUEST_TIMEOUT_MS) {
                 try {
                     authRepository.signIn(email, password)
                 } catch (e: Exception) {
@@ -46,11 +57,9 @@ class AuthViewModel @Inject constructor(
             }
 
             if (result == null) {
-                if (authRepository.hasActiveSession()) {
-                    onSessionEstablished()
+                if (establishSessionFromTimeout("signIn")) {
                     onSuccess()
                 } else {
-                    Log.e("AuthViewModel", "signIn timed out")
                     onError("Connection timed out. Check your internet and try again.")
                 }
                 return@launch
@@ -71,7 +80,7 @@ class AuthViewModel @Inject constructor(
 
     fun signUp(email: String, password: String, fullName: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
-            val result = withTimeoutOrNull(20_000L) {
+            val result = withTimeoutOrNull(AUTH_REQUEST_TIMEOUT_MS) {
                 try {
                     authRepository.signUp(email, password, fullName)
                 } catch (e: Exception) {
@@ -81,11 +90,9 @@ class AuthViewModel @Inject constructor(
             }
 
             if (result == null) {
-                if (authRepository.hasActiveSession()) {
-                    onSessionEstablished()
+                if (establishSessionFromTimeout("signUp")) {
                     onSuccess()
                 } else {
-                    Log.e("AuthViewModel", "signUp timed out")
                     onError("Connection timed out. Check your internet and try again.")
                 }
                 return@launch
@@ -113,14 +120,51 @@ class AuthViewModel @Inject constructor(
     }
 
     fun resetPassword(email: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        val trimmedEmail = email.trim()
+        if (trimmedEmail.isEmpty()) {
+            onError("Enter the email address for your account.")
+            return
+        }
         viewModelScope.launch {
-            try {
-                authRepository.resetPassword(email)
-                onSuccess()
-            } catch (e: Exception) {
-                onError(e.message ?: "Reset failed")
+            var failureMessage: String? = null
+            val accepted = withTimeoutOrNull(AUTH_REQUEST_TIMEOUT_MS) {
+                try {
+                    authRepository.resetPassword(trimmedEmail)
+                    true
+                } catch (e: Exception) {
+                    Log.e("AuthViewModel", "resetPassword failed", e)
+                    failureMessage = e.message?.takeIf { it.isNotBlank() }
+                        ?: "Could not send the reset email. Please try again."
+                    false
+                }
+            }
+            when {
+                accepted == true -> onSuccess()
+                accepted == false -> onError(failureMessage ?: "Could not send the reset email. Please try again.")
+                else -> onError("Connection timed out. Check your internet and try again.")
             }
         }
+    }
+
+    private fun recoverFromTimeout(): AuthState {
+        val userId = authRepository.currentUserId()
+        if (userId.isNullOrBlank()) {
+            Log.w("AuthViewModel", "Auth check timed out with no stored session")
+            return AuthState.Unauthenticated
+        }
+        Log.w("AuthViewModel", "Auth check timed out, keeping stored session for $userId")
+        return AuthState.Authenticated(userId, authRepository.currentUserEmail(), null)
+    }
+
+    private fun establishSessionFromTimeout(operation: String): Boolean {
+        val userId = authRepository.currentUserId()
+        if (userId.isNullOrBlank() || !authRepository.hasActiveSession()) {
+            Log.e("AuthViewModel", "$operation timed out without a usable session")
+            return false
+        }
+        Log.w("AuthViewModel", "$operation timed out but a session exists for $userId")
+        onSessionEstablished()
+        return true
     }
 
     private fun onSessionEstablished() {
@@ -130,6 +174,10 @@ class AuthViewModel @Inject constructor(
         if (userId.isNotEmpty()) {
             CrashlyticsHelper.setUserId(userId)
         }
+        refreshProfileInBackground()
+    }
+
+    private fun refreshProfileInBackground() {
         viewModelScope.launch {
             val state = authRepository.getCurrentUser()
             if (state is AuthState.Authenticated) {

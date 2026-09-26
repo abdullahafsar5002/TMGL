@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -19,6 +20,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.tmgl.league.BrandName
+import com.tmgl.league.BrandTagline
 import com.tmgl.league.R
 import com.tmgl.league.ui.components.TmglButton
 import com.tmgl.league.ui.components.TmglTextField
@@ -32,8 +35,8 @@ fun LoginScreen(
     onForgotPasswordClick: () -> Unit = {},
     authViewModel: AuthViewModel = hiltViewModel()
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    var email by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -55,14 +58,14 @@ fun LoginScreen(
         )
         Spacer(modifier = Modifier.height(12.dp))
         Text(
-            text = "TORUK MAKT\u0304O",
+            text = BrandName,
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onPrimary,
             letterSpacing = 3.sp
         )
         Text(
-            text = "GOLF LEAGUE",
+            text = BrandTagline,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
@@ -132,14 +135,18 @@ fun LoginScreen(
 
                 TextButton(
                     onClick = onForgotPasswordClick,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp)
                 ) {
                     Text("Forgot Password?")
                 }
 
                 TextButton(
                     onClick = onRegisterClick,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp)
                 ) {
                     Text("Don't have an account? Sign Up")
                 }

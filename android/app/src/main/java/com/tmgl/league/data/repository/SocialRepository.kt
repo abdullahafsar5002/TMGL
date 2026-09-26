@@ -34,20 +34,10 @@ class SocialRepository {
         }
     }
 
-    suspend fun markAsRead(id: String): DataResult<Unit> {
-        return try {
-            db.from("notifications").update(
-                mapOf("is_read" to true)
-            ) { filter { eq("id", id) } }
-            DataResult.Success(Unit)
-        } catch (e: Exception) {
-            DataResult.Error(e.message ?: "Failed to mark as read")
-        }
-    }
-
     suspend fun markAllAsRead(profileId: String): DataResult<Unit> {
+        if (profileId.isBlank()) return DataResult.Error("A recipient is required")
         return try {
-            db.from("notifications").update(
+            val updated = db.from("notifications").update(
                 mapOf("is_read" to true)
             ) {
                 filter {
@@ -55,7 +45,8 @@ class SocialRepository {
                     eq("is_read", false)
                 }
             }
-            DataResult.Success(Unit)
+            val error = postgrestWriteError(updated.data)
+            if (error != null) DataResult.Error(error) else DataResult.Success(Unit)
         } catch (e: Exception) {
             DataResult.Error(e.message ?: "Failed to mark all as read")
         }

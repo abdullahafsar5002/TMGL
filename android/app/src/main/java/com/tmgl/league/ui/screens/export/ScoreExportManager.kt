@@ -6,27 +6,48 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileWriter
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-data class ExportableScore(
+data class ScorecardExportRow(
     val playerName: String,
-    val date: String,
-    val course: String,
-    val holeScores: List<Pair<Int, Int>>,
-    val totalScore: Int,
-    val toPar: Int
+    val holeNumber: Int,
+    val par: Int,
+    val strokes: Int
 )
 
 object ScoreExportManager {
 
-    fun exportCsv(context: Context, scores: List<ExportableScore>, fileName: String = "tmgl_scores"): Uri? {
+    fun exportScorecardCsv(context: Context, courseName: String, rows: List<ScorecardExportRow>): Uri? {
+        if (rows.isEmpty()) return null
         return try {
-            val file = File(context.cacheDir, "$fileName.csv")
+            val slug = courseName.trim().ifEmpty { "scorecard" }
+                .lowercase(Locale.ROOT)
+                .replace(Regex("[^a-z0-9]+"), "_")
+                .trim('_')
+                .ifEmpty { "scorecard" }
+            val file = File(context.cacheDir, "scorecard_${slug}_${System.currentTimeMillis()}.csv")
             FileWriter(file).use { writer ->
-                writer.appendLine("Player,Date,Course,Holes,Total Score,To Par")
-                scores.forEach { score ->
-                    val holes = score.holeScores.joinToString(";") { "${it.first}:${it.second}" }
-                    writer.appendLine("\"${score.playerName}\",\"${score.date}\",\"${score.course}\",\"$holes\",${score.totalScore},${score.toPar}")
-                }
+                writer.appendLine("Scorecard - $courseName")
+                writer.appendLine("Generated,${generatedAt()}")
+                writer.appendLine()
+                writer.appendLine("Player,Hole,Par,Score,To Par")
+                rows.sortedWith(compareBy({ it.playerName.lowercase(Locale.ROOT) }, { it.holeNumber }))
+                    .forEach { row ->
+                        writer.appendLine(
+                            "${csvCell(row.playerName)},${row.holeNumber},${row.par},${row.strokes},${row.strokes - row.par}"
+                        )
+                    }
+                writer.appendLine()
+                writer.appendLine("Player,Holes,Par,Score,To Par")
+                rows.groupBy { it.playerName }
+                    .toSortedMap(compareBy { it.lowercase(Locale.ROOT) })
+                    .forEach { (player, playerRows) ->
+                        val par = playerRows.sumOf { it.par }
+                        val strokes = playerRows.sumOf { it.strokes }
+                        writer.appendLine("${csvCell(player)},${playerRows.size},$par,$strokes,${strokes - par}")
+                    }
             }
             FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
         } catch (e: Exception) {
@@ -34,27 +55,15 @@ object ScoreExportManager {
         }
     }
 
-    fun exportScorecardCsv(context: Context, playerName: String, holes: List<Triple<Int, Int, Int>>, courseName: String): Uri? {
-        return try {
-            val file = File(context.cacheDir, "scorecard_${playerName.replace(" ", "_")}.csv")
-            FileWriter(file).use { writer ->
-                writer.appendLine("Scorecard - $playerName - $courseName")
-                writer.appendLine()
-                writer.appendLine("Hole,Par,Score")
-                holes.forEach { (hole, par, score) ->
-                    writer.appendLine("$hole,$par,$score")
-                }
-                val totalScore = holes.sumOf { it.third }
-                val totalPar = holes.sumOf { it.second }
-                writer.appendLine()
-                writer.appendLine("Total,$totalPar,$totalScore")
-                writer.appendLine("To Par,${totalScore - totalPar}")
-            }
-            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-        } catch (e: Exception) {
-            null
+    private fun csvCell(value: String): String =
+        if (value.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) {
+            "\"" + value.replace("\"", "\"\"") + "\""
+        } else {
+            value
         }
-    }
+
+    private fun generatedAt(): String =
+        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())
 
     fun shareFile(context: Context, uri: Uri, mimeType: String = "text/csv", title: String = "Share Scores") {
         val intent = Intent(Intent.ACTION_SEND).apply {

@@ -3,9 +3,6 @@ package com.tmgl.league.ui.screens.friendly
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,10 +13,14 @@ import com.tmgl.league.data.SupabaseConfig
 import com.tmgl.league.data.model.FriendlyMatch
 import com.tmgl.league.data.model.FriendlyMatchPlayer
 import com.tmgl.league.data.model.FriendlyMatchStatus
+import com.tmgl.league.data.model.InvitationStatus
 import com.tmgl.league.data.repository.DataResult
 import com.tmgl.league.data.repository.FriendlyMatchRepository
 import com.tmgl.league.ui.components.*
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.query.Columns
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,36 +37,30 @@ fun FriendlyMatchDetailScreen(
     val repository = remember { FriendlyMatchRepository() }
 
     LaunchedEffect(matchId) {
-        isLoading = true; error = null
+        isLoading = true
+        error = null
+        if (matchId.isBlank()) {
+            error = "No match ID provided"
+            isLoading = false
+            return@LaunchedEffect
+        }
         when (val result = repository.getFriendlyMatch(matchId)) {
             is DataResult.Success -> {
                 match = result.data
                 when (val playersResult = repository.getFriendlyMatchPlayers(matchId)) {
                     is DataResult.Success -> {
                         players = playersResult.data
-                        val ids = playersResult.data.map { it.playerId }.distinct()
-                        if (ids.isNotEmpty()) {
-                            try {
-                                val profiles = SupabaseConfig.client.from("profiles").select {
-                                    filter { isIn("id", ids) }
-                                }.decodeList<Map<String, Any?>>()
-                                playerNames = profiles.associate {
-                                    (it["id"] as? String ?: "") to (it["full_name"] as? String ?: "")
-                                }
-                            } catch (_: Exception) {}
-                        }
+                        playerNames = loadPlayerNames(playersResult.data.map { it.playerId })
                     }
                     is DataResult.Error -> error = playersResult.message
                 }
-                isLoading = false
             }
-            is DataResult.Error -> { error = result.message; isLoading = false }
+            is DataResult.Error -> error = result.message
         }
+        isLoading = false
     }
 
-    Scaffold(
-        topBar = { TmglTopBar(title = match?.title ?: "Match Detail", onBack = onBack) }
-    ) { paddingValues ->
+    Scaffold(topBar = { TmglTopBar(title = match?.title ?: "Match Detail", onBack = onBack) }) { paddingValues ->
         when {
             isLoading -> LoadingIndicator(modifier = Modifier.padding(paddingValues))
             error != null -> ErrorState(message = error ?: "", modifier = Modifier.padding(paddingValues))
@@ -88,8 +83,8 @@ fun FriendlyMatchDetailScreen(
                             InfoRow("Format", m.matchFormat.replace("_", " ").replaceFirstChar { it.uppercase() })
                             InfoRow("Holes", "${m.roundType}")
                             InfoRow("Status", m.status.name.replace("_", " "))
-                            if (m.scheduledAt != null) InfoRow("Scheduled", m.scheduledAt?.take(10) ?: "—")
-                            if (m.description != null) InfoRow("Notes", m.description ?: "—")
+                            if (m.scheduledAt != null) InfoRow("Scheduled", m.scheduledAt?.take(10) ?: "-")
+                            if (m.description != null) InfoRow("Notes", m.description ?: "-")
                         }
                     }
 
@@ -114,15 +109,21 @@ fun FriendlyMatchDetailScreen(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
-                                            text = playerNames[player.playerId] ?: player.playerId.take(8),
+                                            text = playerNames[player.playerId]
+                                                ?: player.playerId.take(8),
                                             style = MaterialTheme.typography.bodyMedium,
                                             modifier = Modifier.weight(1f)
                                         )
                                         Surface(
                                             color = when (player.invitationStatus) {
-                                                com.tmgl.league.data.model.InvitationStatus.ACCEPTED -> MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                                                com.tmgl.league.data.model.InvitationStatus.DECLINED -> MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
-                                                else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+                                                InvitationStatus.ACCEPTED ->
+                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                                InvitationStatus.REJECTED ->
+                                                    MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
+                                                InvitationStatus.CANCELLED ->
+                                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+                                                InvitationStatus.PENDING ->
+                                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
                                             },
                                             shape = MaterialTheme.shapes.small
                                         ) {
@@ -138,11 +139,11 @@ fun FriendlyMatchDetailScreen(
                         }
                     }
 
-                    if (m.status == FriendlyMatchStatus.IN_PROGRESS || m.status == FriendlyMatchStatus.ACCEPTED) {
-                    TmglButton(
-                        text = "Enter Scores",
-                        onClick = { onStartScoring(matchId) }
-                    )
+                    if (m.status == FriendlyMatchStatus.ACTIVE) {
+                        TmglButton(
+                            text = "Enter Scores",
+                            onClick = { onStartScoring(matchId) }
+                        )
                     }
                 }
             }
@@ -150,4 +151,21 @@ fun FriendlyMatchDetailScreen(
     }
 }
 
+private const val PLAYER_NAME_COLUMNS = "id,full_name"
 
+@Serializable
+private data class PlayerNameRow(
+    val id: String = "",
+    @SerialName("full_name") val fullName: String = ""
+)
+
+private suspend fun loadPlayerNames(playerIds: List<String>): Map<String, String> {
+    val ids = playerIds.filter { it.isNotBlank() }.distinct()
+    if (ids.isEmpty()) return emptyMap()
+    return try {
+        SupabaseConfig.client.from("players")
+            .select(Columns.raw(PLAYER_NAME_COLUMNS)) { filter { isIn("id", ids) } }
+            .decodeList<PlayerNameRow>()
+            .associate { it.id to it.fullName }
+    } catch (_: Exception) { emptyMap() }
+}

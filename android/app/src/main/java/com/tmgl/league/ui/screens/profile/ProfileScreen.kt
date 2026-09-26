@@ -18,6 +18,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.tmgl.league.data.repository.AuthState
 import com.tmgl.league.ui.components.*
+import com.tmgl.league.ui.format.displayLabel
 import com.tmgl.league.ui.viewmodel.ProfileViewModel
 
 @Composable
@@ -97,7 +98,7 @@ fun ProfileScreen(
                     TmglCard {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             InfoRow("Email", state.email ?: "—")
-                            InfoRow("Role", profile?.role?.name?.replace("_", " ")?.uppercase() ?: "Player")
+                            InfoRow("Role", profile?.role?.displayLabel ?: "Player")
                             InfoRow("Handicap", profile?.handicapIndex?.toString() ?: "—")
                             InfoRow("Joined", profile?.createdAt?.take(10) ?: "—")
                         }

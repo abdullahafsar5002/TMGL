@@ -3,6 +3,8 @@ package com.tmgl.league.data.model
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.Transient
+import kotlinx.serialization.json.JsonElement
 
 @Serializable
 enum class UserRole {
@@ -32,7 +34,6 @@ enum class TournamentStatus {
 
 @Serializable
 enum class MatchStatus {
-    @SerialName("draft") DRAFT,
     @SerialName("scheduled") SCHEDULED,
     @SerialName("live") LIVE,
     @SerialName("completed") COMPLETED,
@@ -61,7 +62,6 @@ enum class MatchType {
 data class Profile(
     val id: String = "",
     @SerialName("full_name") val fullName: String = "",
-    val phone: String? = null,
     @SerialName("handicap_index") val handicapIndex: Double? = null,
     @SerialName("avatar_url") val avatarUrl: String? = null,
     val role: UserRole = UserRole.PUBLIC,
@@ -85,8 +85,7 @@ data class Division(
     val id: String = "",
     val name: String = "",
     @SerialName("season_id") val seasonId: String = "",
-    @SerialName("created_at") val createdAt: String = "",
-    @SerialName("updated_at") val updatedAt: String = ""
+    @SerialName("created_at") val createdAt: String = ""
 )
 
 @Serializable
@@ -108,6 +107,11 @@ data class Team(
     val name: String = "",
     @SerialName("season_id") val seasonId: String = "",
     @SerialName("division_id") val divisionId: String? = null,
+    @SerialName("logo_url") val logoUrl: String? = null,
+    @SerialName("captain_player_id") val captainPlayerId: String? = null,
+    @SerialName("vice_captain_player_id") val viceCaptainPlayerId: String? = null,
+    @SerialName("sponsor_name") val sponsorName: String? = null,
+    @SerialName("franchise_type") val franchiseType: String? = null,
     @SerialName("created_at") val createdAt: String = "",
     @SerialName("updated_at") val updatedAt: String = ""
 )
@@ -125,23 +129,19 @@ data class Course(
     val id: String = "",
     val name: String = "",
     val location: String? = null,
+    val description: String? = null,
     @SerialName("holes_count") val holesCount: Int = 18,
     @SerialName("course_rating") val courseRating: Double? = null,
     @SerialName("slope_rating") val slopeRating: Double? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     @SerialName("created_at") val createdAt: String = "",
     @SerialName("updated_at") val updatedAt: String = "",
-    val city: String = "",
-    val state: String = "",
-    val country: String = "",
-    val latitude: Double = 0.0,
-    val longitude: Double = 0.0,
-    val numHoles: Int = 18,
-    val par: Int = 72,
-    val rating: Double = 0.0,
-    val slope: Int = 0,
-    val website: String = "",
-    val phone: String = "",
-    val holes: List<CourseHole> = emptyList()
+    @Transient val numHoles: Int = holesCount,
+    @Transient val par: Int = 72,
+    @Transient val rating: Double = courseRating ?: 0.0,
+    @Transient val slope: Int = slopeRating?.toInt() ?: 0,
+    @Transient val holes: List<CourseHole> = emptyList()
 )
 
 @Serializable
@@ -151,20 +151,21 @@ data class CourseHole(
     @SerialName("hole_number") val holeNumber: Int = 0,
     val par: Int = 4,
     @SerialName("handicap_index") val handicapIndex: Int? = null,
-    val yardage: Int? = null,
-    @SerialName("created_at") val createdAt: String = "",
-    val teeBoxes: List<TeeBox> = emptyList(),
-    val description: String = ""
+    val yardage: Int? = null
 )
 
 @Serializable
 data class Tournament(
     val id: String = "",
-    val name: String = "",
+    @SerialName("season_id") val seasonId: String = "",
     @SerialName("course_id") val courseId: String? = null,
+    val name: String = "",
+    val description: String? = null,
+    @SerialName("event_date") val eventDate: String? = null,
     val status: TournamentStatus = TournamentStatus.DRAFT,
     @SerialName("start_date") val startDate: String? = null,
     @SerialName("end_date") val endDate: String? = null,
+    @SerialName("max_participants") val maxParticipants: Int? = null,
     @SerialName("created_at") val createdAt: String = "",
     @SerialName("updated_at") val updatedAt: String = ""
 )
@@ -176,7 +177,7 @@ data class Round(
     val name: String = "",
     @SerialName("round_number") val roundNumber: Int = 1,
     val date: String? = null,
-    val status: String = "draft",
+    val status: MatchStatus = MatchStatus.SCHEDULED,
     @SerialName("created_at") val createdAt: String = "",
     @SerialName("updated_at") val updatedAt: String = ""
 )
@@ -190,10 +191,9 @@ data class Match(
     @SerialName("player_b_id") val playerBId: String? = null,
     @SerialName("team_a_id") val teamAId: String? = null,
     @SerialName("team_b_id") val teamBId: String? = null,
-    val status: MatchStatus = MatchStatus.DRAFT,
+    val status: MatchStatus = MatchStatus.SCHEDULED,
     @SerialName("winner_player_id") val winnerPlayerId: String? = null,
     @SerialName("winner_team_id") val winnerTeamId: String? = null,
-    @SerialName("match_number") val matchNumber: Int = 0,
     @SerialName("created_at") val createdAt: String = "",
     @SerialName("updated_at") val updatedAt: String = ""
 )
@@ -208,6 +208,7 @@ data class Scorecard(
     val status: ScorecardStatus = ScorecardStatus.DRAFT,
     @SerialName("total_strokes") val totalStrokes: Int? = null,
     @SerialName("total_score_to_par") val totalScoreToPar: Int? = null,
+    @SerialName("rejection_reason") val rejectionReason: String? = null,
     @SerialName("created_at") val createdAt: String = "",
     @SerialName("updated_at") val updatedAt: String = ""
 )
@@ -220,8 +221,20 @@ data class ScorecardHole(
     @EncodeDefault val par: Int = 4,
     val strokes: Int = 0,
     @SerialName("score_to_par") val scoreToPar: Int = 0,
+    val verified: Boolean = false,
     @SerialName("created_at") val createdAt: String = "",
     @SerialName("updated_at") val updatedAt: String = ""
+)
+
+@Serializable
+data class ScorecardPlayer(
+    val id: String = "",
+    @SerialName("round_id") val roundId: String = "",
+    @SerialName("player_id") val playerId: String = "",
+    val status: ScorecardStatus = ScorecardStatus.DRAFT,
+    @SerialName("total_strokes") val totalStrokes: Int? = null,
+    @SerialName("total_score_to_par") val totalScoreToPar: Int? = null,
+    @SerialName("total_rows") val totalRows: Int = 0
 )
 
 @Serializable
@@ -233,14 +246,14 @@ data class LeaderboardEntry(
     @SerialName("total_score_to_par") val totalScoreToPar: Int = 0,
     val position: Int = 0,
     @SerialName("scorecard_status") val scorecardStatus: String? = null,
-    @SerialName("scorecard_id") val scorecardId: String? = null
+    @SerialName("scorecard_id") val scorecardId: String? = null,
+    @SerialName("total_rows") val totalRows: Int = 0
 )
 
 @Serializable
 enum class FriendlyMatchStatus {
     @SerialName("pending") PENDING,
-    @SerialName("accepted") ACCEPTED,
-    @SerialName("in_progress") IN_PROGRESS,
+    @SerialName("active") ACTIVE,
     @SerialName("completed") COMPLETED,
     @SerialName("cancelled") CANCELLED
 }
@@ -249,7 +262,8 @@ enum class FriendlyMatchStatus {
 enum class InvitationStatus {
     @SerialName("pending") PENDING,
     @SerialName("accepted") ACCEPTED,
-    @SerialName("declined") DECLINED
+    @SerialName("rejected") REJECTED,
+    @SerialName("cancelled") CANCELLED
 }
 
 @Serializable
@@ -279,7 +293,8 @@ data class FriendlyMatchPlayer(
     @SerialName("to_par") val toPar: Int? = null,
     val position: Int? = null,
     @SerialName("joined_at") val joinedAt: String? = null,
-    @SerialName("created_at") val createdAt: String = ""
+    @SerialName("created_at") val createdAt: String = "",
+    @SerialName("updated_at") val updatedAt: String = ""
 )
 
 @Serializable
@@ -289,8 +304,7 @@ data class Notification(
     val type: String = "system",
     val title: String = "",
     val message: String = "",
-    @SerialName("related_entity") val relatedEntity: String? = null,
-    @SerialName("related_id") val relatedId: String? = null,
+    val metadata: JsonElement? = null,
     @SerialName("is_read") val isRead: Boolean = false,
     @SerialName("created_at") val createdAt: String = ""
 )
@@ -337,8 +351,18 @@ data class TournamentRegistration(
     val id: String = "",
     @SerialName("tournament_id") val tournamentId: String = "",
     @SerialName("player_id") val playerId: String = "",
-    @SerialName("registered_at") val registeredAt: String = "",
-    val status: String = "registered"
+    @SerialName("registered_at") val registeredAt: String? = null,
+    @SerialName("created_at") val createdAt: String = ""
+)
+
+data class LiveLeaderboardEntry(
+    val playerId: String = "",
+    val playerName: String = "",
+    val totalScore: Int = 0,
+    val holesCompleted: Int = 0,
+    val currentHole: Int = 1,
+    val status: String = "playing",
+    val timestamp: Long = System.currentTimeMillis()
 )
 
 @Serializable
@@ -354,25 +378,5 @@ data class PracticeScore(
     @SerialName("green_in_regulation") val greenInRegulation: Boolean? = null,
     @SerialName("penalty_strokes") val penaltyStrokes: Int? = null,
     val notes: String? = null,
-    @SerialName("created_at") val createdAt: String = ""
-)
-
-@Serializable
-data class Flight(
-    val id: String = "",
-    @SerialName("tournament_id") val tournamentId: String = "",
-    val name: String = "",
-    @SerialName("handicap_min") val handicapMin: Double? = null,
-    @SerialName("handicap_max") val handicapMax: Double? = null,
-    @SerialName("created_at") val createdAt: String = ""
-)
-
-@Serializable
-data class SideGame(
-    val id: String = "",
-    @SerialName("tournament_id") val tournamentId: String = "",
-    val name: String = "",
-    val type: String = "skins",
-    @SerialName("entry_fee") val entryFee: Double = 0.0,
     @SerialName("created_at") val createdAt: String = ""
 )

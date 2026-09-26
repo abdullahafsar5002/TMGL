@@ -3,6 +3,8 @@ package com.tmgl.league.data.repository
 import com.tmgl.league.data.SupabaseConfig
 import com.tmgl.league.data.model.*
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.query.Columns
+import kotlinx.serialization.Serializable
 
 sealed class DataResult<T> {
     data class Success<T>(val data: T) : DataResult<T>()
@@ -11,26 +13,6 @@ sealed class DataResult<T> {
 
 class LeagueRepository {
     private val db = SupabaseConfig.client
-
-    suspend fun getSeasons(): DataResult<List<Season>> {
-        return try {
-            val data = db.from("seasons").select().decodeList<Season>()
-            DataResult.Success(data)
-        } catch (e: Exception) {
-            DataResult.Error(e.message ?: "Failed to load seasons")
-        }
-    }
-
-    suspend fun getSeason(id: String): DataResult<Season> {
-        return try {
-            val data = db.from("seasons").select {
-                filter { eq("id", id) }
-            }.decodeList<Season>().firstOrNull()
-            if (data != null) DataResult.Success(data) else DataResult.Error("Season not found")
-        } catch (e: Exception) {
-            DataResult.Error(e.message ?: "Failed to load season")
-        }
-    }
 
     suspend fun getPlayers(): DataResult<List<Player>> {
         return try {
@@ -49,6 +31,43 @@ class LeagueRepository {
             if (data != null) DataResult.Success(data) else DataResult.Error("Player not found")
         } catch (e: Exception) {
             DataResult.Error(e.message ?: "Failed to load player")
+        }
+    }
+
+    suspend fun getPlayerByProfileId(profileId: String): DataResult<Player> {
+        if (profileId.isBlank()) return DataResult.Error("No signed-in player")
+        return try {
+            val data = db.from("players").select {
+                filter { eq("profile_id", profileId) }
+            }.decodeList<Player>().firstOrNull()
+            if (data != null) DataResult.Success(data) else DataResult.Error("Player not found")
+        } catch (e: Exception) {
+            DataResult.Error(e.message ?: "Failed to load player")
+        }
+    }
+
+    suspend fun updatePlayerContact(
+        profileId: String,
+        phone: String?,
+        handicapIndex: Double?
+    ): DataResult<Unit> {
+        if (profileId.isBlank()) return DataResult.Error("No signed-in player")
+        return try {
+            val playerId = db.from("players").select(Columns.raw("id")) {
+                filter { eq("profile_id", profileId) }
+            }.decodeList<PlayerProfileIdRow>().firstOrNull()?.id
+                ?: return DataResult.Error("No player record is linked to this account")
+
+            val updated = db.from("players").update({
+                if (phone.isNullOrBlank()) setToNull("phone") else set("phone", phone)
+                if (handicapIndex == null) setToNull("handicap_index") else set("handicap_index", handicapIndex)
+            }) {
+                filter { eq("id", playerId) }
+            }
+            val error = postgrestWriteError(updated.data)
+            if (error != null) DataResult.Error(error) else DataResult.Success(Unit)
+        } catch (e: Exception) {
+            DataResult.Error(e.message ?: "Failed to save your player details")
         }
     }
 
@@ -82,22 +101,7 @@ class LeagueRepository {
             DataResult.Error(e.message ?: "Failed to load team members")
         }
     }
-
-    suspend fun getDivisions(): DataResult<List<Division>> {
-        return try {
-            val data = db.from("divisions").select().decodeList<Division>()
-            DataResult.Success(data)
-        } catch (e: Exception) {
-            DataResult.Error(e.message ?: "Failed to load divisions")
-        }
-    }
-
-    suspend fun getCourses(): DataResult<List<Course>> {
-        return try {
-            val data = db.from("courses").select().decodeList<Course>()
-            DataResult.Success(data)
-        } catch (e: Exception) {
-            DataResult.Error(e.message ?: "Failed to load courses")
-        }
-    }
 }
+
+@Serializable
+private data class PlayerProfileIdRow(val id: String = "")

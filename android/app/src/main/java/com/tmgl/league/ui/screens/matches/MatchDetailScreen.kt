@@ -58,7 +58,7 @@ fun MatchDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        text = "Match #${m.matchNumber}",
+                        text = m.matchType.replace("_", " ").replaceFirstChar { it.uppercase() },
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )

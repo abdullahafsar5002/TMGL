@@ -1,6 +1,6 @@
 package com.tmgl.league.ui.screens.practice
 
-import androidx.compose.foundation.clickable
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,22 +12,41 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import android.content.Context
 import com.tmgl.league.data.SupabaseConfig
 import com.tmgl.league.data.model.CourseHole
 import com.tmgl.league.data.model.PracticeRound
+import com.tmgl.league.data.model.PracticeRoundStatus
 import com.tmgl.league.data.model.PracticeScore
 import com.tmgl.league.data.repository.DataResult
 import com.tmgl.league.data.repository.PracticeRepository
+import com.tmgl.league.data.repository.postgrestWriteError
 import com.tmgl.league.ui.components.ErrorState
 import com.tmgl.league.ui.components.LoadingIndicator
 import com.tmgl.league.ui.components.TmglTopBar
+import com.tmgl.league.ui.format.displayLabel
+import com.tmgl.league.ui.screens.export.ScorecardExportRow
 import com.tmgl.league.ui.screens.export.ScoreExportManager
 import com.tmgl.league.ui.theme.TmglGreen
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 import io.github.jan.supabase.postgrest.from
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+private const val PRACTICE_SCORES_CONFLICT = "practice_round_id,hole_number"
+private const val PRACTICE_DETAIL_TAG = "PracticeDetail"
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+internal interface PracticeDetailDependencies {
+    fun practiceRepository(): PracticeRepository
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,10 +58,23 @@ fun PracticeDetailScreen(
     var scores by remember { mutableStateOf<List<PracticeScore>>(emptyList()) }
     var courseHoles by remember { mutableStateOf<List<CourseHole>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var isExporting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var reloadTrigger by remember { mutableIntStateOf(0) }
+    var showScoreDialog by remember { mutableStateOf(false) }
+    var showCompleteDialog by remember { mutableStateOf(false) }
+    var completeError by remember { mutableStateOf<String?>(null) }
+    var pendingDelete by remember { mutableStateOf<PracticeScore?>(null) }
+    var actionError by remember { mutableStateOf<String?>(null) }
+    var totalsSyncPending by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val repository = remember { PracticeRepository() }
+    val context = LocalContext.current
+    val repository = remember(context) {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            PracticeDetailDependencies::class.java
+        ).practiceRepository()
+    }
 
     LaunchedEffect(reloadTrigger) {
         isLoading = true; error = null
@@ -60,6 +92,11 @@ fun PracticeDetailScreen(
                             }
                         }
                         isLoading = false
+                        val shouldSyncTotals = totalsSyncPending
+                        totalsSyncPending = false
+                        if (shouldSyncTotals) {
+                            pushRoundTotals(practiceRoundId, scoresResult.data)
+                        }
                     }
                     is DataResult.Error -> { error = scoresResult.message; isLoading = false }
                 }
@@ -68,14 +105,124 @@ fun PracticeDetailScreen(
         }
     }
 
+    val orderedScores = remember(scores) { scores.sortedBy { it.holeNumber } }
+    val exportPlayerName = remember(round, orderedScores) {
+        round?.playerId?.takeIf { it.isNotBlank() } ?: "Player"
+    }
+    val nextHoleNumber = remember(orderedScores) {
+        (orderedScores.maxOfOrNull { it.holeNumber } ?: 0) + 1
+    }
+    val grossTotal = remember(orderedScores) { orderedScores.sumOf { it.score } }
+    val parTotal = remember(orderedScores) { orderedScores.sumOf { it.par } }
+    val toParTotal = grossTotal - parTotal
+
     fun getParForHole(holeNumber: Int): Int {
         return courseHoles.find { it.holeNumber == holeNumber }?.par ?: 4
     }
 
-    fun calculateTotals(): Pair<Int, Int> {
-        val gross = scores.sumOf { it.score }
-        val par = scores.sumOf { it.par }
-        return gross to (gross - par)
+    pendingDelete?.let { target ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("Delete hole ${target.holeNumber}?") },
+            text = {
+                Text(
+                    "This permanently removes the score for hole ${target.holeNumber} " +
+                        "(${target.score} strokes, par ${target.par}) from this round."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingDelete = null
+                    scope.launch {
+                        try {
+                            val deleted = SupabaseConfig.client.from("practice_scores")
+                                .delete { filter { eq("id", target.id) } }
+                            val writeError = postgrestWriteError(deleted.data)
+                            if (writeError != null) {
+                                actionError = "Couldn't delete hole ${target.holeNumber}: $writeError"
+                            } else {
+                                totalsSyncPending = true
+                                reloadTrigger++
+                            }
+                        } catch (e: Exception) {
+                            Log.e(PRACTICE_DETAIL_TAG, "Practice score delete failed", e)
+                            actionError = "Couldn't delete hole ${target.holeNumber}. Please try again."
+                        }
+                    }
+                }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showScoreDialog && round != null) {
+        PracticeScoreDialog(
+            roundId = practiceRoundId,
+            holeNumber = nextHoleNumber,
+            defaultPar = getParForHole(nextHoleNumber),
+            courseHoles = courseHoles,
+            maxHoles = round?.roundType ?: 18,
+            onDismiss = { showScoreDialog = false },
+            onSaved = {
+                totalsSyncPending = true
+                reloadTrigger++
+            }
+        )
+    }
+
+    if (showCompleteDialog && round != null) {
+        AlertDialog(
+            onDismissRequest = { showCompleteDialog = false },
+            title = { Text("Complete Round?") },
+            text = {
+                Column {
+                    Text("Gross: $grossTotal  |  To Par: ${if (toParTotal >= 0) "+$toParTotal" else "$toParTotal"}")
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("${orderedScores.size} of ${round?.roundType} holes entered")
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Mark this round as completed?", style = MaterialTheme.typography.bodyMedium)
+                    completeError?.let {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showCompleteDialog = false
+                    completeError = null
+                    scope.launch {
+                        try {
+                            val updatePayload = mapOf<String, Any>(
+                                "status" to "completed",
+                                "gross_score" to grossTotal,
+                                "total_to_par" to toParTotal
+                            )
+                            val updated = SupabaseConfig.client.from("practice_rounds")
+                                .update(updatePayload) {
+                                    filter { eq("id", practiceRoundId) }
+                                }
+                            val writeError = postgrestWriteError(updated.data)
+                            if (writeError != null) {
+                                completeError = "Couldn't complete the round: $writeError"
+                            } else {
+                                reloadTrigger++
+                            }
+                        } catch (e: Exception) {
+                            Log.e(PRACTICE_DETAIL_TAG, "Complete round failed", e)
+                            completeError = "Couldn't complete the round. Please try again."
+                        }
+                    }
+                }) { Text("Complete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCompleteDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 
     Scaffold(
@@ -90,80 +237,7 @@ fun PracticeDetailScreen(
             )
             round != null -> {
                 val r = round ?: return@Scaffold
-                var showScoreDialog by remember { mutableStateOf(false) }
-                var showCompleteDialog by remember { mutableStateOf(false) }
-
-                if (showScoreDialog) {
-                    PracticeScoreDialog(
-                        roundId = practiceRoundId,
-                        holeNumber = scores.size + 1,
-                        defaultPar = getParForHole(scores.size + 1),
-                        courseHoles = courseHoles,
-                        maxHoles = r.roundType,
-                        onDismiss = { showScoreDialog = false },
-                        onSaved = {
-                            scope.launch {
-                                val (gross, toPar) = calculateTotals()
-                                try {
-                                    SupabaseConfig.client.from("practice_rounds")
-                                        .update(mapOf<String, Any>(
-                                            "gross_score" to gross,
-                                            "total_to_par" to toPar
-                                        )) {
-                                            filter { eq("id", practiceRoundId) }
-                                        }
-                                } catch (_: Exception) {}
-                                reloadTrigger++
-                            }
-                        }
-                    )
-                }
-
-                if (showCompleteDialog) {
-                    val (gross, toPar) = calculateTotals()
-                    var completeError by remember { mutableStateOf<String?>(null) }
-                    AlertDialog(
-                        onDismissRequest = { showCompleteDialog = false },
-                        title = { Text("Complete Round?") },
-                        text = {
-                            Column {
-                                Text("Gross: $gross  |  To Par: ${if (toPar >= 0) "+$toPar" else "$toPar"}")
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text("${scores.size} of ${r.roundType} holes entered")
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text("Mark this round as completed?", style = MaterialTheme.typography.bodyMedium)
-                                completeError?.let {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-                        },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                showCompleteDialog = false
-                                scope.launch {
-                                    try {
-                                        val updatePayload = mapOf<String, Any>(
-                                            "status" to "completed",
-                                            "gross_score" to gross,
-                                            "total_to_par" to toPar
-                                        )
-                                        SupabaseConfig.client.from("practice_rounds")
-                                            .update(updatePayload) {
-                                                filter { eq("id", practiceRoundId) }
-                                            }
-                                        reloadTrigger++
-                                    } catch (e: Exception) {
-                                        completeError = e.message ?: "Failed to complete"
-                                    }
-                                }
-                            }) { Text("Complete") }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showCompleteDialog = false }) { Text("Cancel") }
-                        }
-                    )
-                }
+                val isCompleted = r.status == PracticeRoundStatus.COMPLETED
 
                 LazyColumn(
                     modifier = Modifier.padding(paddingValues),
@@ -171,7 +245,6 @@ fun PracticeDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     item {
-                        val (gross, toPar) = calculateTotals()
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
@@ -180,15 +253,15 @@ fun PracticeDetailScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text("Status: ${r.status.name.replace("_", " ")}", style = MaterialTheme.typography.bodyMedium)
-                                Text("Gross Score: $gross", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                Text("Status: ${r.status.displayLabel}", style = MaterialTheme.typography.bodyMedium)
+                                Text("Gross Score: $grossTotal", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                                 Text(
-                                    text = "To Par: ${if (toPar >= 0) "+$toPar" else "$toPar"}",
+                                    text = "To Par: ${if (toParTotal >= 0) "+$toParTotal" else "$toParTotal"}",
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = when {
-                                        toPar < 0 -> MaterialTheme.colorScheme.tertiary
-                                        toPar == 0 -> MaterialTheme.colorScheme.primary
+                                        toParTotal < 0 -> MaterialTheme.colorScheme.tertiary
+                                        toParTotal == 0 -> MaterialTheme.colorScheme.primary
                                         else -> MaterialTheme.colorScheme.error
                                     }
                                 )
@@ -202,12 +275,25 @@ fun PracticeDetailScreen(
                         }
                     }
 
-                    if (scores.isNotEmpty()) {
-                        item {
-                            Text("Hole Scores (${scores.size}/${r.roundType})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+                    actionError?.let { message ->
+                        item(key = "action_error") {
+                            Text(
+                                text = message,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
-                        items(scores.sortedBy { it.holeNumber }, key = { it.holeNumber }) { score ->
-                            val toPar = score.score - score.par
+                    }
+
+                    if (orderedScores.isNotEmpty()) {
+                        item(key = "scores_header") {
+                            Text("Hole Scores (${orderedScores.size}/${r.roundType})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+                        }
+                        items(
+                            items = orderedScores,
+                            key = { score -> score.id.ifBlank { "hole-${score.holeNumber}" } }
+                        ) { score ->
+                            val holeToPar = score.score - score.par
                             Card(modifier = Modifier.fillMaxWidth()) {
                                 Row(
                                     modifier = Modifier.padding(12.dp).fillMaxWidth(),
@@ -217,34 +303,26 @@ fun PracticeDetailScreen(
                                     Text("Par ${score.par}", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                                     Text("Score ${score.score}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                                     Text(
-                                        text = if (toPar >= 0) "+$toPar" else "$toPar",
+                                        text = if (holeToPar >= 0) "+$holeToPar" else "$holeToPar",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = when {
-                                            toPar < 0 -> MaterialTheme.colorScheme.tertiary
-                                            toPar == 0 -> MaterialTheme.colorScheme.primary
+                                            holeToPar < 0 -> MaterialTheme.colorScheme.tertiary
+                                            holeToPar == 0 -> MaterialTheme.colorScheme.primary
                                             else -> MaterialTheme.colorScheme.error
                                         },
                                         modifier = Modifier.weight(0.5f)
                                     )
                                     IconButton(
-                                        onClick = {
-                                            scope.launch {
-                                                try {
-                                                    SupabaseConfig.client.from("practice_scores")
-                                                        .delete { filter { eq("id", score.id) } }
-                                                    reloadTrigger++
-                                                } catch (_: Exception) {}
-                                            }
-                                        },
-                                        modifier = Modifier.size(32.dp)
+                                        onClick = { pendingDelete = score },
+                                        modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                     ) {
-                                        Icon(Icons.Default.Delete, contentDescription = "Delete score", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                                        Icon(Icons.Default.Delete, contentDescription = "Delete hole ${score.holeNumber}", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                                     }
                                 }
                             }
                         }
                     } else {
-                        item {
+                        item(key = "scores_empty") {
                             Text(
                                 text = "No scores yet. Tap below to start entering scores.",
                                 style = MaterialTheme.typography.bodyMedium,
@@ -254,58 +332,102 @@ fun PracticeDetailScreen(
                         }
                     }
 
-                    if (scores.size < r.roundType && r.status != com.tmgl.league.data.model.PracticeRoundStatus.COMPLETED) {
-                        item {
+                    if (orderedScores.size < r.roundType && !isCompleted) {
+                        item(key = "add_score") {
                             Button(
                                 onClick = { showScoreDialog = true },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = TmglGreen)
                             ) {
-                                Text("Add Score for Hole ${scores.size + 1}")
+                                Text("Add Score for Hole $nextHoleNumber")
                             }
                         }
                     }
 
-                    if (scores.isNotEmpty() && r.status != com.tmgl.league.data.model.PracticeRoundStatus.COMPLETED) {
-                        item {
+                    if (orderedScores.isNotEmpty() && !isCompleted) {
+                        item(key = "complete_round") {
                             Button(
                                 onClick = { showCompleteDialog = true },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = TmglGreen)
                             ) {
                                 Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Complete Round (${scores.size}/${r.roundType} holes)")
+                                Text("Complete Round (${orderedScores.size}/${r.roundType} holes)")
                             }
                         }
                     }
 
-                    if (scores.isNotEmpty()) {
-                        item {
-                            val context = androidx.compose.ui.platform.LocalContext.current
+                    if (orderedScores.isNotEmpty()) {
+                        item(key = "export") {
                             Button(
                                 onClick = {
-                                    val holes = scores.map { Triple(it.holeNumber, it.par, it.score) }
-                                    val uri = ScoreExportManager.exportScorecardCsv(
-                                        context,
-                                        "Player",
-                                        holes,
-                                        "Practice Round"
-                                    )
-                                    uri?.let { ScoreExportManager.shareFile(context, it) }
+                                    isExporting = true
+                                    actionError = null
+                                    val rows = orderedScores.map {
+                                        ScorecardExportRow(
+                                            playerName = exportPlayerName,
+                                            holeNumber = it.holeNumber,
+                                            par = it.par,
+                                            strokes = it.score
+                                        )
+                                    }
+                                    scope.launch {
+                                        try {
+                                            val uri = withContext(Dispatchers.IO) {
+                                                ScoreExportManager.exportScorecardCsv(
+                                                    context,
+                                                    "Practice Round",
+                                                    rows
+                                                )
+                                            }
+                                            if (uri == null) {
+                                                actionError = "Couldn't create the scorecard file. Please try again."
+                                            } else {
+                                                ScoreExportManager.shareFile(context, uri)
+                                            }
+                                        } catch (e: Exception) {
+                                            Log.e(PRACTICE_DETAIL_TAG, "Scorecard export failed", e)
+                                            actionError = "Couldn't export the scorecard. Please try again."
+                                        } finally {
+                                            isExporting = false
+                                        }
+                                    }
                                 },
-                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !isExporting,
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = TmglGreen)
                             ) {
                                 Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Export Scorecard")
+                                Text(if (isExporting) "Exporting..." else "Export Scorecard")
                             }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+private suspend fun pushRoundTotals(roundId: String, entries: List<PracticeScore>) {
+    if (entries.isEmpty()) return
+    val gross = entries.sumOf { it.score }
+    val toPar = entries.sumOf { it.score - it.par }
+    try {
+        val updated = SupabaseConfig.client.from("practice_rounds")
+            .update(mapOf<String, Any>(
+                "gross_score" to gross,
+                "total_to_par" to toPar
+            )) {
+                filter { eq("id", roundId) }
+            }
+        val writeError = postgrestWriteError(updated.data)
+        if (writeError != null) {
+            Log.w(PRACTICE_DETAIL_TAG, "Round totals update rejected for $roundId: $writeError")
+        }
+    } catch (e: Exception) {
+        Log.e(PRACTICE_DETAIL_TAG, "Round totals update failed for $roundId", e)
     }
 }
 
@@ -327,7 +449,7 @@ private fun PracticeScoreDialog(
     val courseHole = courseHoles.find { it.holeNumber == holeNumber }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!isSaving) onDismiss() },
         title = { Text("Hole $holeNumber Score") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -344,14 +466,14 @@ private fun PracticeScoreDialog(
                 }
                 OutlinedTextField(
                     value = score,
-                    onValueChange = { score = it.filter { c -> c.isDigit() } },
+                    onValueChange = { score = it.filter { c -> c.isDigit() }.take(2) },
                     label = { Text("Score (strokes)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = par,
-                    onValueChange = { par = it.filter { c -> c.isDigit() } },
+                    onValueChange = { par = it.filter { c -> c.isDigit() }.take(1) },
                     label = { Text("Par") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -374,29 +496,43 @@ private fun PracticeScoreDialog(
                         errorMsg = "Par must be between 3 and 6"
                         return@TextButton
                     }
+                    if (holeNumber > maxHoles) {
+                        errorMsg = "This round only has $maxHoles holes"
+                        return@TextButton
+                    }
                     isSaving = true; errorMsg = null
                     scope.launch {
                         try {
-                            val practiceScore = PracticeScore(
-                                practiceRoundId = roundId,
-                                holeNumber = holeNumber,
-                                par = parVal,
-                                score = scoreVal
+                            val payload = listOf(
+                                mapOf(
+                                    "practice_round_id" to roundId,
+                                    "hole_number" to holeNumber,
+                                    "par" to parVal,
+                                    "score" to scoreVal
+                                )
                             )
-                            SupabaseConfig.client.from("practice_scores").insert(practiceScore)
+                            val upserted = SupabaseConfig.client.from("practice_scores")
+                                .upsert(payload, onConflict = PRACTICE_SCORES_CONFLICT)
+                            val writeError = postgrestWriteError(upserted.data)
+                            if (writeError != null) {
+                                errorMsg = writeError
+                                return@launch
+                            }
                             onSaved()
                             onDismiss()
                         } catch (e: Exception) {
-                            errorMsg = e.message ?: "Failed to save"
+                            Log.e(PRACTICE_DETAIL_TAG, "Practice score upsert failed", e)
+                            errorMsg = "Couldn't save the score. Please try again."
+                        } finally {
+                            isSaving = false
                         }
-                        isSaving = false
                     }
                 },
                 enabled = score.isNotBlank() && !isSaving
-            ) { Text("Save") }
+            ) { Text(if (isSaving) "Saving..." else "Save") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss, enabled = !isSaving) { Text("Cancel") }
         }
     )
 }

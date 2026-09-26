@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tmgl.league.data.SupabaseConfig
 import com.tmgl.league.data.repository.DataResult
+import com.tmgl.league.ui.components.medalSurfaceForPosition
 import com.tmgl.league.ui.theme.*
 import com.tmgl.league.ui.viewmodel.CompetitionViewModel
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -52,15 +53,22 @@ fun TournamentLeaderboardScreen(
                     val allEntries = mutableMapOf<String, Int>()
                     val nameMap = mutableMapOf<String, String>()
                     val holeCount = mutableMapOf<String, Int>()
+                    val toParTotal = mutableMapOf<String, Int>()
 
                     for (round in roundsResult.data) {
+                        val expected = when (val expectedResult = repository.getExpectedHoles(round.id)) {
+                            is DataResult.Success -> expectedResult.data
+                            is DataResult.Error -> emptyList()
+                        }
                         when (val scResult = repository.getLeaderboard(round.id)) {
                             is DataResult.Success -> {
                                 for (entry in scResult.data) {
-                                    val current = allEntries[entry.playerId] ?: 0
-                                    allEntries[entry.playerId] = current + entry.totalStrokes
+                                    if (entry.playerId.isBlank()) continue
+                                    allEntries[entry.playerId] = (allEntries[entry.playerId] ?: 0) + entry.totalStrokes
                                     nameMap[entry.playerId] = entry.playerName
-                                    holeCount[entry.playerId] = (holeCount[entry.playerId] ?: 0) + 9
+                                    val holes = entry.totalRows.takeIf { it > 0 } ?: expected.size
+                                    holeCount[entry.playerId] = (holeCount[entry.playerId] ?: 0) + holes
+                                    toParTotal[entry.playerId] = (toParTotal[entry.playerId] ?: 0) + entry.totalScoreToPar
                                 }
                             }
                             is DataResult.Error -> {}
@@ -74,7 +82,7 @@ fun TournamentLeaderboardScreen(
                                 position = index + 1,
                                 playerName = nameMap[playerId] ?: "Player",
                                 totalStrokes = strokes,
-                                totalToPar = strokes - (18 * roundsResult.data.size),
+                                totalToPar = toParTotal[playerId] ?: 0,
                                 holesCompleted = holeCount[playerId] ?: 0
                             )
                         }
@@ -99,11 +107,11 @@ fun TournamentLeaderboardScreen(
         }
     ) { padding ->
         if (isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = TmglGreen)
             }
         } else if (entries.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Text("No scores yet", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
@@ -113,16 +121,11 @@ fun TournamentLeaderboardScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 itemsIndexed(entries) { index, entry ->
-                    val bgColor = when (entry.position) {
-                        1 -> MedalGold.copy(alpha = 0.15f)
-                        2 -> MedalSilver.copy(alpha = 0.15f)
-                        3 -> MedalBronze.copy(alpha = 0.15f)
-                        else -> MaterialTheme.colorScheme.surfaceVariant
-                    }
+                    val medal = medalSurfaceForPosition(entry.position)
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = bgColor)
+                        colors = CardDefaults.cardColors(containerColor = medal.container)
                     ) {
                         Row(
                             modifier = Modifier.padding(12.dp).fillMaxWidth(),
@@ -132,26 +135,21 @@ fun TournamentLeaderboardScreen(
                                 "#${entry.position}",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = when (entry.position) {
-                                    1 -> MedalGold
-                                    2 -> MedalSilver
-                                    3 -> MedalBronze
-                                    else -> MaterialTheme.colorScheme.onSurface
-                                },
+                                color = medal.content,
                                 modifier = Modifier.width(40.dp)
                             )
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(entry.playerName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                                Text(entry.playerName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = medal.content)
                                 Text("${entry.holesCompleted} holes played", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text("${entry.totalStrokes}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text("${entry.totalStrokes}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = medal.content)
                                 Text(
                                     text = if (entry.totalToPar >= 0) "+${entry.totalToPar}" else "${entry.totalToPar}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = when {
                                         entry.totalToPar < 0 -> MaterialTheme.colorScheme.tertiary
-                                        entry.totalToPar == 0 -> TmglGreen
+                                        entry.totalToPar == 0 -> MaterialTheme.colorScheme.primary
                                         else -> MaterialTheme.colorScheme.error
                                     }
                                 )

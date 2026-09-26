@@ -31,19 +31,20 @@ class PracticeRepository {
 
     suspend fun createPracticeRound(round: PracticeRound): DataResult<PracticeRound> {
         return try {
-            val data = db.from("practice_rounds").insert(round) { select() }.decodeList<PracticeRound>().first()
-            DataResult.Success(data)
+            val created = db.from("practice_rounds").insert(round) { select() }
+            val error = postgrestWriteError(created.data)
+            if (error != null) {
+                DataResult.Error(error)
+            } else {
+                val created2 = created.decodeList<PracticeRound>().firstOrNull()
+                if (created2 != null) {
+                    DataResult.Success(created2)
+                } else {
+                    DataResult.Error("The practice round was saved but the server returned no record")
+                }
+            }
         } catch (e: Exception) {
             DataResult.Error(e.message ?: "Failed to create practice round")
-        }
-    }
-
-    suspend fun deletePracticeRound(id: String): DataResult<Unit> {
-        return try {
-            db.from("practice_rounds").delete { filter { eq("id", id) } }
-            DataResult.Success(Unit)
-        } catch (e: Exception) {
-            DataResult.Error(e.message ?: "Failed to delete practice round")
         }
     }
 

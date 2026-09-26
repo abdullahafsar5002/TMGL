@@ -27,22 +27,22 @@ class PlayerViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
-    init { loadPlayers() }
-
     fun loadPlayers() {
-        viewModelScope.launch {
-            _isLoading.value = true; _error.value = null
-            val authState = authRepository.getCurrentUser()
-            if (authState !is AuthState.Authenticated) {
-                _error.value = "Please sign in to view this content"
-                _isLoading.value = false
-                return@launch
-            }
-            when (val result = leagueRepository.getPlayers()) {
-                is DataResult.Success -> _players.value = result.data
-                is DataResult.Error -> _error.value = result.message
-            }
+        viewModelScope.launch { refreshPlayers() }
+    }
+
+    suspend fun refreshPlayers() {
+        _isLoading.value = true; _error.value = null
+        val authState = authRepository.getCurrentUser()
+        if (authState !is AuthState.Authenticated) {
+            _error.value = "Please sign in to view this content"
             _isLoading.value = false
+            return
         }
+        when (val result = leagueRepository.getPlayers()) {
+            is DataResult.Success -> _players.value = result.data
+            is DataResult.Error -> _error.value = result.message
+        }
+        _isLoading.value = false
     }
 }

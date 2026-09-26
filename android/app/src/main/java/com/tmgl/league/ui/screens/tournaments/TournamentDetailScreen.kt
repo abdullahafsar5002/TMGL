@@ -1,5 +1,6 @@
 package com.tmgl.league.ui.screens.tournaments
 
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -22,19 +23,28 @@ import com.tmgl.league.data.competition.TournamentRegistrationState
 import com.tmgl.league.data.competition.canChangeTournamentRegistration
 import com.tmgl.league.data.competition.canEnterTournamentScores
 import com.tmgl.league.data.model.Tournament
+import com.tmgl.league.data.model.MatchStatus
 import com.tmgl.league.data.model.Round
 import com.tmgl.league.data.model.Scorecard
 import com.tmgl.league.data.model.ScorecardHole
+import com.tmgl.league.data.model.TournamentStatus
 import com.tmgl.league.data.repository.DataResult
+import com.tmgl.league.data.repository.postgrestWriteError
 import com.tmgl.league.ui.components.*
+import com.tmgl.league.ui.format.displayLabel
+import com.tmgl.league.ui.format.statusDescription
+import com.tmgl.league.ui.screens.export.ScorecardExportRow
 import com.tmgl.league.ui.screens.export.ScoreExportManager
-import com.tmgl.league.ui.theme.TmglGreen
 import com.tmgl.league.ui.viewmodel.CompetitionViewModel
 import com.tmgl.league.notification.NotificationHelper
 import com.tmgl.league.data.SupabaseConfig
 import androidx.hilt.navigation.compose.hiltViewModel
 import io.github.jan.supabase.postgrest.from
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+private const val TOURNAMENT_DETAIL_TAG = "TournamentDetail"
 
 data class ScorecardWithHoles(
     val playerId: String,
@@ -72,6 +82,8 @@ fun TournamentDetailScreen(
     var showJoinDialog by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var isExporting by remember { mutableStateOf(false) }
+    var exportMessage by remember { mutableStateOf<String?>(null) }
     val viewModel: CompetitionViewModel = hiltViewModel()
     val repository = viewModel.repository
     val scope = rememberCoroutineScope()
@@ -141,6 +153,20 @@ fun TournamentDetailScreen(
 
     Scaffold(topBar = { TmglTopBar(title = "Tournament", onBack = onBack) }) { paddingValues ->
         val context = LocalContext.current
+        suspend fun updateTournamentStatus(status: TournamentStatus) {
+            try {
+                val updated = SupabaseConfig.client.from("tournaments")
+                    .update(mapOf("status" to status.name.lowercase())) { filter { eq("id", tournamentId) } }
+                val failure = postgrestWriteError(updated.data)
+                if (failure != null) {
+                    error = failure
+                } else {
+                    tournament = tournament?.copy(status = status)
+                }
+            } catch (e: Exception) {
+                error = e.message ?: "Failed to update the tournament"
+            }
+        }
         when {
             isLoading -> LoadingIndicator(modifier = Modifier.padding(paddingValues))
             error != null -> ErrorState(message = error ?: "", modifier = Modifier.padding(paddingValues))
@@ -163,7 +189,7 @@ fun TournamentDetailScreen(
                     item {
                         TmglCard {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                InfoRow("Status", t.status.name.replace("_", " "))
+                                InfoRow("Status", t.status.displayLabel)
                                 if (t.startDate != null) InfoRow("Start Date", t.startDate)
                                 if (t.endDate != null) InfoRow("End Date", t.endDate)
                             }
@@ -178,27 +204,43 @@ fun TournamentDetailScreen(
                                 Text("Tournament Status", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 Spacer(modifier = Modifier.height(12.dp))
 
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    steps.forEachIndexed { index, (label, _) ->
-                                        val isActive = index <= currentStepIndex
-                                        val isCurrent = index == currentStepIndex
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                                            Surface(
-                                                modifier = Modifier.size(32.dp),
-                                                shape = CircleShape,
-                                                color = if (isActive) TmglGreen else MaterialTheme.colorScheme.surfaceVariant
-                                            ) {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    if (isCurrent) {
-                                                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                                                    } else if (isActive) {
-                                                        Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                                    } else {
-                                                        Text("${index + 1}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (currentStepIndex < 0) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text(
+                                            t.status.displayLabel,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            t.status.statusDescription,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                } else {
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        steps.forEachIndexed { index, (label, _) ->
+                                            val isActive = index <= currentStepIndex
+                                            val isCurrent = index == currentStepIndex
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                                                Surface(
+                                                    modifier = Modifier.size(32.dp),
+                                                    shape = CircleShape,
+                                                    color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        if (isCurrent) {
+                                                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = contentColorFor(MaterialTheme.colorScheme.primary), strokeWidth = 2.dp)
+                                                        } else if (isActive) {
+                                                            Icon(Icons.Default.Check, contentDescription = null, tint = contentColorFor(MaterialTheme.colorScheme.primary), modifier = Modifier.size(16.dp))
+                                                        } else {
+                                                            Text("${index + 1}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                        }
                                                     }
                                                 }
+                                                Text(label, style = MaterialTheme.typography.labelSmall, color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                                             }
-                                            Text(label, style = MaterialTheme.typography.labelSmall, color = if (isActive) TmglGreen else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                                         }
                                     }
                                 }
@@ -239,7 +281,7 @@ fun TournamentDetailScreen(
                                         containerColor = if (registrationState.isRegistered) {
                                             MaterialTheme.colorScheme.error
                                         } else {
-                                            TmglGreen
+                                            MaterialTheme.colorScheme.primary
                                         }
                                     )
                                 ) {
@@ -272,33 +314,17 @@ fun TournamentDetailScreen(
                                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Text("Manage Tournament", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                     when (t.status) {
-                                        com.tmgl.league.data.model.TournamentStatus.DRAFT -> {
+                                        TournamentStatus.DRAFT -> {
                                             Button(onClick = {
-                                                scope.launch {
-                                                    try {
-                                                        com.tmgl.league.data.SupabaseConfig.client.from("tournaments")
-                                                            .update(mapOf("status" to "open")) {
-                                                                filter { eq("id", tournamentId) }
-                                                            }
-                                                        tournament = tournament?.copy(status = com.tmgl.league.data.model.TournamentStatus.OPEN)
-                                                    } catch (e: Exception) { error = e.message }
-                                                }
-                                            }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = TmglGreen)) {
+                                                scope.launch { updateTournamentStatus(TournamentStatus.OPEN) }
+                                            }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) {
                                                 Text("Open Registration")
                                             }
                                         }
-                                        com.tmgl.league.data.model.TournamentStatus.OPEN -> {
+                                        TournamentStatus.OPEN -> {
                                             if (rounds.isNotEmpty()) {
                                                 Button(onClick = {
-                                                    scope.launch {
-                                                        try {
-                                                            com.tmgl.league.data.SupabaseConfig.client.from("tournaments")
-                                                                .update(mapOf("status" to "live")) {
-                                                                    filter { eq("id", tournamentId) }
-                                                                }
-                                                            tournament = tournament?.copy(status = com.tmgl.league.data.model.TournamentStatus.LIVE)
-                                                        } catch (e: Exception) { error = e.message }
-                                                    }
+                                                    scope.launch { updateTournamentStatus(TournamentStatus.LIVE) }
                                                 }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
                                                     Text("Start Tournament")
                                                 }
@@ -306,17 +332,9 @@ fun TournamentDetailScreen(
                                                 Text("Create at least one round to start", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
                                         }
-                                        com.tmgl.league.data.model.TournamentStatus.LIVE -> {
+                                        TournamentStatus.LIVE -> {
                                             Button(onClick = {
-                                                scope.launch {
-                                                    try {
-                                                        com.tmgl.league.data.SupabaseConfig.client.from("tournaments")
-                                                            .update(mapOf("status" to "completed")) {
-                                                                filter { eq("id", tournamentId) }
-                                                            }
-                                                        tournament = tournament?.copy(status = com.tmgl.league.data.model.TournamentStatus.COMPLETED)
-                                                    } catch (e: Exception) { error = e.message }
-                                                }
+                                                scope.launch { updateTournamentStatus(TournamentStatus.COMPLETED) }
                                             }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) {
                                                 Text("Complete Tournament")
                                             }
@@ -338,11 +356,11 @@ fun TournamentDetailScreen(
                                     if (round.date != null) {
                                         Text(text = round.date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
-                                    Text(text = "Status: ${round.status}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(text = "Status: ${round.status.displayLabel}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     if (canEnterScores) {
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            if (isSuperAdmin && round.status == "draft") {
+                                            if (isSuperAdmin && round.status == MatchStatus.SCHEDULED) {
                                                 Button(onClick = {
                                                     NotificationHelper.notifyRoundStart(
                                                         context,
@@ -370,38 +388,66 @@ fun TournamentDetailScreen(
                         item {
                             Button(
                                 onClick = {
+                                    val rows = scorecardsWithHoles.flatMap { scorecard ->
+                                        val name = scorecard.playerName?.takeIf { it.isNotBlank() } ?: "Player"
+                                        scorecard.holes.map { hole ->
+                                            ScorecardExportRow(
+                                                playerName = name,
+                                                holeNumber = hole.holeNumber,
+                                                par = hole.par,
+                                                strokes = hole.strokes
+                                            )
+                                        }
+                                    }
+                                    if (rows.isEmpty()) {
+                                        exportMessage = "There are no hole scores to export yet."
+                                        return@Button
+                                    }
+                                    isExporting = true
+                                    exportMessage = null
                                     scope.launch {
                                         try {
-                                            val allHoles = mutableListOf<Triple<Int, Int, Int>>()
-                                            for (sc in scorecardsWithHoles) {
-                                                for (hole in sc.holes) {
-                                                    allHoles.add(Triple(hole.holeNumber, hole.par, hole.strokes))
-                                                }
+                                            val uri = withContext(Dispatchers.IO) {
+                                                ScoreExportManager.exportScorecardCsv(context, t.name, rows)
                                             }
-                                            if (allHoles.isEmpty()) {
-                                                // Add default holes if no data
-                                                for (i in 1..18) {
-                                                    allHoles.add(Triple(i, 4, 0))
-                                                }
+                                            if (uri == null) {
+                                                exportMessage = "Couldn't create the scores file. Please try again."
+                                            } else {
+                                                ScoreExportManager.shareFile(context, uri)
                                             }
-                                            val uri = ScoreExportManager.exportScorecardCsv(
-                                                context,
-                                                t.name,
-                                                allHoles,
-                                                t.name
-                                            )
-                                            uri?.let { ScoreExportManager.shareFile(context, it) }
                                         } catch (e: Exception) {
-                                            // Handle error silently
+                                            Log.e(TOURNAMENT_DETAIL_TAG, "Tournament score export failed", e)
+                                            exportMessage = "Couldn't export the tournament scores. Please try again."
+                                        } finally {
+                                            isExporting = false
                                         }
                                     }
                                 },
+                                enabled = !isExporting,
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(containerColor = TmglGreen)
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                             ) {
                                 Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Export Tournament Scores")
+                                Text(if (isExporting) "Exporting..." else "Export Tournament Scores")
+                            }
+                        }
+                    }
+
+                    exportMessage?.let { message ->
+                        item(key = "export_message") {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer
+                                )
+                            ) {
+                                Text(
+                                    text = message,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.padding(16.dp)
+                                )
                             }
                         }
                     }
@@ -410,7 +456,7 @@ fun TournamentDetailScreen(
                         Button(
                             onClick = { onViewLeaderboard(tournamentId) },
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = TmglGreen)
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
                             Text("Tournament Leaderboard")
                         }
@@ -420,7 +466,7 @@ fun TournamentDetailScreen(
                         Button(
                             onClick = { onViewSeasonStandings() },
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = TmglGreen)
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
                             Text("Season Standings")
                         }
@@ -430,7 +476,7 @@ fun TournamentDetailScreen(
                         Button(
                             onClick = { onViewFlights(tournamentId) },
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = TmglGreen)
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
                             Text("Flights")
                         }
@@ -440,7 +486,7 @@ fun TournamentDetailScreen(
                         Button(
                             onClick = { onViewSideGames(tournamentId) },
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = TmglGreen)
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
                             Text("Side Games")
                         }
@@ -451,7 +497,7 @@ fun TournamentDetailScreen(
                             Button(
                                 onClick = { onVerifyScores(rounds.first().id) },
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(containerColor = TmglGreen)
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                             ) {
                                 Text("Verify Scores")
                             }
@@ -488,7 +534,7 @@ fun TournamentDetailScreen(
                                         items(scorecard.holes) { hole ->
                                             val bgColor = when {
                                                 hole.scoreToPar < 0 -> Color(0xFF4CAF50).copy(alpha = 0.8f)
-                                                hole.scoreToPar == 0 -> TmglGreen.copy(alpha = 0.3f)
+                                                hole.scoreToPar == 0 -> MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                                                 hole.scoreToPar == 1 -> Color(0xFFFFC107).copy(alpha = 0.6f)
                                                 hole.scoreToPar == 2 -> Color(0xFFFF9800).copy(alpha = 0.7f)
                                                 else -> Color(0xFFF44336).copy(alpha = 0.7f)
@@ -523,7 +569,7 @@ fun TournamentDetailScreen(
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                         LegendChip(Color(0xFF4CAF50), "Birdie-")
-                                        LegendChip(TmglGreen.copy(alpha = 0.3f), "Par")
+                                        LegendChip(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), "Par")
                                         LegendChip(Color(0xFFFFC107), "Bogey")
                                         LegendChip(Color(0xFFFF9800), "+2")
                                         LegendChip(Color(0xFFF44336), "+3+")
@@ -558,7 +604,7 @@ fun TournamentDetailScreen(
                                                 1 -> "${b.playerName} wins (countback)"
                                                 else -> "True tie"
                                             }
-                                            Text(label, style = MaterialTheme.typography.bodyMedium, color = TmglGreen, fontWeight = FontWeight.SemiBold)
+                                            Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                                         }
                                     }
                                 }

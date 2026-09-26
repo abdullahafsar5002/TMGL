@@ -8,7 +8,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.tmgl.league.auth.EncryptedAuthStorage
 import com.tmgl.league.data.model.Course
 import com.tmgl.league.data.model.PracticeRound
 import com.tmgl.league.data.repository.AuthRepository
@@ -18,7 +17,18 @@ import com.tmgl.league.data.repository.PracticeRepository
 import com.tmgl.league.ui.components.LoadingIndicator
 import com.tmgl.league.ui.components.TmglTopBar
 import com.tmgl.league.ui.theme.TmglGreen
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.launch
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+internal interface PracticeCreateDependencies {
+    fun authRepository(): AuthRepository
+    fun practiceRepository(): PracticeRepository
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,9 +42,19 @@ fun PracticeCreateScreen(
     var isLoading by remember { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    val repository = remember { PracticeRepository() }
     val context = LocalContext.current
-    val authRepository = remember { AuthRepository(EncryptedAuthStorage(context)) }
+    val authRepository = remember(context) {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            PracticeCreateDependencies::class.java
+        ).authRepository()
+    }
+    val repository = remember(context) {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            PracticeCreateDependencies::class.java
+        ).practiceRepository()
+    }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
@@ -63,13 +83,14 @@ fun PracticeCreateScreen(
 
                 Text("Round Type", style = MaterialTheme.typography.titleMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(9, 18).forEach { type ->
-                        FilterChip(
-                            selected = roundType == type,
-                            onClick = { roundType = type },
-                            label = { Text("$type Holes") }
-                        )
-                    }
+                listOf(9, 18).forEach { type ->
+                    FilterChip(
+                        selected = roundType == type,
+                        onClick = { roundType = type },
+                        modifier = Modifier.defaultMinSize(minHeight = 48.dp),
+                        label = { Text("$type Holes") }
+                    )
+                }
                 }
 
                 Text("Course", style = MaterialTheme.typography.titleMedium)
@@ -102,23 +123,40 @@ fun PracticeCreateScreen(
 
                 Button(
                     onClick = {
-                        if (selectedCourseId != null) {
+                        val courseId = selectedCourseId
+                        if (courseId == null) {
+                            error = "Select a course before starting a practice round"
+                        } else {
                             isSaving = true
+                            error = null
                             scope.launch {
-                                val authState = authRepository.getCurrentUser()
-                                if (authState is AuthState.Authenticated && authState.profile != null) {
-                                    val playerResult = repository.getPlayerByProfileId(authState.profile.id)
-                                    if (playerResult is DataResult.Success) {
-                                        val round = PracticeRound(
-                                            playerId = playerResult.data.id,
-                                            courseId = selectedCourseId ?: "",
-                                            roundType = roundType
-                                        )
-                                        when (val result = repository.createPracticeRound(round)) {
-                                            is DataResult.Success -> { isSaving = false; onCreated(result.data.id) }
-                                            is DataResult.Error -> { error = result.message; isSaving = false }
-                                        }
+                                try {
+                                    val authState = authRepository.getCurrentUser()
+                                    val authenticated = authState as? AuthState.Authenticated
+                                    if (authenticated == null) {
+                                        error = "You're signed out. Sign in again to start a practice round."
+                                        return@launch
                                     }
+                                    val profileId = authenticated.profile?.id ?: authenticated.userId
+                                    when (val playerResult = repository.getPlayerByProfileId(profileId)) {
+                                        is DataResult.Success -> {
+                                            val round = PracticeRound(
+                                                playerId = playerResult.data.id,
+                                                courseId = courseId,
+                                                roundType = roundType
+                                            )
+                                            when (val result = repository.createPracticeRound(round)) {
+                                                is DataResult.Success -> onCreated(result.data.id)
+                                                is DataResult.Error -> error = result.message
+                                            }
+                                        }
+                                        is DataResult.Error -> error = playerResult.message
+                                    }
+                                } catch (e: Exception) {
+                                    error = e.message?.takeIf { it.isNotBlank() }
+                                        ?: "Couldn't start the practice round. Please try again."
+                                } finally {
+                                    isSaving = false
                                 }
                             }
                         }

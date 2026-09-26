@@ -9,21 +9,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.core.content.ContextCompat
 import android.view.HapticFeedbackConstants
 import android.view.View
 
 object HapticFeedbackHelper {
 
     enum class HapticType {
-        CLICK,           // Button taps
-        LONG_PRESS,      // Long press actions
-        SUCCESS,         // Score submitted successfully
-        ERROR,           // Error or validation failure
-        LIGHT_TAP,       // Subtle interactions like toggles
-        HEAVY_THUD,      // Important actions like tournament completion
-        CLOCK_TICK,      // Counter increment/decrement
-        CONFIRM          // Confirmation dialogs
+        CLICK,
+        LONG_PRESS,
+        SUCCESS,
+        ERROR,
+        LIGHT_TAP,
+        HEAVY_THUD,
+        CLOCK_TICK,
+        CONFIRM
     }
 
     @Composable
@@ -69,12 +68,12 @@ object HapticFeedbackHelper {
     }
 
     private fun performCustomVibration(context: Context, timings: LongArray, amplitude: Int) {
-        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+        val vibrator: Vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager ?: return
             vibratorManager.defaultVibrator
         } else {
             @Suppress("DEPRECATION")
-            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator ?: return
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

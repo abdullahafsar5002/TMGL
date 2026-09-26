@@ -1,28 +1,5 @@
 package com.tmgl.league.data.model
 
-import kotlinx.serialization.Serializable
-
-@Serializable
-data class TeeBox(
-    val name: String = "Regular",
-    val color: String = "White",
-    val yardage: Int = 0,
-    val rating: Double = 0.0,
-    val slope: Int = 0
-)
-
-data class Hazard(
-    val name: String = "",
-    val distance: Int = 0,
-    val type: String = "bunker"
-)
-
-data class GpsPosition(
-    val latitude: Double = 0.0,
-    val longitude: Double = 0.0,
-    val accuracy: Float = 0f
-)
-
 enum class ScoringFormat(val displayName: String) {
     STROKE_PLAY("Stroke Play"),
     STABLEFORD("Stableford"),
@@ -56,10 +33,4 @@ data class NassauResult(
     val front9Status: String = "tied",
     val back9Status: String = "tied",
     val totalStatus: String = "tied"
-)
-
-data class ScrambleTeam(
-    val playerId: String = "",
-    val playerName: String = "",
-    val teeBox: String = "Regular"
 )

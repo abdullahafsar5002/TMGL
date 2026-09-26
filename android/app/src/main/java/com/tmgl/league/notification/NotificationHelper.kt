@@ -8,10 +8,16 @@ import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
 import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
+import androidx.core.net.toUri
 import com.tmgl.league.MainActivity
 import com.tmgl.league.R
+import com.tmgl.league.data.offline.NotificationSettings
+import com.tmgl.league.data.offline.OfflineCache
+import java.util.concurrent.atomic.AtomicInteger
 
 object NotificationHelper {
     const val CHANNEL_TOURNAMENTS = "tournaments"
@@ -19,102 +25,143 @@ object NotificationHelper {
     const val CHANNEL_MATCHES = "matches"
     const val CHANNEL_ANNOUNCEMENTS = "announcements"
     const val CHANNEL_LIVE = "live_scoring"
+    const val CHANNEL_DEFAULT = "tmgl_notifications"
+    const val CHANNEL_DEFAULT_SILENT = "tmgl_notifications_silent"
 
     const val GROUP_TOURNAMENTS = "group_tournaments"
     const val GROUP_SCORES = "group_scores"
     const val GROUP_MATCHES = "group_matches"
     const val GROUP_ANNOUNCEMENTS = "group_announcements"
 
+    const val EXTRA_NAVIGATE_TO = "navigate_to"
+    const val EXTRA_SCREEN_ID = "screen_id"
+
+    private const val SILENT_SUFFIX = "_silent"
+
+    private val requestCodeCounter = AtomicInteger(0)
+
+    private data class ChannelSpec(
+        val id: String,
+        val name: String,
+        val group: String,
+        val importance: Int,
+        val description: String,
+        val vibrate: Boolean = true,
+        val vibrationPattern: LongArray? = null,
+        val badge: Boolean = true
+    )
+
+    private val channelSpecs = listOf(
+        ChannelSpec(
+            id = CHANNEL_TOURNAMENTS,
+            name = "Tournaments",
+            group = GROUP_TOURNAMENTS,
+            importance = NotificationManager.IMPORTANCE_DEFAULT,
+            description = "Tournament updates and round start notifications",
+            vibrationPattern = longArrayOf(0, 200)
+        ),
+        ChannelSpec(
+            id = CHANNEL_SCORES,
+            name = "Scores",
+            group = GROUP_SCORES,
+            importance = NotificationManager.IMPORTANCE_DEFAULT,
+            description = "Score updates and results",
+            vibrationPattern = longArrayOf(0, 100)
+        ),
+        ChannelSpec(
+            id = CHANNEL_MATCHES,
+            name = "Matches",
+            group = GROUP_MATCHES,
+            importance = NotificationManager.IMPORTANCE_HIGH,
+            description = "Match scheduling and opponent notifications",
+            vibrationPattern = longArrayOf(0, 300, 100, 300)
+        ),
+        ChannelSpec(
+            id = CHANNEL_ANNOUNCEMENTS,
+            name = "Announcements",
+            group = GROUP_ANNOUNCEMENTS,
+            importance = NotificationManager.IMPORTANCE_LOW,
+            description = "League announcements and news",
+            vibrate = false
+        ),
+        ChannelSpec(
+            id = CHANNEL_LIVE,
+            name = "Live Scoring",
+            group = GROUP_SCORES,
+            importance = NotificationManager.IMPORTANCE_LOW,
+            description = "Real-time scoring updates",
+            vibrate = false,
+            badge = false
+        ),
+        ChannelSpec(
+            id = CHANNEL_DEFAULT,
+            name = "TMGL Notifications",
+            group = GROUP_SCORES,
+            importance = NotificationManager.IMPORTANCE_DEFAULT,
+            description = "Tournament and match notifications",
+            vibrationPattern = longArrayOf(0, 150)
+        )
+    )
+
+    fun nextNotificationId(): Int {
+        val next = requestCodeCounter.updateAndGet { current -> if (current == Int.MAX_VALUE) 1 else current + 1 }
+        return if (next == 0) 1 else next
+    }
+
+    suspend fun refreshPreferences(context: Context): NotificationSettings = try {
+        OfflineCache.readNotificationSettings(context)
+    } catch (_: Exception) {
+        OfflineCache.notificationSettings()
+    }
+
     fun createChannels(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
 
-            // Create groups
-            val tournamentGroup = NotificationChannelGroup(GROUP_TOURNAMENTS, "Tournaments")
-            val scoresGroup = NotificationChannelGroup(GROUP_SCORES, "Scores")
-            val matchesGroup = NotificationChannelGroup(GROUP_MATCHES, "Matches")
-            val announcementsGroup = NotificationChannelGroup(GROUP_ANNOUNCEMENTS, "Announcements")
+        manager.createNotificationChannelGroups(listOf(
+            NotificationChannelGroup(GROUP_TOURNAMENTS, "Tournaments"),
+            NotificationChannelGroup(GROUP_SCORES, "Scores"),
+            NotificationChannelGroup(GROUP_MATCHES, "Matches"),
+            NotificationChannelGroup(GROUP_ANNOUNCEMENTS, "Announcements")
+        ))
 
-            manager.createNotificationChannelGroups(listOf(
-                tournamentGroup, scoresGroup, matchesGroup, announcementsGroup
-            ))
+        val defaultSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        val audioAttributes = AudioAttributes.Builder()
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+            .build()
 
-            val defaultSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-
-            val audioAttributes = AudioAttributes.Builder()
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                .build()
-
-            // Tournament channel
-            val tournamentChannel = NotificationChannel(
-                CHANNEL_TOURNAMENTS,
-                "Tournaments",
-                NotificationManager.IMPORTANCE_DEFAULT
-            ).apply {
-                description = "Tournament updates and round start notifications"
-                group = GROUP_TOURNAMENTS
-                setShowBadge(true)
-                enableVibration(true)
-                vibrationPattern = longArrayOf(0, 200)
-                setSound(defaultSound, audioAttributes)
+        val channels = buildList {
+            channelSpecs.forEach { spec ->
+                add(buildChannel(spec, "", defaultSound, audioAttributes, withSound = true))
+                add(buildChannel(spec, SILENT_SUFFIX, defaultSound, audioAttributes, withSound = false))
             }
+        }
+        manager.createNotificationChannels(channels)
+    }
 
-            // Scores channel
-            val scoresChannel = NotificationChannel(
-                CHANNEL_SCORES,
-                "Scores",
-                NotificationManager.IMPORTANCE_DEFAULT
-            ).apply {
-                description = "Score updates and results"
-                group = GROUP_SCORES
-                setShowBadge(true)
-                enableVibration(true)
-                vibrationPattern = longArrayOf(0, 100)
-                setSound(defaultSound, audioAttributes)
-            }
-
-            // Matches channel
-            val matchesChannel = NotificationChannel(
-                CHANNEL_MATCHES,
-                "Matches",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Match scheduling and opponent notifications"
-                group = GROUP_MATCHES
-                setShowBadge(true)
-                enableVibration(true)
-                vibrationPattern = longArrayOf(0, 300, 100, 300)
-                setSound(defaultSound, audioAttributes)
-            }
-
-            // Announcements channel
-            val announcementsChannel = NotificationChannel(
-                CHANNEL_ANNOUNCEMENTS,
-                "Announcements",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "League announcements and news"
-                group = GROUP_ANNOUNCEMENTS
-                setShowBadge(true)
-            }
-
-            // Live scoring channel (silent, for real-time updates)
-            val liveChannel = NotificationChannel(
-                CHANNEL_LIVE,
-                "Live Scoring",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Real-time scoring updates"
-                group = GROUP_SCORES
-                setShowBadge(false)
-                enableVibration(false)
-                setSound(null, null)
-            }
-
-            manager.createNotificationChannels(listOf(
-                tournamentChannel, scoresChannel, matchesChannel, announcementsChannel, liveChannel
-            ))
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun buildChannel(
+        spec: ChannelSpec,
+        idSuffix: String,
+        defaultSound: Uri?,
+        audioAttributes: AudioAttributes?,
+        withSound: Boolean
+    ): NotificationChannel = NotificationChannel(spec.id + idSuffix, spec.name, spec.importance).apply {
+        this.description = spec.description
+        this.group = spec.group
+        this.setShowBadge(spec.badge)
+        if (spec.vibrate) {
+            this.enableVibration(true)
+            spec.vibrationPattern?.let { this.vibrationPattern = it }
+        } else {
+            this.enableVibration(false)
+            this.vibrationPattern = null
+        }
+        if (withSound && defaultSound != null && audioAttributes != null) {
+            this.setSound(defaultSound, audioAttributes)
+        } else {
+            this.setSound(null, null)
         }
     }
 
@@ -126,30 +173,45 @@ object NotificationHelper {
         deepLink: String? = null,
         groupKey: String? = null,
         isGroupSummary: Boolean = false,
-        notificationId: Int = System.currentTimeMillis().toInt()
+        notificationId: Int = nextNotificationId()
     ) {
+        val settings = OfflineCache.notificationSettings()
+        if (!settings.notificationsEnabled) return
+
         createChannels(context)
 
-        val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            deepLink?.let { data = android.net.Uri.parse(it) }
-        }
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !manager.areNotificationsEnabled()) return
 
-        val pendingIntent = PendingIntent.getActivity(
-            context,
-            notificationId,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val pendingIntent = buildPendingIntent(context, deepLink, notificationId)
+        val withSound = settings.soundEnabled
+        val withVibration = settings.vibrationEnabled
 
-        val builder = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.drawable.logo)
+        val builder = NotificationCompat.Builder(context, effectiveChannel(channelId, withSound, withVibration))
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(message)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            builder.setSilent(!withSound || !withVibration)
+        } else {
+            var defaults = 0
+            if (withSound) defaults = defaults or NotificationCompat.DEFAULT_SOUND
+            if (withVibration) defaults = defaults or NotificationCompat.DEFAULT_VIBRATE
+            builder.setDefaults(defaults)
+            if (!withSound) {
+                @Suppress("DEPRECATION")
+                builder.setSound(null)
+            }
+            if (!withVibration) {
+                @Suppress("DEPRECATION")
+                builder.setVibrate(null)
+            }
+        }
 
         if (groupKey != null) {
             builder.setGroup(groupKey)
@@ -163,8 +225,27 @@ object NotificationHelper {
             )
         }
 
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(notificationId, builder.build())
+    }
+
+    private fun effectiveChannel(channelId: String, withSound: Boolean, withVibration: Boolean): String {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && (!withSound || !withVibration)) {
+            return channelId + SILENT_SUFFIX
+        }
+        return channelId
+    }
+
+    private fun buildPendingIntent(context: Context, deepLink: String?, requestCode: Int): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            deepLink?.takeIf { it.isNotBlank() }?.let { data = it.toUri() }
+        }
+        return PendingIntent.getActivity(
+            context,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 
     fun notifyRoundStart(context: Context, tournamentName: String, roundName: String, tournamentId: String) {
@@ -176,92 +257,5 @@ object NotificationHelper {
             "tmgl://tournaments/$tournamentId",
             GROUP_TOURNAMENTS
         )
-    }
-
-    fun notifyScorePosted(context: Context, playerName: String, matchTitle: String, tournamentId: String) {
-        showNotification(
-            context,
-            CHANNEL_SCORES,
-            "Score Posted",
-            "$playerName posted a score for $matchTitle",
-            "tmgl://tournament_leaderboard/$tournamentId",
-            GROUP_SCORES
-        )
-    }
-
-    fun notifyMatchScheduled(context: Context, opponentName: String, matchDate: String, matchId: String) {
-        showNotification(
-            context,
-            CHANNEL_MATCHES,
-            "New Match",
-            "You're matched against $opponentName on $matchDate",
-            "tmgl://matches/$matchId",
-            GROUP_MATCHES
-        )
-    }
-
-    fun notifyMatchReminder(context: Context, opponentName: String, matchTime: String, matchId: String) {
-        showNotification(
-            context,
-            CHANNEL_MATCHES,
-            "Match Reminder",
-            "Your match against $opponentName starts at $matchTime",
-            "tmgl://matches/$matchId",
-            GROUP_MATCHES
-        )
-    }
-
-    fun notifyTournamentReminder(context: Context, tournamentName: String, daysLeft: Int, tournamentId: String) {
-        showNotification(
-            context,
-            CHANNEL_TOURNAMENTS,
-            "Tournament Ending Soon",
-            "$tournamentName ends in $daysLeft day(s)",
-            "tmgl://tournaments/$tournamentId",
-            GROUP_TOURNAMENTS
-        )
-    }
-
-    fun notifyAnnouncement(context: Context, title: String, message: String, announcementId: String) {
-        showNotification(
-            context,
-            CHANNEL_ANNOUNCEMENTS,
-            title,
-            message,
-            "tmgl://announcements/$announcementId",
-            GROUP_ANNOUNCEMENTS
-        )
-    }
-
-    fun notifyHandicapUpdated(context: Context, newHandicap: String) {
-        showNotification(
-            context,
-            CHANNEL_SCORES,
-            "Handicap Updated",
-            "Your new handicap index is $newHandicap",
-            "tmgl://profile",
-            GROUP_SCORES
-        )
-    }
-
-    fun notifyLiveUpdate(context: Context, tournamentName: String, playerName: String, score: String) {
-        showNotification(
-            context,
-            CHANNEL_LIVE,
-            tournamentName,
-            "$playerName: $score",
-            "tmgl://live_leaderboard",
-            GROUP_SCORES
-        )
-    }
-
-    fun cancelAllNotifications(context: Context) {
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.cancelAll()
-    }
-
-    fun cancelNotification(context: Context, notificationId: Int) {
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.cancel(notificationId)
     }
 }

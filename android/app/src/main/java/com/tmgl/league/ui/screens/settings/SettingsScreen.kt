@@ -1,7 +1,5 @@
 package com.tmgl.league.ui.screens.settings
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,11 +10,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.tmgl.league.BuildConfig
 import com.tmgl.league.ui.components.*
 import com.tmgl.league.ui.viewmodel.SettingsViewModel
 
@@ -30,7 +26,13 @@ fun SettingsScreen(
 ) {
     val uiState by settingsViewModel.uiState.collectAsState()
     var showSignOutDialog by remember { mutableStateOf(false) }
-    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.message) {
+        val message = uiState.message ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message)
+        settingsViewModel.consumeMessage()
+    }
 
     if (showSignOutDialog) {
         AlertDialog(
@@ -48,7 +50,10 @@ fun SettingsScreen(
         )
     }
 
-    Scaffold(topBar = { TmglTopBar(title = "Settings", onBack = onBack) }) { paddingValues ->
+    Scaffold(
+        topBar = { TmglTopBar(title = "Settings", onBack = onBack) },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .padding(paddingValues)
@@ -56,17 +61,15 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ── App Info ──
             TmglCard {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(text = "App", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     InfoRow("Name", "TMGL")
-                    InfoRow("Version", BuildConfig.VERSION_NAME)
-                    InfoRow("Build", BuildConfig.VERSION_CODE.toString())
+                    InfoRow("Version", uiState.versionName)
+                    InfoRow("Build", uiState.versionCode.toString())
                 }
             }
 
-            // ── Security ──
             TmglCard {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(text = "Security", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -84,7 +87,6 @@ fun SettingsScreen(
                 }
             }
 
-            // ── Notifications ──
             TmglCard {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(text = "Notifications", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -123,21 +125,22 @@ fun SettingsScreen(
                 }
             }
 
-            // ── Appearance ──
             TmglCard {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(text = "Appearance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     SettingsItem(
                         title = "Dark Theme",
-                        subtitle = "Follow system setting",
+                        subtitle = "Use the dark colour scheme",
                         trailing = {
-                            Switch(checked = uiState.isDarkMode, onCheckedChange = { settingsViewModel.setDarkMode(it) })
+                            Switch(
+                                checked = uiState.isDarkMode,
+                                onCheckedChange = { settingsViewModel.setDarkMode(it) }
+                            )
                         }
                     )
                 }
             }
 
-            // ── Account ──
             TmglCard {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(text = "Account", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -149,7 +152,6 @@ fun SettingsScreen(
                 }
             }
 
-            // ── Support ──
             TmglCard {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(text = "Support", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -195,6 +197,7 @@ private fun SettingsItem(
         modifier = Modifier
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
+            .heightIn(min = 48.dp)
             .padding(16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically

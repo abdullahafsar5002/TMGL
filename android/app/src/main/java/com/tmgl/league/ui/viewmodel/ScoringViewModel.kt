@@ -15,6 +15,7 @@ import com.tmgl.league.data.repository.isRetryableWriteError
 import com.tmgl.league.data.scoring.CompletionCheck
 import com.tmgl.league.data.scoring.ExpectedHole
 import com.tmgl.league.data.scoring.MAX_STROKES
+import com.tmgl.league.data.scoring.MIN_STROKES
 import com.tmgl.league.data.scoring.buildScorecardHoles
 import com.tmgl.league.data.scoring.expectedHoles
 import com.tmgl.league.data.scoring.isValidStrokes
@@ -67,7 +68,7 @@ class ScoringViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ScoringUiState())
     val uiState: StateFlow<ScoringUiState> = _uiState.asStateFlow()
 
-    private var autosaveJob: Job? = null
+    private var saveJob: Job? = null
     private var loadedScorecardStatus: ScorecardStatus = ScorecardStatus.DRAFT
 
     fun load(requested: ScoringTarget) {
@@ -159,60 +160,73 @@ class ScoringViewModel @Inject constructor(
         }
     }
 
-    fun setStrokes(holeNumber: Int, strokes: Int?) {
+    fun setStrokeInput(holeNumber: Int, value: Int?) {
         val current = _uiState.value
         if (current.expectedHoles.none { it.holeNumber == holeNumber }) return
-        if (strokes != null && (strokes < 1 || strokes > MAX_STROKES)) return
+        if (value != null && !isValidStrokes(value)) {
+            rejectStroke(holeNumber, value)
+            return
+        }
         _uiState.value = current.copy(
-            strokes = current.strokes.toMutableMap().apply { put(holeNumber, strokes) },
+            strokes = current.strokes.toMutableMap().apply { put(holeNumber, value) },
             hasUnsavedChanges = true,
             errorMessage = null
         )
         scheduleAutosave()
     }
 
+    private fun rejectStroke(holeNumber: Int, value: Int) {
+        _uiState.value = _uiState.value.copy(
+            errorMessage = "Hole $holeNumber needs a score from $MIN_STROKES to $MAX_STROKES strokes, not $value."
+        )
+    }
+
     fun submit() {
-        autosaveJob?.cancel()
-        persist(submitting = true, silent = false)
+        startSave(submitting = true, silent = false)
     }
 
     fun saveDraft() {
-        autosaveJob?.cancel()
-        persist(submitting = false, silent = false)
-    }
-
-    fun clearMessage() {
-        _uiState.value = _uiState.value.copy(message = null, errorMessage = null)
+        startSave(submitting = false, silent = false)
     }
 
     override fun onCleared() {
-        autosaveJob?.cancel()
+        saveJob?.cancel()
         super.onCleared()
     }
 
     private fun scheduleAutosave() {
-        autosaveJob?.cancel()
-        autosaveJob = viewModelScope.launch {
+        saveJob?.cancel()
+        saveJob = viewModelScope.launch {
             delay(AUTOSAVE_DELAY_MS)
             persist(submitting = false, silent = true)
         }
     }
 
-    private fun persist(submitting: Boolean, silent: Boolean) {
+    private fun startSave(submitting: Boolean, silent: Boolean) {
+        saveJob?.cancel()
+        saveJob = viewModelScope.launch {
+            persist(submitting = submitting, silent = silent)
+        }
+    }
+
+    private suspend fun persist(submitting: Boolean, silent: Boolean) {
         val state = _uiState.value
         val scorecardId = state.scorecardId
         if (scorecardId == null) return
         if (state.strokes.values.none { isValidStrokes(it) }) return
 
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isSaving = true)
+        _uiState.value = state.copy(isSaving = true)
+        try {
             val check = state.completion
             val rows = buildScorecardHoles(scorecardId, state.expectedHoles, state.strokes)
+            val clearedHoles = state.expectedHoles
+                .map { it.holeNumber }
+                .filterNot { holeNumber -> rows.any { it.holeNumber == holeNumber } }
             val status = nextStatus(check, loadedScorecardStatus, submitting)
-            val outcome = saveRows(scorecardId, rows, status)
+            val outcome = saveRows(scorecardId, rows, clearedHoles, status)
             _uiState.value = _uiState.value.copy(
                 isSaving = false,
-                hasUnsavedChanges = false,
+                hasUnsavedChanges = outcome.failure != null,
                 isPendingSync = outcome.pendingSync,
                 errorMessage = outcome.failure
                     ?: if (submitting && !check.isComplete) check.missingHolesMessage() else null,
@@ -224,12 +238,17 @@ class ScoringViewModel @Inject constructor(
                     else -> "Progress saved."
                 }
             )
+        } finally {
+            if (_uiState.value.isSaving) {
+                _uiState.value = _uiState.value.copy(isSaving = false)
+            }
         }
     }
 
     private suspend fun saveRows(
         scorecardId: String,
         rows: List<ScorecardHole>,
+        clearedHoles: List<Int>,
         status: ScorecardStatus
     ): SaveOutcome {
         return when (val result = repository.saveScorecardHoles(scorecardId, rows)) {
@@ -241,20 +260,32 @@ class ScoringViewModel @Inject constructor(
                     SaveOutcome(pendingSync = false, failure = result.message)
                 }
             }
-            is DataResult.Success -> when (val statusResult = repository.updateScorecardStatus(scorecardId, status)) {
-                is DataResult.Success -> {
-                    loadedScorecardStatus = status
-                    SaveOutcome(pendingSync = OfflineScoreQueue.hasPending(scorecardId), failure = null)
-                }
-                is DataResult.Error -> {
-                    if (isRetryableWriteError(statusResult.message)) {
-                        enqueue(scorecardId, rows, status)
-                        SaveOutcome(pendingSync = true, failure = null)
-                    } else {
-                        SaveOutcome(pendingSync = false, failure = statusResult.message)
+            is DataResult.Success -> {
+                val clearOutcome = clearScorecardHoles(scorecardId, clearedHoles)
+                if (clearOutcome != null) return clearOutcome
+                when (val statusResult = repository.updateScorecardStatus(scorecardId, status)) {
+                    is DataResult.Success -> {
+                        loadedScorecardStatus = status
+                        SaveOutcome(pendingSync = OfflineScoreQueue.hasPending(scorecardId), failure = null)
+                    }
+                    is DataResult.Error -> {
+                        if (isRetryableWriteError(statusResult.message)) {
+                            enqueue(scorecardId, rows, status)
+                            SaveOutcome(pendingSync = true, failure = null)
+                        } else {
+                            SaveOutcome(pendingSync = false, failure = statusResult.message)
+                        }
                     }
                 }
             }
+        }
+    }
+
+    private suspend fun clearScorecardHoles(scorecardId: String, clearedHoles: List<Int>): SaveOutcome? {
+        if (clearedHoles.isEmpty()) return null
+        return when (val result = repository.deleteScorecardHoles(scorecardId, clearedHoles)) {
+            is DataResult.Success -> null
+            is DataResult.Error -> SaveOutcome(pendingSync = false, failure = result.message)
         }
     }
 

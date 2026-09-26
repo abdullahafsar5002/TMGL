@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tmgl.league.data.model.LeaderboardEntry
 import com.tmgl.league.data.model.Tournament
+import com.tmgl.league.data.model.TournamentStatus
 import com.tmgl.league.data.repository.CompetitionRepository
 import com.tmgl.league.data.repository.DataResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -33,6 +34,9 @@ class LeaderboardViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
+    private val _selectedTournamentId = MutableStateFlow<String?>(null)
+    val selectedTournamentId: StateFlow<String?> = _selectedTournamentId
+
     private var currentPage = 0
     private val pageSize = 20
 
@@ -44,14 +48,27 @@ class LeaderboardViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = competitionRepository.getTournaments()) {
                 is DataResult.Success -> {
-                    _tournaments.value = result.data
-                    if (result.data.isNotEmpty()) {
-                        loadLeaderboardForTournament(result.data.first().id)
+                    val rankable = result.data.filter { it.status != TournamentStatus.DRAFT && it.status != TournamentStatus.CANCELLED }
+                    val ordered = rankable.ifEmpty { result.data.filter { it.status != TournamentStatus.CANCELLED } }
+                    _tournaments.value = ordered
+                    val target = ordered.firstOrNull { it.id == _selectedTournamentId.value } ?: ordered.firstOrNull()
+                    if (target != null) {
+                        selectTournament(target.id)
+                    } else {
+                        _selectedTournamentId.value = null
+                        _entries.value = emptyList()
+                        _allEntries.value = emptyList()
                     }
                 }
                 is DataResult.Error -> _error.value = result.message
             }
         }
+    }
+
+    fun selectTournament(tournamentId: String) {
+        if (tournamentId.isBlank()) return
+        _selectedTournamentId.value = tournamentId
+        loadLeaderboardForTournament(tournamentId)
     }
 
     fun loadLeaderboardForTournament(tournamentId: String) {

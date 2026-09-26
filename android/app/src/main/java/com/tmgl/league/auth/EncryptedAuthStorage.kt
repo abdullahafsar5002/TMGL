@@ -2,6 +2,7 @@ package com.tmgl.league.auth
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -17,9 +18,7 @@ class EncryptedAuthStorage @Inject constructor(
     private val prefs: SharedPreferences = sharedPrefs(context.applicationContext)
 
     fun saveSession(session: UserSession) {
-        prefs.edit()
-            .putString(KEY_SESSION, encodeSession(session))
-            .apply()
+        prefs.edit { putString(KEY_SESSION, encodeSession(session)) }
     }
 
     fun loadSession(): UserSession? {
@@ -27,24 +26,14 @@ class EncryptedAuthStorage @Inject constructor(
         return try {
             decodeSession(stored)
         } catch (e: Exception) {
-            prefs.edit().remove(KEY_SESSION).apply()
+            prefs.edit { remove(KEY_SESSION) }
             null
         }
     }
 
     fun clearSession() {
-        prefs.edit().clear().apply()
+        prefs.edit { clear() }
     }
-
-    fun getAccessToken(): String? = loadSession()?.accessToken
-
-    fun getRefreshToken(): String? = loadSession()?.refreshToken
-
-    fun getUserId(): String? = loadSession()?.user?.id
-
-    fun getUserEmail(): String? = loadSession()?.user?.email
-
-    fun hasSession(): Boolean = loadSession() != null
 
     companion object {
         private const val PREFS_NAME = "tmgl_secure_auth"

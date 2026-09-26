@@ -21,15 +21,19 @@ import com.tmgl.league.data.offline.NetworkMonitor
 import com.tmgl.league.data.offline.OfflineScoreQueue
 import com.tmgl.league.data.error.GlobalErrorHandler
 import com.tmgl.league.data.model.ScoringTarget
+import com.tmgl.league.data.model.LiveLeaderboardEntry
 import com.tmgl.league.ui.components.ErrorSnackbarHost
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.tmgl.league.data.repository.AuthState
 import com.tmgl.league.data.SupabaseConfig
+import com.tmgl.league.data.model.Course
+import com.tmgl.league.data.model.CourseHole
+import com.tmgl.league.ui.screens.courses.CourseGpsScreen
+import com.tmgl.league.ui.screens.courses.CourseSearchScreen
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
-import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.serialization.Serializable
 import com.tmgl.league.ui.screens.announcements.AnnouncementDetailScreen
 import com.tmgl.league.ui.screens.announcements.AnnouncementsScreen
@@ -41,7 +45,6 @@ import com.tmgl.league.ui.screens.leaderboard.LeaderboardScreen
 import com.tmgl.league.ui.screens.matches.MatchDetailScreen
 import com.tmgl.league.ui.screens.matches.MatchesScreen
 import com.tmgl.league.ui.screens.notifications.NotificationsScreen
-import com.tmgl.league.ui.screens.players.HeadToHeadScreen
 import com.tmgl.league.ui.screens.players.PlayerDetailScreen
 import com.tmgl.league.ui.screens.stats.PlayerStatsScreen
 import com.tmgl.league.ui.screens.players.PlayersScreen
@@ -90,11 +93,6 @@ fun MainScreen(
 
     val showBottomBar = currentRoute in mainTabs
 
-    val userName = when (val state = authState) {
-        is AuthState.Authenticated -> state.profile?.fullName ?: state.email ?: "Player"
-        else -> "Player"
-    }
-
     val currentUserId = (authState as? AuthState.Authenticated)?.userId.orEmpty()
 
     val isOnline by networkMonitor.isOnline.collectAsState()
@@ -113,6 +111,10 @@ fun MainScreen(
         DeepLinkHandler.setDeepLinkHandler { route ->
             navController.navigate(route)
         }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { DeepLinkHandler.clearDeepLinkHandler() }
     }
 
     LaunchedEffect(Unit) {
@@ -147,15 +149,15 @@ fun MainScreen(
                             icon = {
                                 Icon(
                                     imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
-                                    contentDescription = item.label
+                                    contentDescription = null
                                 )
                             },
                             label = { Text(item.label) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = TmglGreenDark,
                                 selectedTextColor = TmglGreenDark,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                unselectedIconColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.82f),
+                                unselectedTextColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.82f),
                                 indicatorColor = MaterialTheme.colorScheme.surface
                             )
                         )
@@ -173,18 +175,6 @@ fun MainScreen(
             popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 3 }) + fadeIn(animationSpec = tween(200)) },
             popExitTransition = { slideOutHorizontally(targetOffsetX = { it / 3 }) + fadeOut(animationSpec = tween(200)) }
         ) {
-            // ── Splash ──────────────────────────────────────────────
-
-            composable(Screen.Splash.route) {
-                com.tmgl.league.ui.screens.splash.SplashScreen(
-                    onSplashComplete = {
-                        navController.navigate(Screen.Home.route) {
-                            popUpTo(Screen.Splash.route) { inclusive = true }
-                        }
-                    }
-                )
-            }
-
             // ── Main tabs ──────────────────────────────────────────────
 
             composable(Screen.Home.route) {
@@ -194,16 +184,11 @@ fun MainScreen(
                     onNavigateToLeaderboard = { navController.navigate(Screen.Leaderboard.route) },
                     onNavigateToPlayers = { navController.navigate(Screen.Players.route) },
                     onNavigateToTeams = { navController.navigate(Screen.Teams.route) },
-                    onNavigateToProfile = { navController.navigate(Screen.Profile.route) },
                     onNavigateToPractice = { navController.navigate(Screen.Practice.route) },
                     onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
                     onNavigateToSearch = { navController.navigate(Screen.Search.route) },
                     onNavigateToSeasonStandings = { navController.navigate(Screen.SeasonStandings.route) },
-                    isOnline = isOnline,
-                    userName = userName,
-                    handicap = "",
-                    totalRounds = "",
-                    recentScores = emptyList()
+                    isOnline = isOnline
                 )
             }
 
@@ -284,20 +269,6 @@ fun MainScreen(
             ) { backStackEntry ->
                 TournamentLeaderboardScreen(
                     tournamentId = backStackEntry.arguments?.getString("id") ?: "",
-                    onBack = { navController.popBackStack() }
-                )
-            }
-
-            composable(
-                Screen.HeadToHead.route,
-                arguments = listOf(
-                    navArgument("playerA") { type = NavType.StringType },
-                    navArgument("playerB") { type = NavType.StringType }
-                )
-            ) { backStackEntry ->
-                HeadToHeadScreen(
-                    playerAId = backStackEntry.arguments?.getString("playerA") ?: "",
-                    playerBId = backStackEntry.arguments?.getString("playerB") ?: "",
                     onBack = { navController.popBackStack() }
                 )
             }
@@ -572,7 +543,7 @@ fun MainScreen(
             // ── Course GPS ────────────────────────────────────────────
 
             composable(Screen.CourseSearch.route) {
-                com.tmgl.league.ui.screens.courses.CourseSearchScreen(
+                CourseSearchScreen(
                     onCourseSelected = { course ->
                         navController.navigate(Screen.CourseGps.createRoute(course.id))
                     },
@@ -584,9 +555,47 @@ fun MainScreen(
                 Screen.CourseGps.route,
                 arguments = listOf(navArgument("courseId") { type = NavType.StringType })
             ) { backStackEntry ->
-                var gpsHole by remember { mutableIntStateOf(1) }
-                com.tmgl.league.ui.screens.courses.CourseGpsScreen(
-                    course = com.tmgl.league.data.model.Course(id = backStackEntry.arguments?.getString("courseId") ?: ""),
+                val courseId = backStackEntry.arguments?.getString("courseId").orEmpty()
+                var gpsCourse by remember(courseId) { mutableStateOf<Course?>(null) }
+                var gpsHole by remember(courseId) { mutableIntStateOf(1) }
+                var gpsLoading by remember(courseId) { mutableStateOf(true) }
+                var gpsError by remember(courseId) { mutableStateOf<String?>(null) }
+
+                LaunchedEffect(courseId) {
+                    if (courseId.isBlank()) {
+                        gpsLoading = false
+                        gpsError = "No course was selected"
+                        return@LaunchedEffect
+                    }
+                    gpsLoading = true
+                    gpsError = null
+                    try {
+                        val client = SupabaseConfig.client
+                        val course = client.from("courses")
+                            .select() { filter { eq("id", courseId) } }
+                            .decodeList<Course>()
+                            .firstOrNull()
+                        if (course == null) {
+                            gpsError = "That course could not be found"
+                        } else {
+                            val holes = client.from("course_holes")
+                                .select() { filter { eq("course_id", courseId) } }
+                                .decodeList<CourseHole>()
+                                .sortedBy { it.holeNumber }
+                            gpsCourse = course.copy(holes = holes)
+                            gpsHole = 1
+                        }
+                    } catch (e: Exception) {
+                        gpsError = e.message?.takeIf { it.isNotBlank() }
+                            ?: "This course could not be loaded"
+                    }
+                    gpsLoading = false
+                }
+
+                CourseGpsScreen(
+                    course = gpsCourse,
+                    isLoading = gpsLoading,
+                    loadError = gpsError,
                     selectedHole = gpsHole,
                     onHoleChanged = { gpsHole = it },
                     onBack = { navController.popBackStack() }
@@ -600,8 +609,8 @@ fun MainScreen(
                 arguments = listOf(navArgument("tournamentId") { type = NavType.StringType })
             ) { backStackEntry ->
                 val tournamentId = backStackEntry.arguments?.getString("tournamentId") ?: ""
-                var tournamentName by remember { mutableStateOf("Tournament") }
-                var entries by remember { mutableStateOf(emptyList<com.tmgl.league.data.repository.LiveLeaderboardEntry>()) }
+                var tournamentName by remember(tournamentId) { mutableStateOf("Tournament") }
+                var entries by remember(tournamentId) { mutableStateOf(emptyList<LiveLeaderboardEntry>()) }
 
                 LaunchedEffect(tournamentId) {
                     try {
@@ -646,7 +655,7 @@ fun MainScreen(
                             .filter { it.total_strokes != null }
                             .sortedBy { it.total_strokes }
                             .map { sc ->
-                                com.tmgl.league.data.repository.LiveLeaderboardEntry(
+                                LiveLeaderboardEntry(
                                     playerName = playerMap[sc.player_id] ?: "Unknown",
                                     totalScore = sc.total_strokes ?: 0,
                                     holesCompleted = 18,
@@ -661,208 +670,6 @@ fun MainScreen(
                 com.tmgl.league.ui.screens.live.LiveLeaderboardScreen(
                     tournamentName = tournamentName,
                     entries = entries,
-                    onBack = { navController.popBackStack() }
-                )
-            }
-
-            // ── Scoring Format Scorecards ─────────────────────────────
-
-            composable(
-                Screen.StablefordScorecard.route,
-                arguments = listOf(navArgument("playerName") { type = NavType.StringType })
-            ) { backStackEntry ->
-                val playerName = backStackEntry.arguments?.getString("playerName") ?: ""
-                var holes by remember { mutableStateOf(emptyList<com.tmgl.league.ui.screens.scoring.StablefordHoleScore>()) }
-
-                LaunchedEffect(playerName) {
-                    try {
-                        val db = SupabaseConfig.client
-                        val players = db.from("players")
-                            .select(Columns.raw("id")) {
-                                filter { eq("full_name", playerName) }
-                            }
-                            .decodeList<PlayerData>()
-                        if (players.isNotEmpty()) {
-                            val sc = db.from("scorecards")
-                                .select(Columns.raw("id, round_id")) {
-                                    filter { eq("player_id", players.first().id) }
-                                    filter { eq("status", "verified") }
-                                    order("updated_at", Order.DESCENDING)
-                                    limit(1)
-                                }
-                                .decodeList<ScorecardRef>()
-                            if (sc.isNotEmpty()) {
-                                val rawHoles = db.from("scorecard_holes")
-                                    .select(Columns.raw("hole_number, par, strokes")) {
-                                        filter { eq("scorecard_id", sc.first().id) }
-                                        order("hole_number", Order.ASCENDING)
-                                    }
-                                    .decodeList<RawHoleData>()
-                                holes = rawHoles.map {
-                                    com.tmgl.league.ui.screens.scoring.StablefordHoleScore(
-                                        hole = it.hole_number,
-                                        par = it.par,
-                                        score = it.strokes
-                                    )
-                                }
-                            }
-                        }
-                    } catch (_: Exception) {}
-                }
-
-                com.tmgl.league.ui.screens.scoring.StablefordScorecardScreen(
-                    playerName = playerName,
-                    holes = holes,
-                    onBack = { navController.popBackStack() }
-                )
-            }
-
-            composable(
-                Screen.MatchPlayScorecard.route,
-                arguments = listOf(
-                    navArgument("player1") { type = NavType.StringType },
-                    navArgument("player2") { type = NavType.StringType }
-                )
-            ) { backStackEntry ->
-                val player1Name = backStackEntry.arguments?.getString("player1") ?: ""
-                val player2Name = backStackEntry.arguments?.getString("player2") ?: ""
-                var p1Scores by remember { mutableStateOf(emptyList<Int>()) }
-                var p2Scores by remember { mutableStateOf(emptyList<Int>()) }
-                var parsList by remember { mutableStateOf(emptyList<Int>()) }
-
-                LaunchedEffect(player1Name, player2Name) {
-                    try {
-                        val db = SupabaseConfig.client
-                        val players = db.from("players")
-                            .select(Columns.raw("id, full_name")) {
-                                filter { isIn("full_name", listOf(player1Name, player2Name)) }
-                            }
-                            .decodeList<PlayerData>()
-                        val p1 = players.find { it.full_name == player1Name }
-                        val p2 = players.find { it.full_name == player2Name }
-                        if (p1 != null && p2 != null) {
-                            val sc1 = db.from("scorecards")
-                                .select(Columns.raw("id")) {
-                                    filter { eq("player_id", p1.id) }
-                                    filter { eq("status", "verified") }
-                                    order("updated_at", Order.DESCENDING)
-                                    limit(1)
-                                }
-                                .decodeList<ScorecardRef>()
-                            val sc2 = db.from("scorecards")
-                                .select(Columns.raw("id")) {
-                                    filter { eq("player_id", p2.id) }
-                                    filter { eq("status", "verified") }
-                                    order("updated_at", Order.DESCENDING)
-                                    limit(1)
-                                }
-                                .decodeList<ScorecardRef>()
-                            if (sc1.isNotEmpty() && sc2.isNotEmpty()) {
-                                val h1 = db.from("scorecard_holes")
-                                    .select(Columns.raw("hole_number, par, strokes")) {
-                                        filter { eq("scorecard_id", sc1.first().id) }
-                                        order("hole_number", Order.ASCENDING)
-                                    }
-                                    .decodeList<RawHoleData>()
-                                val h2 = db.from("scorecard_holes")
-                                    .select(Columns.raw("hole_number, par, strokes")) {
-                                        filter { eq("scorecard_id", sc2.first().id) }
-                                        order("hole_number", Order.ASCENDING)
-                                    }
-                                    .decodeList<RawHoleData>()
-                                p1Scores = h1.map { it.strokes }
-                                p2Scores = h2.map { it.strokes }
-                                parsList = h1.map { it.par }
-                            }
-                        }
-                    } catch (_: Exception) {}
-                }
-
-                com.tmgl.league.ui.screens.scoring.MatchPlayScorecardScreen(
-                    player1Name = player1Name,
-                    player2Name = player2Name,
-                    player1Scores = p1Scores,
-                    player2Scores = p2Scores,
-                    pars = parsList,
-                    onBack = { navController.popBackStack() }
-                )
-            }
-
-            composable(
-                Screen.NassauScorecard.route,
-                arguments = listOf(
-                    navArgument("player1") { type = NavType.StringType },
-                    navArgument("player2") { type = NavType.StringType }
-                )
-            ) { backStackEntry ->
-                val player1Name = backStackEntry.arguments?.getString("player1") ?: ""
-                val player2Name = backStackEntry.arguments?.getString("player2") ?: ""
-                var nassauResult by remember { mutableStateOf(com.tmgl.league.data.model.NassauResult()) }
-
-                LaunchedEffect(player1Name, player2Name) {
-                    try {
-                        val db = SupabaseConfig.client
-                        val players = db.from("players")
-                            .select(Columns.raw("id, full_name")) {
-                                filter { isIn("full_name", listOf(player1Name, player2Name)) }
-                            }
-                            .decodeList<PlayerData>()
-                        val p1 = players.find { it.full_name == player1Name }
-                        val p2 = players.find { it.full_name == player2Name }
-                        if (p1 != null && p2 != null) {
-                            val sc1 = db.from("scorecards")
-                                .select(Columns.raw("id")) {
-                                    filter { eq("player_id", p1.id) }
-                                    filter { eq("status", "verified") }
-                                    order("updated_at", Order.DESCENDING)
-                                    limit(1)
-                                }
-                                .decodeList<ScorecardRef>()
-                            val sc2 = db.from("scorecards")
-                                .select(Columns.raw("id")) {
-                                    filter { eq("player_id", p2.id) }
-                                    filter { eq("status", "verified") }
-                                    order("updated_at", Order.DESCENDING)
-                                    limit(1)
-                                }
-                                .decodeList<ScorecardRef>()
-                            if (sc1.isNotEmpty() && sc2.isNotEmpty()) {
-                                val h1 = db.from("scorecard_holes")
-                                    .select(Columns.raw("hole_number, par, strokes")) {
-                                        filter { eq("scorecard_id", sc1.first().id) }
-                                        order("hole_number", Order.ASCENDING)
-                                    }
-                                    .decodeList<RawHoleData>()
-                                val h2 = db.from("scorecard_holes")
-                                    .select(Columns.raw("hole_number, par, strokes")) {
-                                        filter { eq("scorecard_id", sc2.first().id) }
-                                        order("hole_number", Order.ASCENDING)
-                                    }
-                                    .decodeList<RawHoleData>()
-                                val front9P1 = h1.filter { it.hole_number <= 9 }.sumOf { it.strokes }
-                                val front9P2 = h2.filter { it.hole_number <= 9 }.sumOf { it.strokes }
-                                val back9P1 = h1.filter { it.hole_number > 9 }.sumOf { it.strokes }
-                                val back9P2 = h2.filter { it.hole_number > 9 }.sumOf { it.strokes }
-                                val front9 = front9P1 - front9P2
-                                val back9 = back9P1 - back9P2
-                                val total = front9 + back9
-                                nassauResult = com.tmgl.league.data.model.NassauResult(
-                                    front9 = front9,
-                                    back9 = back9,
-                                    total = total,
-                                    front9Status = if (front9 > 0) "Player 1 leads" else if (front9 < 0) "Player 2 leads" else "Tied",
-                                    back9Status = if (back9 > 0) "Player 1 leads" else if (back9 < 0) "Player 2 leads" else "Tied",
-                                    totalStatus = if (total > 0) "Player 1 leads" else if (total < 0) "Player 2 leads" else "Tied"
-                                )
-                            }
-                        }
-                    } catch (_: Exception) {}
-                }
-
-                com.tmgl.league.ui.screens.scoring.NassauScorecardScreen(
-                    player1Name = player1Name,
-                    player2Name = player2Name,
-                    result = nassauResult,
                     onBack = { navController.popBackStack() }
                 )
             }
@@ -894,16 +701,4 @@ private data class ScorecardData(
 private data class PlayerData(
     val id: String = "",
     val full_name: String = ""
-)
-
-@Serializable
-private data class ScorecardRef(
-    val id: String = ""
-)
-
-@Serializable
-private data class RawHoleData(
-    val hole_number: Int = 0,
-    val par: Int = 4,
-    val strokes: Int = 0
 )

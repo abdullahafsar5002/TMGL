@@ -16,7 +16,9 @@ class NetworkMonitor(
     private val _isOnline = MutableStateFlow(true)
     val isOnline: StateFlow<Boolean> = _isOnline
 
-    private val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    private val connectivityManager: ConnectivityManager? =
+        context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+
     private val restorationListeners = CopyOnWriteArrayList<() -> Unit>()
 
     @Volatile
@@ -42,25 +44,29 @@ class NetworkMonitor(
         restorationListeners.addIfAbsent(listener)
     }
 
-    fun removeOnConnectionRestoredListener(listener: () -> Unit) {
-        restorationListeners.remove(listener)
-    }
-
+    @Synchronized
     fun startMonitoring() {
+        val manager = connectivityManager ?: return
         if (!monitoring) {
             val request = NetworkRequest.Builder()
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
                 .build()
-            connectivityManager.registerNetworkCallback(request, networkCallback)
-            monitoring = true
+            val registered = runCatching { manager.registerNetworkCallback(request, networkCallback) }
+            monitoring = registered.isSuccess
+            if (!monitoring) {
+                _isOnline.value = isCurrentlyConnected()
+                return
+            }
         }
         updateOnline(isCurrentlyConnected())
     }
 
+    @Synchronized
     fun stopMonitoring() {
         if (!monitoring) return
         monitoring = false
-        runCatching { connectivityManager.unregisterNetworkCallback(networkCallback) }
+        val manager = connectivityManager ?: return
+        runCatching { manager.unregisterNetworkCallback(networkCallback) }
     }
 
     private fun updateOnline(online: Boolean) {
@@ -72,8 +78,9 @@ class NetworkMonitor(
     }
 
     private fun isCurrentlyConnected(): Boolean {
-        val network = connectivityManager.activeNetwork ?: return false
-        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+        val manager = connectivityManager ?: return false
+        val network = manager.activeNetwork ?: return false
+        val capabilities = manager.getNetworkCapabilities(network) ?: return false
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }

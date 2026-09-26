@@ -17,6 +17,28 @@ import com.tmgl.league.data.repository.LeagueRepository
 import com.tmgl.league.data.repository.DataResult
 import com.tmgl.league.ui.components.*
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.query.Columns
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+private const val PLAYER_NAME_COLUMNS = "id,full_name"
+
+@Serializable
+private data class PlayerNameRow(
+    val id: String = "",
+    @SerialName("full_name") val fullName: String = ""
+)
+
+private suspend fun loadPlayerNames(playerIds: List<String>): Map<String, String> {
+    val ids = playerIds.filter { it.isNotBlank() }.distinct()
+    if (ids.isEmpty()) return emptyMap()
+    return try {
+        SupabaseConfig.client.from("players")
+            .select(Columns.raw(PLAYER_NAME_COLUMNS)) { filter { isIn("id", ids) } }
+            .decodeList<PlayerNameRow>()
+            .associate { it.id to it.fullName }
+    } catch (_: Exception) { emptyMap() }
+}
 
 @Composable
 fun TeamDetailScreen(teamId: String, onBack: () -> Unit) {
@@ -37,17 +59,7 @@ fun TeamDetailScreen(teamId: String, onBack: () -> Unit) {
                     when (val membersResult = repository.getTeamMembers(teamId)) {
                         is DataResult.Success -> {
                             members = membersResult.data
-                            val ids = membersResult.data.map { it.playerId }.distinct()
-                            if (ids.isNotEmpty()) {
-                                try {
-                                    val profiles = SupabaseConfig.client.from("profiles").select {
-                                        filter { isIn("id", ids) }
-                                    }.decodeList<Map<String, Any?>>()
-                                    memberNames = profiles.associate {
-                                        (it["id"] as? String ?: "") to (it["full_name"] as? String ?: "")
-                                    }
-                                } catch (_: Exception) {}
-                            }
+                            memberNames = loadPlayerNames(membersResult.data.map { it.playerId })
                         }
                         is DataResult.Error -> { /* members optional */ }
                     }

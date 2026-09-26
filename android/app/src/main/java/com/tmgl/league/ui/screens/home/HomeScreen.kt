@@ -28,6 +28,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tmgl.league.R
+import com.tmgl.league.BrandName
+import com.tmgl.league.BrandTagline
 import com.tmgl.league.ui.theme.*
 import com.tmgl.league.ui.viewmodel.HomeViewModel
 
@@ -39,16 +41,11 @@ fun HomeScreen(
     onNavigateToLeaderboard: () -> Unit,
     onNavigateToPlayers: () -> Unit,
     onNavigateToTeams: () -> Unit,
-    onNavigateToProfile: () -> Unit,
     onNavigateToPractice: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToSearch: () -> Unit = {},
     onNavigateToSeasonStandings: () -> Unit = {},
     isOnline: Boolean = true,
-    userName: String = "Player",
-    handicap: String = "--",
-    totalRounds: String = "0",
-    recentScores: List<Pair<String, String>> = emptyList(),
     homeViewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by homeViewModel.uiState.collectAsState()
@@ -67,7 +64,7 @@ fun HomeScreen(
                             contentScale = ContentScale.Crop
                         )
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("TORUK MAKTO", fontWeight = FontWeight.Bold)
+                        Text(BrandName, fontWeight = FontWeight.Bold)
                     }
                 },
                 actions = {
@@ -217,7 +214,7 @@ fun HomeScreen(
                                         score,
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
-                                        color = TmglGreen
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                 }
                             }

@@ -29,17 +29,28 @@ class FriendlyMatchViewModel @Inject constructor(
 
     fun loadMatches() {
         viewModelScope.launch {
-            _isLoading.value = true; _error.value = null
-            val authState = authRepository.getCurrentUser()
-            if (authState is AuthState.Authenticated) {
-                when (val result = friendlyMatchRepository.getFriendlyMatchesByPlayer(authState.userId)) {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                val authState = authRepository.getCurrentUser()
+                if (authState !is AuthState.Authenticated) {
+                    _error.value = "Not authenticated"
+                    return@launch
+                }
+                val playerId = when (val resolved = friendlyMatchRepository.resolveCurrentPlayerId()) {
+                    is DataResult.Success -> resolved.data
+                    is DataResult.Error -> {
+                        _error.value = resolved.message
+                        return@launch
+                    }
+                }
+                when (val result = friendlyMatchRepository.getFriendlyMatchesByPlayer(playerId)) {
                     is DataResult.Success -> _matches.value = result.data
                     is DataResult.Error -> _error.value = result.message
                 }
-            } else {
-                _error.value = "Not authenticated"
+            } finally {
+                _isLoading.value = false
             }
-            _isLoading.value = false
         }
     }
 }

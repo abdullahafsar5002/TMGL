@@ -19,6 +19,7 @@ import com.tmgl.league.ui.components.ErrorState
 import com.tmgl.league.ui.components.EmptyState
 import com.tmgl.league.ui.components.LoadingIndicator
 import com.tmgl.league.ui.components.TmglTopBar
+import com.tmgl.league.ui.format.displayLabel
 import com.tmgl.league.ui.theme.TmglGreen
 import com.tmgl.league.ui.viewmodel.PracticeViewModel
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -42,8 +43,8 @@ fun PracticeHubScreen(
     val pullRefreshState = rememberPullToRefreshState()
 
     LaunchedEffect(reloadTrigger) {
-        viewModel.loadRounds()
-        isRefreshing = false
+        viewModel.refreshRounds()
+        if (reloadTrigger > 0) isRefreshing = false
     }
 
     Scaffold(
@@ -60,7 +61,7 @@ fun PracticeHubScreen(
             state = pullRefreshState
         ) {
             when {
-                isLoading -> LoadingIndicator(modifier = Modifier.padding(paddingValues))
+                isLoading && rounds.isEmpty() -> LoadingIndicator(modifier = Modifier.padding(paddingValues))
                 error != null -> ErrorState(
                     message = error ?: "",
                     onRetry = { reloadTrigger++ },
@@ -119,9 +120,15 @@ private fun PracticeRoundCard(round: PracticeRound, onClick: () -> Unit) {
                     shape = MaterialTheme.shapes.small
                 ) {
                     Text(
-                        text = round.status.name.replace("_", " "),
+                        text = round.status.displayLabel,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall
+                        style = MaterialTheme.typography.labelSmall,
+                        color = when (round.status) {
+                            PracticeRoundStatus.COMPLETED -> MaterialTheme.colorScheme.primary
+                            PracticeRoundStatus.IN_PROGRESS -> MaterialTheme.colorScheme.tertiary
+                            PracticeRoundStatus.CANCELLED -> MaterialTheme.colorScheme.error
+                            PracticeRoundStatus.DRAFT -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
                     )
                 }
             }

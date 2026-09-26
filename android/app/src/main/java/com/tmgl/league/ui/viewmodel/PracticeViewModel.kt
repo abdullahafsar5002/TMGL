@@ -28,24 +28,26 @@ class PracticeViewModel @Inject constructor(
     val error: StateFlow<String?> = _error
 
     fun loadRounds() {
-        viewModelScope.launch {
-            _isLoading.value = true; _error.value = null
-            val authState = authRepository.getCurrentUser()
-            if (authState is AuthState.Authenticated) {
-                val profileId = authState.profile?.id ?: authState.userId
-                when (val playerResult = practiceRepository.getPlayerByProfileId(profileId)) {
-                    is DataResult.Success -> {
-                        when (val result = practiceRepository.getPracticeRoundsByPlayer(playerResult.data.id)) {
-                            is DataResult.Success -> _rounds.value = result.data
-                            is DataResult.Error -> _error.value = result.message
-                        }
+        viewModelScope.launch { refreshRounds() }
+    }
+
+    suspend fun refreshRounds() {
+        _isLoading.value = true; _error.value = null
+        val authState = authRepository.getCurrentUser()
+        if (authState is AuthState.Authenticated) {
+            val profileId = authState.profile?.id ?: authState.userId
+            when (val playerResult = practiceRepository.getPlayerByProfileId(profileId)) {
+                is DataResult.Success -> {
+                    when (val result = practiceRepository.getPracticeRoundsByPlayer(playerResult.data.id)) {
+                        is DataResult.Success -> _rounds.value = result.data
+                        is DataResult.Error -> _error.value = result.message
                     }
-                    is DataResult.Error -> _error.value = playerResult.message
                 }
-            } else {
-                _error.value = "Not authenticated"
+                is DataResult.Error -> _error.value = playerResult.message
             }
-            _isLoading.value = false
+        } else {
+            _error.value = "Not authenticated"
         }
+        _isLoading.value = false
     }
 }

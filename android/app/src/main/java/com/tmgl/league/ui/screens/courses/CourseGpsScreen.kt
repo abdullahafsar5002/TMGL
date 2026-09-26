@@ -1,9 +1,11 @@
 package com.tmgl.league.ui.screens.courses
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -11,78 +13,109 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.tmgl.league.ui.theme.*
 import com.tmgl.league.data.model.Course
 import com.tmgl.league.data.model.CourseHole
+import com.tmgl.league.ui.components.ErrorState
+import com.tmgl.league.ui.components.LoadingIndicator
+import com.tmgl.league.ui.components.TmglTopBar
 
-@OptIn(ExperimentalMaterial3Api::class)
+private const val YARDAGE_DELTA = 20
+private const val NO_YARDAGE = "—"
+
 @Composable
 fun CourseGpsScreen(
-    course: Course,
+    course: Course?,
+    isLoading: Boolean = false,
+    loadError: String? = null,
     selectedHole: Int = 1,
     onHoleChanged: (Int) -> Unit,
     onBack: () -> Unit
 ) {
-    val hole = course.holes.find { it.holeNumber == selectedHole } ?: course.holes.firstOrNull()
+    val holes = course?.holes.orEmpty()
+    val hole = holes.firstOrNull { it.holeNumber == selectedHole } ?: holes.firstOrNull()
     val yardage = hole?.yardage ?: 0
+    val totalHoles = if (course != null && course.numHoles > 0) course.numHoles else holes.size
+    val selectableHoles = remember(holes, totalHoles) {
+        if (holes.isNotEmpty()) holes.sortedBy { it.holeNumber }.map { it.holeNumber }
+        else (1..totalHoles.coerceAtLeast(1)).toList()
+    }
+    val effectiveHole = hole?.holeNumber ?: selectedHole.coerceIn(1, selectableHoles.size.coerceAtLeast(1))
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(course.name) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = TmglGold
-                )
+    Scaffold(topBar = { TmglTopBar(title = course?.name?.takeIf { it.isNotBlank() } ?: "Course GPS", onBack = onBack) }) { padding ->
+        when {
+            isLoading -> LoadingIndicator(modifier = Modifier.padding(padding))
+            loadError != null -> ErrorState(
+                message = loadError,
+                onRetry = onBack,
+                modifier = Modifier.padding(padding)
             )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
-        ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(12.dp)
+            course == null -> Box(
+                modifier = Modifier.padding(padding).fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Hole $selectedHole of ${course.numHoles}",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TmglGold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        AssistChip(
-                            onClick = { if (selectedHole > 1) onHoleChanged(selectedHole - 1) },
-                            label = { Text("← Prev") },
-                            enabled = selectedHole > 1
+                Text(
+                    text = "This course could not be loaded",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            else -> Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp)
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Hole $effectiveHole of $totalHoles",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                        AssistChip(
-                            onClick = { if (selectedHole < course.numHoles) onHoleChanged(selectedHole + 1) },
-                            label = { Text("Next →") },
-                            enabled = selectedHole < course.numHoles
-                        )
+                        if (holes.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(selectableHoles, key = { it }) { holeNumber ->
+                                    val selected = holeNumber == effectiveHole
+                                    FilterChip(
+                                        selected = selected,
+                                        onClick = { onHoleChanged(holeNumber) },
+                                        modifier = Modifier.defaultMinSize(minHeight = 48.dp),
+                                        label = { Text(holeNumber.toString()) }
+                                    )
+                                }
+                            }
+                        } else {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                AssistChip(
+                                    onClick = { if (effectiveHole > 1) onHoleChanged(effectiveHole - 1) },
+                                    modifier = Modifier.defaultMinSize(minHeight = 48.dp),
+                                    label = { Text("Previous hole") },
+                                    enabled = effectiveHole > 1
+                                )
+                                AssistChip(
+                                    onClick = { if (effectiveHole < totalHoles) onHoleChanged(effectiveHole + 1) },
+                                    modifier = Modifier.defaultMinSize(minHeight = 48.dp),
+                                    label = { Text("Next hole") },
+                                    enabled = effectiveHole < totalHoles
+                                )
+                            }
+                        }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            hole?.let { h ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
@@ -93,7 +126,7 @@ fun CourseGpsScreen(
                             text = "Distances to Green",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = TmglGold
+                            color = MaterialTheme.colorScheme.onPrimary
                         )
                         Spacer(modifier = Modifier.height(12.dp))
 
@@ -101,61 +134,9 @@ fun CourseGpsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = "Front",
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
-                                )
-                                Text(
-                                    text = "${yardage - 20}",
-                                    fontSize = 28.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TmglGold
-                                )
-                                Text(
-                                    text = "yds",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
-                                )
-                            }
-
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = "Center",
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
-                                )
-                                Text(
-                                    text = "${yardage}",                                    fontSize = 28.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TmglGold
-                                )
-                                Text(
-                                    text = "yds",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
-                                )
-                            }
-
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = "Back",
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
-                                )
-                                Text(
-                                    text = "${yardage + 20}",
-                                    fontSize = 28.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TmglGold
-                                )
-                                Text(
-                                    text = "yds",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
-                                )
-                            }
+                            DistanceColumn("Front", yardage.takeIf { it > 0 }?.minus(YARDAGE_DELTA))
+                            DistanceColumn("Center", yardage.takeIf { it > 0 })
+                            DistanceColumn("Back", yardage.takeIf { it > 0 }?.plus(YARDAGE_DELTA))
                         }
                     }
                 }
@@ -172,7 +153,7 @@ fun CourseGpsScreen(
                             text = "Hole Details",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = TmglGold
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(8.dp))
 
@@ -180,53 +161,54 @@ fun CourseGpsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column {
-                                Text("Par", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
-                                Text("${h.par}", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Column {
-                                Text("Yardage", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
-                                Text("${yardage}", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Column {
-                                Text("Handicap", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
-                                Text("${h.handicapIndex ?: 1}", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                            }
+                            DetailColumn("Par", hole?.par?.toString() ?: NO_YARDAGE)
+                            DetailColumn("Yardage", yardage.takeIf { it > 0 }?.toString() ?: NO_YARDAGE)
+                            DetailColumn("Handicap", hole?.handicapIndex?.toString() ?: NO_YARDAGE)
                         }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-
-                if (h.teeBoxes.isNotEmpty()) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "Tee Boxes",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TmglGold
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            h.teeBoxes.forEach { tee ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(tee.name, fontSize = 14.sp)
-                                    Text("${tee.yardage} yds", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                    Text("Rating: ${tee.rating}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
+    }
+}
+
+@Composable
+private fun DistanceColumn(label: String, yardage: Int?) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f)
+        )
+        Text(
+            text = yardage?.toString() ?: NO_YARDAGE,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onPrimary
+        )
+        Text(
+            text = "yds",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f)
+        )
+    }
+}
+
+@Composable
+private fun DetailColumn(label: String, value: String) {
+    Column {
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }

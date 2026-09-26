@@ -4,7 +4,6 @@ import com.tmgl.league.data.SupabaseConfig
 import com.tmgl.league.data.competition.TournamentRegistrationState
 import com.tmgl.league.data.competition.resolveTournamentRegistrationState
 import com.tmgl.league.data.model.*
-import com.tmgl.league.data.scoring.CompletionCheck
 import com.tmgl.league.data.scoring.ExpectedHole
 import com.tmgl.league.data.scoring.ScorecardTotals
 import com.tmgl.league.data.scoring.DEFAULT_HOLE_COUNT
@@ -25,6 +24,11 @@ import kotlinx.serialization.Serializable
 private const val SCORECARD_HOLES_CONFLICT = "scorecard_id,hole_number"
 private const val REGISTRATION_COLUMNS = "id,tournament_id,player_id"
 private const val REGISTRATION_REQUIRED = "A tournament is required"
+private const val LEADERBOARD_SCORECARD_COLUMNS =
+    "id,round_id,player_id,status,total_strokes,total_score_to_par"
+private const val PLAYER_NAME_COLUMNS = "id,full_name"
+private const val SCORECARD_HOLE_REF_COLUMNS = "scorecard_id"
+private val RANKED_SCORECARD_STATUSES = listOf("submitted", "verified", "amended")
 
 class CompetitionRepository(
     private val clientProvider: () -> SupabaseClient = { SupabaseConfig.client }
@@ -64,17 +68,6 @@ class CompetitionRepository(
         }
     }
 
-    suspend fun getRound(id: String): DataResult<Round> {
-        return try {
-            val data = db.from("rounds").select {
-                filter { eq("id", id) }
-            }.decodeList<Round>().firstOrNull()
-            if (data != null) DataResult.Success(data) else DataResult.Error("Round not found")
-        } catch (e: Exception) {
-            DataResult.Error(e.message ?: "Failed to load round")
-        }
-    }
-
     suspend fun getMatches(): DataResult<List<Match>> {
         return try {
             val data = db.from("matches").select().decodeList<Match>()
@@ -95,43 +88,44 @@ class CompetitionRepository(
         }
     }
 
-    suspend fun getMatchesByRound(roundId: String): DataResult<List<Match>> {
-        return try {
-            val data = db.from("matches").select {
-                filter { eq("round_id", roundId) }
-            }.decodeList<Match>()
-            DataResult.Success(data)
-        } catch (e: Exception) {
-            DataResult.Error(e.message ?: "Failed to load matches")
-        }
-    }
-
     suspend fun getLeaderboard(roundId: String): DataResult<List<LeaderboardEntry>> {
+        if (roundId.isBlank()) return DataResult.Error("A round is required to load the leaderboard")
         return try {
-            val data = db.from("scorecards").select {
-                filter { eq("round_id", roundId) }
-            }.decodeList<Scorecard>()
+            val cards = db.from("scorecards")
+                .select(Columns.raw(LEADERBOARD_SCORECARD_COLUMNS)) {
+                    filter {
+                        eq("round_id", roundId)
+                        isIn("status", RANKED_SCORECARD_STATUSES)
+                    }
+                }
+                .decodeList<ScorecardPlayer>()
+                .filter { it.totalStrokes != null && it.totalScoreToPar != null }
 
-            val profileIds = data.map { it.playerId }.distinct()
-            val profiles = try {
-                db.from("profiles").select {
-                    filter { isIn("id", profileIds) }
-                }.decodeList<Map<String, Any?>>()
-            } catch (_: Exception) { emptyList() }
-            val nameMap = profiles.associate { (it["id"] as? String ?: "") to (it["full_name"] as? String ?: "") }
+            if (cards.isEmpty()) return DataResult.Success(emptyList())
 
-            val entries = data.mapIndexed { index, sc ->
-                LeaderboardEntry(
-                    playerId = sc.playerId,
-                    playerName = nameMap[sc.playerId] ?: sc.playerId,
-                    totalStrokes = sc.totalStrokes ?: 0,
-                    totalScoreToPar = sc.totalScoreToPar ?: 0,
-                    position = index + 1,
-                    scorecardStatus = sc.status.name,
-                    scorecardId = sc.id
+            val names = playerNames(cards.map { it.playerId })
+            val rowsPerCard = holeRowCounts(cards.map { it.id })
+
+            val ranked = cards
+                .sortedWith(
+                    compareBy(
+                        { it.totalScoreToPar ?: Int.MAX_VALUE },
+                        { it.totalStrokes ?: Int.MAX_VALUE }
+                    )
                 )
-            }.sortedBy { it.totalStrokes }
-            DataResult.Success(entries)
+                .mapIndexed { index, card ->
+                    LeaderboardEntry(
+                        playerId = card.playerId,
+                        playerName = names[card.playerId] ?: "Player",
+                        totalStrokes = card.totalStrokes ?: 0,
+                        totalScoreToPar = card.totalScoreToPar ?: 0,
+                        position = index + 1,
+                        scorecardStatus = card.status.name,
+                        scorecardId = card.id,
+                        totalRows = rowsPerCard[card.id] ?: 0
+                    )
+                }
+            DataResult.Success(ranked)
         } catch (e: Exception) {
             DataResult.Error(e.message ?: "Failed to load leaderboard")
         }
@@ -143,17 +137,6 @@ class CompetitionRepository(
                 filter { eq("id", id) }
             }.decodeList<Scorecard>().firstOrNull()
             if (data != null) DataResult.Success(data) else DataResult.Error("Scorecard not found")
-        } catch (e: Exception) {
-            DataResult.Error(e.message ?: "Failed to load scorecard")
-        }
-    }
-
-    suspend fun getScorecardByMatch(matchId: String): DataResult<Scorecard> {
-        return try {
-            val data = db.from("scorecards").select {
-                filter { eq("match_id", matchId) }
-            }.decodeList<Scorecard>().firstOrNull()
-            if (data != null) DataResult.Success(data) else DataResult.Error("Scorecard not found for this match")
         } catch (e: Exception) {
             DataResult.Error(e.message ?: "Failed to load scorecard")
         }
@@ -360,13 +343,24 @@ class CompetitionRepository(
         }
     }
 
-    suspend fun getScorecardCompletion(
+    suspend fun deleteScorecardHoles(
         scorecardId: String,
-        expected: List<ExpectedHole>
-    ): DataResult<CompletionCheck> {
-        return when (val holes = getScorecardHoles(scorecardId)) {
-            is DataResult.Success -> DataResult.Success(completionFromHoles(expected, holes.data))
-            is DataResult.Error -> DataResult.Error(holes.message)
+        holeNumbers: List<Int>
+    ): DataResult<Unit> {
+        if (scorecardId.isBlank()) return DataResult.Error("A scorecard is required to clear scores")
+        val holes = holeNumbers.filter { it > 0 }.distinct()
+        if (holes.isEmpty()) return DataResult.Success(Unit)
+        return try {
+            val deleted = db.from("scorecard_holes").delete {
+                filter {
+                    eq("scorecard_id", scorecardId)
+                    isIn("hole_number", holes)
+                }
+            }
+            val error = postgrestWriteError(deleted.data)
+            if (error != null) DataResult.Error(error) else DataResult.Success(Unit)
+        } catch (e: Exception) {
+            DataResult.Error(e.message ?: "Failed to clear scores")
         }
     }
 
@@ -409,7 +403,7 @@ class CompetitionRepository(
         }
     }
 
-    suspend fun getTournamentOfRound(roundId: String): DataResult<Tournament> {
+    private suspend fun getTournamentOfRound(roundId: String): DataResult<Tournament> {
         return try {
             val round = db.from("rounds").select(Columns.raw("id,tournament_id")) {
                 filter { eq("id", roundId) }
@@ -418,6 +412,28 @@ class CompetitionRepository(
         } catch (e: Exception) {
             DataResult.Error(e.message ?: "Failed to load the tournament for this round")
         }
+    }
+
+    private suspend fun playerNames(playerIds: List<String>): Map<String, String> {
+        val ids = playerIds.filter { it.isNotBlank() }.distinct()
+        if (ids.isEmpty()) return emptyMap()
+        return try {
+            db.from("players").select(Columns.raw(PLAYER_NAME_COLUMNS)) {
+                filter { isIn("id", ids) }
+            }.decodeList<PlayerNameRow>().associate { it.id to it.fullName }
+        } catch (_: Exception) { emptyMap() }
+    }
+
+    private suspend fun holeRowCounts(scorecardIds: List<String>): Map<String, Int> {
+        val ids = scorecardIds.filter { it.isNotBlank() }.distinct()
+        if (ids.isEmpty()) return emptyMap()
+        return try {
+            db.from("scorecard_holes").select(Columns.raw(SCORECARD_HOLE_REF_COLUMNS)) {
+                filter { isIn("scorecard_id", ids) }
+            }.decodeList<ScorecardHoleRefRow>()
+                .groupingBy { it.scorecardId }
+                .eachCount()
+        } catch (_: Exception) { emptyMap() }
     }
 
     private suspend fun findPlayerByProfile(profileId: String): String? = try {
@@ -504,6 +520,17 @@ class CompetitionRepository(
 
 @Serializable
 private data class PlayerIdRow(val id: String = "")
+
+@Serializable
+private data class PlayerNameRow(
+    val id: String = "",
+    @SerialName("full_name") val fullName: String = ""
+)
+
+@Serializable
+private data class ScorecardHoleRefRow(
+    @SerialName("scorecard_id") val scorecardId: String = ""
+)
 
 @Serializable
 private data class ProfileNameRow(

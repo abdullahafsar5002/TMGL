@@ -6,7 +6,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,6 +17,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.tmgl.league.data.model.Tournament
 import com.tmgl.league.data.model.TournamentStatus
 import com.tmgl.league.ui.components.*
+import com.tmgl.league.ui.format.displayLabel
 import com.tmgl.league.ui.theme.TmglGreen
 import com.tmgl.league.ui.viewmodel.TournamentViewModel
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -37,11 +37,13 @@ fun TournamentsScreen(
     val tournaments by tournamentViewModel.tournaments.collectAsState()
     val isLoading by tournamentViewModel.isLoading.collectAsState()
     val error by tournamentViewModel.error.collectAsState()
+    var reloadTrigger by remember { mutableIntStateOf(0) }
     var isRefreshing by remember { mutableStateOf(false) }
     val pullRefreshState = rememberPullToRefreshState()
 
-    LaunchedEffect(Unit) {
-        tournamentViewModel.loadTournaments()
+    LaunchedEffect(reloadTrigger) {
+        tournamentViewModel.refreshTournaments()
+        if (reloadTrigger > 0) isRefreshing = false
     }
 
     Scaffold(
@@ -54,14 +56,14 @@ fun TournamentsScreen(
     ) { paddingValues ->
         PullToRefreshBox(
             isRefreshing = isRefreshing,
-            onRefresh = { isRefreshing = true; tournamentViewModel.loadTournaments() },
+            onRefresh = { isRefreshing = true; reloadTrigger++ },
             state = pullRefreshState
         ) {
             when {
                 isLoading && !isRefreshing -> LoadingIndicator(modifier = Modifier.padding(paddingValues))
                 error != null -> ErrorState(
                     message = error ?: "",
-                    onRetry = { tournamentViewModel.loadTournaments() },
+                    onRetry = { reloadTrigger++ },
                     modifier = Modifier.padding(paddingValues)
                 )
                 tournaments.isEmpty() -> EmptyState(
@@ -71,7 +73,6 @@ fun TournamentsScreen(
                     modifier = Modifier.padding(paddingValues)
                 )
                 else -> {
-                    isRefreshing = false
                     LazyColumn(
                         modifier = Modifier.padding(paddingValues),
                         contentPadding = PaddingValues(16.dp),
@@ -89,7 +90,7 @@ fun TournamentsScreen(
 
 @Composable
 private fun TournamentCard(tournament: Tournament, onClick: () -> Unit) {
-    var playerCount by remember { mutableIntStateOf(0) }
+    var playerCount by remember(tournament.id) { mutableIntStateOf(0) }
     LaunchedEffect(tournament.id) {
         try {
             val regs = com.tmgl.league.data.SupabaseConfig.client.from("tournament_registrations")
@@ -111,7 +112,7 @@ private fun TournamentCard(tournament: Tournament, onClick: () -> Unit) {
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
-                StatusBadge(tournament.status.name)
+                StatusBadge(tournament.status)
             }
             if (tournament.startDate != null) {
                 Spacer(modifier = Modifier.height(4.dp))
@@ -134,25 +135,29 @@ private fun TournamentCard(tournament: Tournament, onClick: () -> Unit) {
 }
 
 @Composable
-private fun StatusBadge(status: String) {
+private fun StatusBadge(status: TournamentStatus) {
     val bgColor = when (status) {
-        "OPEN" -> MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-        "LIVE" -> MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
-        "COMPLETED" -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f)
-        "DRAFT" -> MaterialTheme.colorScheme.surfaceVariant
-        "CANCELLED" -> MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
-        else -> MaterialTheme.colorScheme.surfaceVariant
+        TournamentStatus.OPEN -> MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+        TournamentStatus.LIVE -> MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
+        TournamentStatus.COMPLETED -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f)
+        TournamentStatus.CLOSED -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)
+        TournamentStatus.CANCELLED -> MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
+        TournamentStatus.DRAFT -> MaterialTheme.colorScheme.surfaceVariant
     }
     val textColor = when (status) {
-        "LIVE" -> MaterialTheme.colorScheme.error
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
+        TournamentStatus.LIVE -> MaterialTheme.colorScheme.error
+        TournamentStatus.CANCELLED -> MaterialTheme.colorScheme.error
+        TournamentStatus.CLOSED -> MaterialTheme.colorScheme.onSecondaryContainer
+        TournamentStatus.OPEN -> MaterialTheme.colorScheme.primary
+        TournamentStatus.COMPLETED -> MaterialTheme.colorScheme.tertiary
+        TournamentStatus.DRAFT -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     Surface(
         color = bgColor,
         shape = MaterialTheme.shapes.small
     ) {
         Text(
-            text = status.replace("_", " "),
+            text = status.displayLabel,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelSmall,
             color = textColor

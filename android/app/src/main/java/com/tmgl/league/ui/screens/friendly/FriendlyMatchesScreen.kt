@@ -98,7 +98,7 @@ private fun FriendlyMatchCard(match: FriendlyMatch, onClick: () -> Unit) {
                 )
                 Surface(
                     color = when (match.status) {
-                        FriendlyMatchStatus.IN_PROGRESS -> MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
+                        FriendlyMatchStatus.ACTIVE -> MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
                         FriendlyMatchStatus.COMPLETED -> MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                         FriendlyMatchStatus.CANCELLED -> MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
                         else -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f)

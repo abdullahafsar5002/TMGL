@@ -17,10 +17,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 
 private const val SCORECARD_HOLES_CONFLICT = "scorecard_id,hole_number"
 
@@ -32,7 +34,7 @@ data class PendingScore(
     val strokes: Int,
     val scoreToPar: Int,
     val status: String = statusWireValue(ScorecardStatus.IN_PROGRESS),
-    val timestamp: Long = 0L
+    val timestamp: Long = System.currentTimeMillis()
 ) {
     fun toInsertRow(): Map<String, Any> = mapOf(
         "scorecard_id" to scorecardId,
@@ -54,24 +56,27 @@ object OfflineScoreQueue {
     val isSyncing: StateFlow<Boolean> = _isSyncing
 
     private val queue = mutableListOf<PendingScore>()
+    private val queueLock = Any()
     private val mutex = Mutex()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val syncGuard = AtomicBoolean(false)
+    private val initialized = AtomicBoolean(false)
 
     @Volatile
     private var appContext: Context? = null
 
-    @Volatile
-    private var initialized = false
-
     fun initialize(context: Context, monitor: NetworkMonitor? = null) {
         val app = context.applicationContext
         appContext = app
-        if (!initialized) {
-            initialized = true
-            load(app)
-        }
         if (monitor != null) {
             monitor.addOnConnectionRestoredListener { requestSync() }
+        }
+        if (initialized.compareAndSet(false, true)) {
+            scope.launch {
+                loadQueue(app)
+                syncAll(app)
+            }
+            return
         }
         if (monitor?.isOnline?.value != false) {
             requestSync()
@@ -83,34 +88,41 @@ object OfflineScoreQueue {
         scope.launch { syncAll(app) }
     }
 
-    suspend fun enqueue(context: Context, scores: List<PendingScore>) = mutex.withLock {
-        if (scores.isEmpty()) return@withLock
-        scores.forEach { score ->
-            queue.removeAll { it.scorecardId == score.scorecardId && it.holeNumber == score.holeNumber }
-            queue.add(score)
+    suspend fun enqueue(context: Context, scores: List<PendingScore>) {
+        if (scores.isEmpty()) return
+        val snapshot = mutex.withLock {
+            synchronized(queueLock) {
+                scores.forEach { score ->
+                    queue.removeAll { it.scorecardId == score.scorecardId && it.holeNumber == score.holeNumber }
+                    queue.add(score)
+                }
+                queue.toList()
+            }
         }
-        persist(context)
+        writeQueueFile(context, snapshot)
     }
 
     suspend fun add(context: Context, score: PendingScore) = enqueue(context, listOf(score))
 
-    fun pendingFor(scorecardId: String, holeNumber: Int): PendingScore? = queue.firstOrNull {
-        it.scorecardId == scorecardId && it.holeNumber == holeNumber
+    fun pendingFor(scorecardId: String, holeNumber: Int): PendingScore? = synchronized(queueLock) {
+        queue.firstOrNull { it.scorecardId == scorecardId && it.holeNumber == holeNumber }
     }
 
-    fun hasPending(scorecardId: String): Boolean = queue.any { it.scorecardId == scorecardId }
+    fun hasPending(scorecardId: String): Boolean = synchronized(queueLock) {
+        queue.any { it.scorecardId == scorecardId }
+    }
 
     fun clearAll() {
-        queue.clear()
+        synchronized(queueLock) { queue.clear() }
         _pendingCount.value = 0
     }
 
     suspend fun syncAll(context: Context) {
-        if (_isSyncing.value) return
-        val pending = mutex.withLock { queue.toList() }
-        if (pending.isEmpty()) return
+        if (!syncGuard.compareAndSet(false, true)) return
         _isSyncing.value = true
         try {
+            val pending = mutex.withLock { synchronized(queueLock) { queue.toList() } }
+            if (pending.isEmpty()) return
             for ((scorecardId, entries) in pending.groupBy { it.scorecardId }) {
                 val synced = syncScorecard(scorecardId, entries)
                 if (!synced) {
@@ -118,14 +130,14 @@ object OfflineScoreQueue {
                     break
                 }
                 mutex.withLock {
-                    queue.removeAll { it.scorecardId == scorecardId }
+                    synchronized(queueLock) { queue.removeAll { it.scorecardId == scorecardId } }
                 }
             }
+            val snapshot = mutex.withLock { synchronized(queueLock) { queue.toList() } }
+            writeQueueFile(context, snapshot)
         } finally {
-            mutex.withLock {
-                persist(context)
-            }
             _isSyncing.value = false
+            syncGuard.set(false)
         }
     }
 
@@ -165,27 +177,40 @@ object OfflineScoreQueue {
         }
     }
 
-    private fun load(context: Context) {
-        try {
-            val file = queueFile(context)
-            if (!file.exists()) return
-            val loaded = json.decodeFromString<List<PendingScore>>(file.readText())
-                .filter { it.scorecardId.isNotBlank() }
-            queue.clear()
-            queue.addAll(loaded)
-            _pendingCount.value = queue.size
-        } catch (e: Exception) {
-            Log.e("OfflineScoreQueue", "Load failed", e)
+    private suspend fun loadQueue(context: Context) {
+        val loaded = withContext(Dispatchers.IO) {
+            try {
+                val file = queueFile(context)
+                if (!file.exists()) {
+                    emptyList()
+                } else {
+                    json.decodeFromString<List<PendingScore>>(file.readText())
+                        .filter { it.scorecardId.isNotBlank() }
+                }
+            } catch (e: Exception) {
+                Log.e("OfflineScoreQueue", "Load failed", e)
+                emptyList()
+            }
         }
+        mutex.withLock {
+            synchronized(queueLock) {
+                val merged = (loaded + queue).distinctBy { it.scorecardId to it.holeNumber }
+                queue.clear()
+                queue.addAll(merged)
+            }
+        }
+        _pendingCount.value = synchronized(queueLock) { queue.size }
     }
 
-    private suspend fun persist(context: Context) {
-        try {
-            queueFile(context).writeText(json.encodeToString(queue))
-        } catch (e: Exception) {
-            Log.e("OfflineScoreQueue", "Save failed", e)
+    private suspend fun writeQueueFile(context: Context, snapshot: List<PendingScore>) {
+        withContext(Dispatchers.IO) {
+            try {
+                queueFile(context).writeText(json.encodeToString(snapshot))
+            } catch (e: Exception) {
+                Log.e("OfflineScoreQueue", "Save failed", e)
+            }
         }
-        _pendingCount.value = queue.size
+        _pendingCount.value = snapshot.size
     }
 
     private fun queueFile(context: Context) = File(context.filesDir, QUEUE_FILE)

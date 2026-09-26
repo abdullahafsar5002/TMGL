@@ -35,8 +35,8 @@ fun PlayersScreen(
     val pullRefreshState = rememberPullToRefreshState()
 
     LaunchedEffect(reloadTrigger) {
-        viewModel.loadPlayers()
-        isRefreshing = false
+        viewModel.refreshPlayers()
+        if (reloadTrigger > 0) isRefreshing = false
     }
 
     Scaffold(topBar = { TmglTopBar(title = "Players", onBack = onBack) }) { paddingValues ->
@@ -46,7 +46,7 @@ fun PlayersScreen(
             state = pullRefreshState
         ) {
             when {
-                isLoading -> LoadingIndicator(modifier = Modifier.padding(paddingValues))
+                isLoading && players.isEmpty() -> LoadingIndicator(modifier = Modifier.padding(paddingValues))
                 error != null -> ErrorState(message = error ?: "", onRetry = { reloadTrigger++ }, modifier = Modifier.padding(paddingValues))
                 players.isEmpty() -> EmptyState(
                     icon = Icons.Default.People,

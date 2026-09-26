@@ -63,9 +63,13 @@ class TournamentStatusTest {
     }
 
     @Test
-    fun `match status has 5 entries`() {
+    fun `match status has 4 entries`() {
         val statuses = com.tmgl.league.data.model.MatchStatus.entries
-        assertEquals(5, statuses.size)
+        assertEquals(4, statuses.size)
+        assertTrue(statuses.contains(com.tmgl.league.data.model.MatchStatus.SCHEDULED))
+        assertTrue(statuses.contains(com.tmgl.league.data.model.MatchStatus.LIVE))
+        assertTrue(statuses.contains(com.tmgl.league.data.model.MatchStatus.COMPLETED))
+        assertTrue(statuses.contains(com.tmgl.league.data.model.MatchStatus.CANCELLED))
     }
 
     @Test

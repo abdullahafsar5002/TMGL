@@ -25,6 +25,8 @@ import androidx.lifecycle.viewModelScope
 import com.tmgl.league.data.repository.HandicapRepository
 import com.tmgl.league.data.repository.HandicapResult
 import com.tmgl.league.data.SupabaseConfig
+import com.tmgl.league.ui.format.formatOneDecimal
+import com.tmgl.league.ui.format.formatZeroDecimal
 import com.tmgl.league.ui.theme.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.postgrest.from
@@ -143,11 +145,11 @@ fun PlayerStatsScreen(
         }
     ) { padding ->
         if (loading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = TmglGreen)
             }
         } else if (stats == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Text("No stats available yet", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
@@ -161,7 +163,7 @@ fun PlayerStatsScreen(
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        color = TmglGreen.copy(alpha = 0.1f),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
                         tonalElevation = 2.dp
                     ) {
                         Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -170,7 +172,7 @@ fun PlayerStatsScreen(
                                 text = hc?.currentHandicap?.toString() ?: "--",
                                 style = MaterialTheme.typography.displayMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = TmglGreen
+                                color = MaterialTheme.colorScheme.primary
                             )
                             hc?.trend?.let { trend ->
                                 val (label, color) = when (trend) {
@@ -193,7 +195,7 @@ fun PlayerStatsScreen(
                 item {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         StatBox("Rounds", s.totalRounds.toString(), Modifier.weight(1f))
-                        StatBox("Avg Score", "%.1f".format(s.avgScore), Modifier.weight(1f))
+                        StatBox("Avg Score", formatOneDecimal(s.avgScore), Modifier.weight(1f))
                         StatBox("Best", s.bestRound.toString(), Modifier.weight(1f))
                     }
                 }
@@ -201,7 +203,7 @@ fun PlayerStatsScreen(
                 item {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         StatBox("Worst", s.worstRound.toString(), Modifier.weight(1f))
-                        StatBox("Avg Putts", "%.1f".format(s.avgPutts), Modifier.weight(1f))
+                        StatBox("Avg Putts", formatOneDecimal(s.avgPutts), Modifier.weight(1f))
                     }
                 }
 
@@ -298,7 +300,7 @@ fun PlayerStatsScreen(
                             ) {
                                 Text(round.date.take(10), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text("Score: ${round.grossScore}", style = MaterialTheme.typography.bodyMedium)
-                                Text("Diff: %.1f".format(round.differential), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = TmglGreen)
+                                Text("Diff: ${formatOneDecimal(round.differential)}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }
@@ -312,7 +314,7 @@ fun PlayerStatsScreen(
 private fun StatBox(label: String, value: String, modifier: Modifier = Modifier) {
     Surface(modifier = modifier, shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
         Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = TmglGreen)
+            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -323,7 +325,7 @@ private fun PerformanceBar(label: String, percentage: Double, barColor: Color) {
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(label, style = MaterialTheme.typography.bodyMedium)
-            Text("%.0f%%".format(percentage), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+            Text("${formatZeroDecimal(percentage)}%", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(4.dp))
         LinearProgressIndicator(

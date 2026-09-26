@@ -1,31 +1,38 @@
 package com.tmgl.league.ui.components
 
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
-import com.tmgl.league.R
 import com.tmgl.league.ui.theme.*
+
+val MedalAccents = listOf(MedalGold, MedalSilver, MedalBronze)
+
+fun medalAccentForPosition(position: Int): Color? = MedalAccents.getOrNull(position - 1)
+
+data class MedalRow(val container: Color, val content: Color)
+
+@Composable
+fun medalSurfaceForPosition(position: Int): MedalRow {
+    val accent = medalAccentForPosition(position)
+    val surface = MaterialTheme.colorScheme.surface
+    val container = accent?.copy(alpha = 0.15f)?.compositeOver(surface)
+        ?: MaterialTheme.colorScheme.surfaceVariant
+    return MedalRow(container = container, content = contentColorFor(container))
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,7 +47,7 @@ fun TmglTopBar(
             if (onBack != null) {
                 IconButton(onClick = onBack) {
                     Icon(
-                        imageVector = Icons.Default.ArrowBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back"
                     )
                 }
@@ -132,23 +139,6 @@ fun TmglButton(
 }
 
 @Composable
-fun TmglOutlinedButton(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true
-) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth().height(52.dp),
-        enabled = enabled,
-        shape = MaterialTheme.shapes.medium
-    ) {
-        Text(text, style = MaterialTheme.typography.labelLarge)
-    }
-}
-
-@Composable
 fun TmglTextField(
     value: String,
     onValueChange: (String) -> Unit,
@@ -188,8 +178,8 @@ fun LoadingIndicator(modifier: Modifier = Modifier) {
 @Composable
 fun ErrorState(
     message: String,
-    onRetry: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onRetry: (() -> Unit)? = null
 ) {
     Column(
         modifier = modifier.fillMaxSize().padding(24.dp),
@@ -225,7 +215,7 @@ fun EmptyState(
             icon,
             contentDescription = title,
             modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.outline
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(text = title, style = MaterialTheme.typography.headlineSmall)
@@ -247,125 +237,5 @@ fun InfoRow(label: String, value: String) {
     ) {
         Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(text = value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-    }
-}
-
-@Composable
-fun TmglScoreChip(score: Int, modifier: Modifier = Modifier) {
-    val color = when {
-        score < 0 -> Fairway
-        score == 0 -> TmglGold
-        else -> OutOfBounds
-    }
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.small,
-        color = color.copy(alpha = 0.15f)
-    ) {
-        Text(
-            text = if (score >= 0) "+$score" else "$score",
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.labelMedium,
-            color = color,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-@Composable
-fun TmglSectionHeader(
-    title: String,
-    modifier: Modifier = Modifier,
-    action: (() -> Unit)? = null
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
-        if (action != null) {
-            TextButton(onClick = action) {
-                Text("See All", color = TmglGold)
-            }
-        }
-    }
-}
-
-@Composable
-fun TmglStatCard(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier,
-    icon: ImageVector? = null,
-    trend: String? = null
-) {
-    Card(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (icon != null) {
-                    Icon(icon, contentDescription = null, tint = TmglGold, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                }
-                Text(text = label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            if (trend != null) {
-                Text(text = trend, style = MaterialTheme.typography.bodySmall, color = Fairway)
-            }
-        }
-    }
-}
-
-@Composable
-fun TmglAvatar(
-    url: String?,
-    size: androidx.compose.ui.unit.Dp = 48.dp,
-    modifier: Modifier = Modifier
-) {
-    AsyncImage(
-        model = ImageRequest.Builder(LocalContext.current)
-            .data(url)
-            .crossfade(true)
-            .build(),
-        contentDescription = "Avatar",
-        modifier = modifier
-            .size(size)
-            .clip(CircleShape),
-        fallback = painterResource(android.R.drawable.ic_menu_myplaces),
-        contentScale = ContentScale.Crop
-    )
-}
-
-@Composable
-fun MedalBadge(position: Int, modifier: Modifier = Modifier) {
-    val (color, emoji) = when (position) {
-        1 -> MedalGold to "\uD83E\uDD47"
-        2 -> MedalSilver to "\uD83E\uDD48"
-        3 -> MedalBronze to "\uD83E\uDD49"
-        else -> Color.Transparent to ""
-    }
-    if (emoji.isNotEmpty()) {
-        Surface(
-            modifier = modifier,
-            shape = CircleShape,
-            color = color.copy(alpha = 0.2f)
-        ) {
-            Text(
-                text = emoji,
-                modifier = Modifier.padding(4.dp),
-                style = MaterialTheme.typography.titleMedium
-            )
-        }
     }
 }

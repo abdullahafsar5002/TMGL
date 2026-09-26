@@ -16,6 +16,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.error
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -24,6 +27,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.tmgl.league.data.model.ScoringTarget
 import com.tmgl.league.data.scoring.ExpectedHole
 import com.tmgl.league.data.scoring.MAX_STROKES
+import com.tmgl.league.data.scoring.MIN_STROKES
 import com.tmgl.league.ui.components.ErrorState
 import com.tmgl.league.ui.components.LoadingIndicator
 import com.tmgl.league.ui.components.TmglButton
@@ -78,7 +82,7 @@ fun ScoringScreen(
                 )
                 else -> {
                     val totals = scorecardTotals(uiState.strokes, uiState.expectedHoles)
-                    val rawInputs = remember(uiState.scorecardId) {
+                    val rawInputs = remember(uiState.scorecardId, requestKey) {
                         mutableStateMapOf<Int, String>().also { inputs ->
                             uiState.expectedHoles.forEach { hole ->
                                 inputs[hole.holeNumber] = uiState.strokes[hole.holeNumber]?.toString().orEmpty()
@@ -141,19 +145,23 @@ fun ScoringScreen(
                                             val parsed = digits.toIntOrNull()
                                             rawInputs[hole.holeNumber] = digits
                                             hapticPerformer(HapticFeedbackHelper.HapticType.CLOCK_TICK)
-                                            viewModel.setStrokes(
-                                                hole.holeNumber,
-                                                if (parsed != null && parsed in 1..MAX_STROKES) parsed else null
-                                            )
+                                            viewModel.setStrokeInput(hole.holeNumber, parsed)
                                         },
-                                        modifier = Modifier.width(80.dp),
+                                        modifier = Modifier
+                                            .width(80.dp)
+                                            .semantics {
+                                                contentDescription = "Hole ${hole.holeNumber}, par ${hole.par}"
+                                                if (text.isNotEmpty() && text.toIntOrNull() !in MIN_STROKES..MAX_STROKES) {
+                                                    error("Enter a score from $MIN_STROKES to $MAX_STROKES")
+                                                }
+                                            },
                                         keyboardOptions = KeyboardOptions(
                                             keyboardType = KeyboardType.Number,
                                             imeAction = ImeAction.Done
                                         ),
                                         keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                                         singleLine = true,
-                                        isError = text.isNotEmpty() && text.toIntOrNull() !in 1..MAX_STROKES,
+                                        isError = text.isNotEmpty() && text.toIntOrNull() !in MIN_STROKES..MAX_STROKES,
                                         shape = MaterialTheme.shapes.small
                                     )
                                 }

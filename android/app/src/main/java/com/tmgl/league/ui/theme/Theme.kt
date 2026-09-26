@@ -3,10 +3,11 @@ package com.tmgl.league.ui.theme
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.graphics.Color
-
-val LocalDarkMode = staticCompositionLocalOf { false }
+import androidx.compose.ui.platform.LocalContext
+import com.tmgl.league.data.offline.OfflineCache
+import kotlinx.coroutines.flow.first
 
 private val LightColorScheme = lightColorScheme(
     primary = TmglGreen,
@@ -58,17 +59,24 @@ private val DarkColorScheme = darkColorScheme(
 
 @Composable
 fun TmglTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean? = null,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val useDarkTheme = darkTheme ?: storedDarkMode() ?: isSystemInDarkTheme()
 
-    androidx.compose.runtime.CompositionLocalProvider(LocalDarkMode provides darkTheme) {
-        MaterialTheme(
-            colorScheme = colorScheme,
-            typography = TmglTypography,
-            shapes = TmglShapes,
-            content = content
-        )
+    MaterialTheme(
+        colorScheme = if (useDarkTheme) DarkColorScheme else LightColorScheme,
+        typography = TmglTypography,
+        shapes = TmglShapes,
+        content = content
+    )
+}
+
+@Composable
+private fun storedDarkMode(): Boolean? {
+    val context = LocalContext.current
+    val stored = produceState<Boolean?>(initialValue = null, context) {
+        value = runCatching { OfflineCache.getDarkMode(context).first() }.getOrNull()
     }
+    return stored.value
 }
