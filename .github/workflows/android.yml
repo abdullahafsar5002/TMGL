@@ -48,6 +48,14 @@ jobs:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
     
+    - name: Run unit tests
+      working-directory: android
+      run: ./gradlew testDebugUnitTest
+
+    - name: Run Android lint
+      working-directory: android
+      run: ./gradlew lintDebug
+
     - name: Build Debug APK
       working-directory: android
       run: ./gradlew assembleDebug

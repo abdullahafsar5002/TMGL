@@ -6,21 +6,40 @@
   :root {
     --safe-area-inset-top: env(safe-area-inset-top, 0px);
     --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+    color-scheme: light;
   }
 
   html {
+    min-width: 320px;
+    overflow-x: hidden;
     -webkit-tap-highlight-color: transparent;
   }
 
   body {
+    min-width: 320px;
+    overflow-x: hidden;
     padding-top: var(--safe-area-inset-top);
     padding-bottom: var(--safe-area-inset-bottom);
+    background: #0b0f17;
+    color: #111827;
   }
 
-  /* Focus visible for keyboard navigation */
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   :focus-visible {
-    outline: 2px solid #D4AF37;
-    outline-offset: 2px;
+    outline: 2px solid #d4af37;
+    outline-offset: 3px;
+  }
+
+  ::selection {
+    background: #d4af37;
+    color: #0b0f17;
   }
 }
 
@@ -29,21 +48,34 @@
     min-height: 44px;
     min-width: 44px;
   }
+
+  .text-balance {
+    text-wrap: balance;
+  }
 }
 
-@layer utilities {
-  @keyframes slide-in {
-    from {
-      opacity: 0;
-      transform: translateX(100%);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
   }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
 
-  .animate-slide-in {
-    animation: slide-in 0.3s ease-out;
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

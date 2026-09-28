@@ -1,5 +1,6 @@
 package com.tmgl.league.data.auth
 
+import com.tmgl.league.auth.EncryptedAuthStorage
 import com.tmgl.league.data.SupabaseConfig
 import com.tmgl.league.data.repository.AuthState
 import io.github.jan.supabase.gotrue.auth
@@ -7,32 +8,32 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class AuthGuard @Inject constructor() {
+class AuthGuard @Inject constructor(
+    private val storage: EncryptedAuthStorage
+) {
 
     suspend fun requireAuth(): AuthState {
         return try {
-            val session = SupabaseConfig.client.auth.currentSessionOrNull()
-            if (session == null) {
-                AuthState.Unauthenticated
-            } else {
-                val userId = session.user?.id ?: return AuthState.Unauthenticated
-                val email = session.user?.email
-                AuthState.Authenticated(userId, email, null)
+            if (SupabaseConfig.client.auth.currentSessionOrNull() == null) {
+                SessionSync.restore(storage)
             }
-        } catch (e: Exception) {
+            val snapshot = SessionSync.snapshot()
+            SessionSync.toAuthState(snapshot, null)
+        } catch (_: Exception) {
             AuthState.Unauthenticated
         }
     }
 
     suspend fun requireUserId(): String? {
         return try {
-            SupabaseConfig.client.auth.currentUserOrNull()?.id
-        } catch (e: Exception) {
+            if (SupabaseConfig.client.auth.currentSessionOrNull() == null) {
+                SessionSync.restore(storage)
+            }
+            SessionSync.authUserId()
+        } catch (_: Exception) {
             null
         }
     }
 
-    suspend fun is_authenticated(): Boolean {
-        return requireUserId() != null
-    }
+    suspend fun isAuthenticated(): Boolean = requireUserId() != null
 }

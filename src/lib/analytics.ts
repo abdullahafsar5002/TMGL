@@ -24,7 +24,7 @@ export interface ConsistencyResult {
 
 const STABILITY_THRESHOLDS = [
   { maxCV: 5, label: 'Elite Consistency', description: 'You are a machine. Your scores barely fluctuate — tour-level stability.' },
-  { maxCV: 8, label: 'Rock Solid', description: 'You rarely have a bad day. Opponents know what they\'re getting.' },
+  { maxCV: 9, label: 'Rock Solid', description: 'You rarely have a bad day. Opponents know what they\'re getting.' },
   { maxCV: 12, label: 'Steady Eddie', description: 'Your scores rarely fluctuate more than 3 strokes. Reliable and consistent.' },
   { maxCV: 16, label: 'Moderate Range', description: 'You have good days and off days. Focus on eliminating big numbers.' },
   { maxCV: 20, label: 'Wild Card', description: 'High variance in your game. Work on course management to tighten up.' },
@@ -72,14 +72,14 @@ function rateParPerformance(toPar: number): 'excellent' | 'good' | 'average' | '
   return 'struggle';
 }
 
-export function analyzeParTypes(scores: PracticeScore[]): ParTypeAnalysis | null {
+export function analyzeParTypes(scores: Array<Pick<PracticeScore, 'par' | 'score' | 'hole_number'>>): ParTypeAnalysis | null {
   if (scores.length < 5) return null;
 
   const par3Scores = scores.filter(s => s.par === 3);
   const par4Scores = scores.filter(s => s.par === 4);
   const par5Scores = scores.filter(s => s.par === 5);
 
-  function avgToPar(group: PracticeScore[]): number {
+  function avgToPar(group: Array<Pick<PracticeScore, 'par' | 'score' | 'hole_number'>>): number {
     if (group.length === 0) return 0;
     return group.reduce((sum, s) => sum + (s.score - s.par), 0) / group.length;
   }
@@ -155,11 +155,12 @@ export interface HoleDifficulty {
   rating: 'easiest' | 'easy' | 'average' | 'hard' | 'hardest';
 }
 
-export function analyzeHoleDifficulty(scores: PracticeScore[]): HoleDifficulty[] {
-  const holeMap = new Map<number, PracticeScore[]>();
-  for (const s of scores) {
-    if (!holeMap.has(s.hole_number)) holeMap.set(s.hole_number, []);
-    holeMap.get(s.hole_number)!.push(s);
+export function analyzeHoleDifficulty(scores: Array<Pick<PracticeScore, 'par' | 'score' | 'hole_number'>>): HoleDifficulty[] {
+  const holeMap = new Map<number, Array<Pick<PracticeScore, 'par' | 'score' | 'hole_number'>>>();
+  for (const score of scores) {
+    const group = holeMap.get(score.hole_number) ?? [];
+    group.push(score);
+    holeMap.set(score.hole_number, group);
   }
 
   const results: HoleDifficulty[] = [];

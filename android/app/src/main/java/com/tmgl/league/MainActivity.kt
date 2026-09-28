@@ -16,7 +16,9 @@ import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.rememberNavController
 import com.tmgl.league.auth.BiometricAuthManager
+import com.tmgl.league.auth.EncryptedAuthStorage
 import com.tmgl.league.data.offline.NetworkMonitor
+import com.tmgl.league.data.offline.OfflineScoreQueue
 import com.tmgl.league.data.repository.AuthState
 import com.tmgl.league.data.error.GlobalErrorHandler
 import com.tmgl.league.ui.navigation.AppNavigation
@@ -47,6 +49,18 @@ class MainActivity : FragmentActivity() {
                 val authViewModel: AuthViewModel = hiltViewModel()
                 var authState by remember { mutableStateOf<AuthState>(AuthState.Loading) }
                 var showBiometricPrompt by remember { mutableStateOf(false) }
+                val isOnline by networkMonitor.isOnline.collectAsState()
+
+                LaunchedEffect(Unit) {
+                    OfflineScoreQueue.load(applicationContext)
+                }
+
+                LaunchedEffect(isOnline, authState) {
+                    if (isOnline && authState is AuthState.Authenticated) {
+                        val storage = EncryptedAuthStorage(applicationContext)
+                        OfflineScoreQueue.syncAll(applicationContext, storage)
+                    }
+                }
 
                 LaunchedEffect(authViewModel.authState) {
                     authViewModel.authState.collect { state ->
@@ -78,11 +92,12 @@ class MainActivity : FragmentActivity() {
 
                 Surface(modifier = Modifier.fillMaxSize()) {
                     when (val state = authState) {
-                        is AuthState.Loading -> { /* Splash handles this */ }
+                        is AuthState.Loading -> Unit
                         is AuthState.Authenticated -> {
                             MainScreen(
                                 authState = state,
                                 onAuthStateChanged = { newState -> authState = newState },
+                                onSignOut = { authViewModel.signOut() },
                                 networkMonitor = networkMonitor,
                                 errorHandler = errorHandler,
                                 initialDeepLink = deepLinkUri
@@ -93,6 +108,7 @@ class MainActivity : FragmentActivity() {
                             AppNavigation(
                                 navController = navController,
                                 authState = state,
+                                authViewModel = authViewModel,
                                 onAuthStateChanged = { newState -> authState = newState },
                                 networkMonitor = networkMonitor
                             )

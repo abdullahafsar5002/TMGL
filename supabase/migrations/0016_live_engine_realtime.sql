@@ -1,10 +1,32 @@
 BEGIN;
 
--- 1. Force Cleanup
-DROP TABLE IF EXISTS public.notifications CASCADE;
+DO $guard$
+DECLARE
+  v_needs_rebuild boolean := false;
+BEGIN
+  IF to_regclass('public.notifications') IS NULL THEN
+    v_needs_rebuild := true;
+  ELSE
+    SELECT NOT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'notifications'
+        AND column_name = 'recipient_id'
+    )
+    INTO v_needs_rebuild;
+  END IF;
 
--- 2. Notifications Table Creation (Using recipient_id to match frontend)
-CREATE TABLE public.notifications (
+  IF NOT v_needs_rebuild THEN
+    RAISE NOTICE 'notifications already matches the live-engine shape; keeping existing rows';
+    RETURN;
+  END IF;
+
+  EXECUTE 'DROP TABLE IF EXISTS public.notifications CASCADE';
+END;
+$guard$;
+
+CREATE TABLE IF NOT EXISTS public.notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     recipient_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
@@ -19,47 +41,16 @@ CREATE TABLE public.notifications (
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
 -- 3. Policy Implementation
+DROP POLICY IF EXISTS "Users can view their own notifications" ON public.notifications;
 CREATE POLICY "Users can view their own notifications" 
 ON public.notifications FOR SELECT 
 USING (auth.uid() = recipient_id);
 
+DROP POLICY IF EXISTS "Admins can manage all notifications" ON public.notifications;
 CREATE POLICY "Admins can manage all notifications" 
-ON public.notifications FOR ALL 
-USING (
-    EXISTS (
-        SELECT 1 FROM public.profiles 
-        WHERE id = auth.uid() 
-        AND role::text IN ('admin', 'super_admin', 'league_manager', 'manager')
-    )
-);
-
--- 4. Real-time Leaderboard View (Resilient)
-DO $$ 
-BEGIN 
-    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'registrations') THEN
-        EXECUTE 'CREATE OR REPLACE VIEW public.live_tournament_leaderboard AS
-        SELECT 
-            t.id AS tournament_id,
-            p.id AS player_id,
-            p.full_name,
-            p.handicap as player_handicap,
-            COALESCE(SUM(hs.score), 0) as total_gross,
-            (COALESCE(SUM(hs.score), 0) - p.handicap) as total_net,
-            COUNT(hs.id) as holes_completed
-        FROM 
-            public.tournaments t
-        JOIN 
-            public.registrations r ON t.id = r.tournament_id
-        JOIN 
-            public.profiles p ON r.player_id = p.id
-        LEFT JOIN 
-            public.rounds rd ON t.id = rd.tournament_id AND rd.player_id = p.id
-        LEFT JOIN 
-            public.hole_scores hs ON rd.id = hs.round_id
-        GROUP BY 
-            t.id, p.id, p.full_name, p.handicap;';
-    END IF;
-END $$;
+ON public.notifications FOR ALL
+USING (get_user_role() IN ('super_admin', 'league_manager'))
+WITH CHECK (get_user_role() IN ('super_admin', 'league_manager'));
 
 -- 5. Automation Function (Updated to recipient_id)
 CREATE OR REPLACE FUNCTION public.notify_rank_change(player_id UUID, tournament_id UUID)
@@ -73,7 +64,8 @@ BEGIN
         'leaderboard_shift'
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public;
 
 -- 6. Score Verification Trigger (Updated to recipient_id)
 CREATE OR REPLACE FUNCTION public.handle_score_verification()
@@ -90,7 +82,8 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public;
 
 -- Safety check for the scorecards table trigger
 DO $$ 

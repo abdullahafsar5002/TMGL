@@ -9,6 +9,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
+import { toUserFacingServiceError } from '@/lib/errors';
 import type {
   Season,
   Division,
@@ -210,52 +211,62 @@ export async function getPlayer(id: string): Promise<ServiceResult<Player>> {
   return { data: data as Player, error: null };
 }
 
-export async function getPlayerByProfileId(profileId: string): Promise<ServiceResult<Player>> {
+export async function getPlayerByAuthUserId(authUserId: string): Promise<ServiceResult<Player>> {
   const { data, error } = await supabase
     .from('players')
     .select('*')
-    .eq('profile_id', profileId)
+    .eq('auth_user_id', authUserId)
     .maybeSingle();
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to find your player record.') };
   if (data) return { data: data as Player, error: null };
 
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('full_name')
-    .eq('id', profileId)
+    .select('id, full_name')
+    .eq('id', authUserId)
     .maybeSingle();
 
-  if (profileError || !profile) {
-    return { data: null, error: 'Player profile not found' };
-  }
+  if (profileError) return { data: null, error: toUserFacingServiceError(profileError, 'Unable to load your profile.') };
+  if (!profile) return { data: null, error: 'Player profile not found' };
 
-  const fullName = (profile as { full_name: string | null }).full_name || 'TMGL Player';
-
+  const profileRecord = profile as { id: string; full_name: string | null };
   const { data: newPlayer, error: insertError } = await supabase
     .from('players')
     .insert({
-      profile_id: profileId,
-      full_name: fullName,
+      auth_user_id: authUserId,
+      full_name: profileRecord.full_name || 'TMGL Player',
       status: 'active',
       join_date: new Date().toISOString().split('T')[0],
     })
     .select()
     .maybeSingle();
 
-  if (insertError) return { data: null, error: insertError.message };
+  if (insertError) {
+    const { data: racedPlayer } = await supabase
+      .from('players')
+      .select('*')
+      .eq('auth_user_id', authUserId)
+      .maybeSingle();
+    if (racedPlayer) return { data: racedPlayer as Player, error: null };
+    return { data: null, error: toUserFacingServiceError(insertError, 'Unable to create your player record.') };
+  }
   if (!newPlayer) return { data: null, error: 'Failed to create player profile' };
   return { data: newPlayer as Player, error: null };
 }
 
+export async function getPlayerByProfileId(profileId: string): Promise<ServiceResult<Player>> {
+  return getPlayerByAuthUserId(profileId);
+}
+
 export async function createPlayer(
-  player: Pick<Player, 'full_name' | 'profile_id' | 'phone' | 'handicap_index' | 'status' | 'join_date' | 'player_code'>
+  player: Pick<Player, 'full_name' | 'auth_user_id' | 'phone' | 'handicap_index' | 'status' | 'join_date' | 'player_code'>
 ): Promise<ServiceResult<Player>> {
   const { data, error } = await supabase
     .from('players')
     .insert({
       full_name: player.full_name.trim(),
-      profile_id: player.profile_id || null,
+      auth_user_id: player.auth_user_id || null,
       phone: player.phone || null,
       handicap_index: player.handicap_index,
       status: player.status || 'active',

@@ -6,19 +6,22 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.tmgl.league.MainActivity
 import com.tmgl.league.R
+import com.tmgl.league.auth.EncryptedAuthStorage
 import com.tmgl.league.data.SupabaseConfig
+import com.tmgl.league.data.auth.SessionSync
+import com.tmgl.league.data.repository.DeviceRepository
 import io.github.jan.supabase.gotrue.auth
-import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.datetime.Clock
 
 class TmglFirebaseMessagingService : FirebaseMessagingService() {
 
@@ -27,23 +30,18 @@ class TmglFirebaseMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         serviceScope.launch {
-            try {
-                val userId = SupabaseConfig.client.auth.currentUserOrNull()?.id ?: return@launch
-                SupabaseConfig.client.from("player_devices").upsert(
-                    mapOf(
-                        "player_id" to userId,
-                        "fcm_token" to token,
-                        "platform" to "android",
-                        "updated_at" to Clock.System.now().toString()
-                    )
-                )
-            } catch (_: Exception) { }
+            registerToken(token)
         }
+    }
+
+    override fun onDestroy() {
+        serviceScope.cancel()
+        super.onDestroy()
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
-        
+
         val title = message.notification?.title ?: message.data["title"] ?: "TMGL"
         val body = message.notification?.body ?: message.data["body"] ?: ""
         val screen = message.data["screen"]
@@ -52,8 +50,24 @@ class TmglFirebaseMessagingService : FirebaseMessagingService() {
         showNotification(title, body, screen, screenId)
     }
 
+    private suspend fun registerToken(token: String) {
+        try {
+            val storage = EncryptedAuthStorage(applicationContext)
+            if (SupabaseConfig.client.auth.currentSessionOrNull() == null) {
+                SessionSync.importStoredSession(storage)
+            }
+            if (SessionSync.authUserId().isNullOrBlank()) {
+                Log.w("TmglFcm", "No authenticated profile; skipping device registration")
+                return
+            }
+            DeviceRepository(storage).registerToken(token)
+        } catch (e: Exception) {
+            Log.e("TmglFcm", "Device registration failed", e)
+        }
+    }
+
     private fun showNotification(title: String, body: String, screen: String?, screenId: String?) {
-        val channelId = "tmgl_notifications"
+        val channelId = CHANNEL_ID
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -87,5 +101,9 @@ class TmglFirebaseMessagingService : FirebaseMessagingService() {
             .build()
 
         notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+    }
+
+    private companion object {
+        const val CHANNEL_ID = "tmgl_notifications"
     }
 }

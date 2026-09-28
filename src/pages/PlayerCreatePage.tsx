@@ -31,7 +31,7 @@ export function PlayerCreatePage() {
       phone: form.phone,
       handicap_index: form.handicap_index,
       status: form.status,
-      profile_id: null,
+      auth_user_id: null,
       join_date: new Date().toISOString().split('T')[0],
       player_code: playerCode || null,
     });

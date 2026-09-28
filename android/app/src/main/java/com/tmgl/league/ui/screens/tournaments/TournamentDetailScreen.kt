@@ -59,7 +59,6 @@ fun TournamentDetailScreen(
     onViewLeaderboard: (String) -> Unit = {},
     onViewSeasonStandings: () -> Unit = {},
     onViewFlights: (String) -> Unit = {},
-    onViewSideGames: (String) -> Unit = {},
     onVerifyScores: (String) -> Unit = {},
     onViewPairings: (String, String) -> Unit = { _, _ -> }
 ) {
@@ -84,8 +83,7 @@ fun TournamentDetailScreen(
                 is DataResult.Success -> {
                     tournament = result.data
                     try {
-                        val user = com.tmgl.league.data.SupabaseConfig.client.auth.currentUserOrNull()
-                        val userId = user?.id
+                        val userId = com.tmgl.league.data.auth.SessionSync.authUserId()
                         if (userId != null) {
                             val regs = com.tmgl.league.data.SupabaseConfig.client.from("tournament_registrations")
                                 .select() {
@@ -104,7 +102,13 @@ fun TournamentDetailScreen(
                         is DataResult.Success -> {
                             rounds = roundsResult.data
                             val allScorecardsWithHoles = mutableListOf<ScorecardWithHoles>()
+                            val parsByRound = mutableMapOf<String, Map<Int, Int>>()
                             for (round in roundsResult.data) {
+                                val courseId = when (val course = repository.getCourseIdForRound(round.id)) {
+                                    is DataResult.Success -> course.data
+                                    is DataResult.Error -> null
+                                }
+                                parsByRound[round.id] = repository.getCoursePars(courseId)
                                 when (val scResult = repository.getLeaderboard(round.id)) {
                                     is DataResult.Success -> {
                                         for (entry in scResult.data) {
@@ -114,9 +118,10 @@ fun TournamentDetailScreen(
                                                     val holes = holesResult.data.map { h ->
                                                         HoleScore(
                                                             holeNumber = h.holeNumber,
-                                                            par = h.par,
-                                                            strokes = h.strokes,
+                                                            par = h.par ?: parsByRound[round.id]?.get(h.holeNumber) ?: 4,
+                                                            strokes = h.score,
                                                             scoreToPar = h.scoreToPar
+                                                                ?: (h.score - (h.par ?: parsByRound[round.id]?.get(h.holeNumber) ?: 4))
                                                         )
                                                     }
                                                     if (holes.isNotEmpty()) {
@@ -424,16 +429,6 @@ fun TournamentDetailScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = TmglGreen)
                         ) {
                             Text("Flights")
-                        }
-                    }
-
-                    item {
-                        Button(
-                            onClick = { onViewSideGames(tournamentId) },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = TmglGreen)
-                        ) {
-                            Text("Side Games")
                         }
                     }
 

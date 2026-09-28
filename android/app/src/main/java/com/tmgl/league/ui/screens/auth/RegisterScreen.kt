@@ -21,7 +21,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tmgl.league.ui.components.TmglButton
 import com.tmgl.league.ui.components.TmglTextField
-import com.tmgl.league.ui.theme.TmglGreen
 import com.tmgl.league.ui.viewmodel.AuthViewModel
 
 @Composable
@@ -40,7 +39,7 @@ fun RegisterScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(TmglGreen)
+            .background(MaterialTheme.colorScheme.primary)
             .verticalScroll(rememberScrollState())
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -119,10 +118,17 @@ fun RegisterScreen(
                         if (password != confirmPassword) { error = "Passwords do not match"; return@TmglButton }
                         isLoading = true
                         error = null
-                        authViewModel.signUp(email, password, fullName,
+                        authViewModel.signUp(
+                            email.trim(),
+                            password,
+                            fullName.trim(),
                             onSuccess = {
                                 isLoading = false
                                 onRegisterSuccess()
+                            },
+                            onConfirmationRequired = { message ->
+                                isLoading = false
+                                error = message
                             },
                             onError = { errorMessage ->
                                 isLoading = false

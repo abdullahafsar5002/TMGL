@@ -42,8 +42,6 @@ CREATE INDEX IF NOT EXISTS idx_notifications_recipient_unread
   ON notifications (recipient_id, is_read)
   WHERE is_read = false;
 
--- player_statistics is a VIEW (migration 0020), not a table — cannot be indexed.
--- Underlying query performance is covered by idx_scorecards_player_id above.
 
 -- Friendly match scores
 CREATE INDEX IF NOT EXISTS idx_friendly_match_scores_player

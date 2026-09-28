@@ -5,7 +5,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import com.tmgl.league.data.error.ErrorEvent
 import com.tmgl.league.data.error.GlobalErrorHandler
-import com.tmgl.league.ui.theme.TmglGreen
 import kotlinx.coroutines.launch
 
 @Composable
@@ -35,7 +34,7 @@ fun ErrorSnackbarHost(
         snackbar = { snackbarData ->
             Snackbar(
                 snackbarData = snackbarData,
-                containerColor = TmglGreen,
+                containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 actionColor = MaterialTheme.colorScheme.onPrimary
             )

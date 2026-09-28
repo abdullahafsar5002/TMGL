@@ -47,4 +47,9 @@ local.properties
 build/
 .gradle/
 
+# Supabase local state
+supabase/.temp
+
 .vercel
+
+supabase/RESET_AND_REPLAY.sql

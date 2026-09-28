@@ -78,10 +78,10 @@ class PracticeRepository {
         }
     }
 
-    suspend fun getPlayerByProfileId(profileId: String): DataResult<Player> {
+    suspend fun getPlayerByAuthUserId(authUserId: String): DataResult<Player> {
         return try {
             val data = db.from("players").select {
-                filter { eq("profile_id", profileId) }
+                filter { eq("auth_user_id", authUserId) }
             }.decodeList<Player>().firstOrNull()
             if (data != null) DataResult.Success(data) else DataResult.Error("Player profile not found")
         } catch (e: Exception) {

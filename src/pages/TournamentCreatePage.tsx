@@ -4,10 +4,11 @@ import { Trophy, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
-import { getSeasons } from '@/lib/league';
+import { getSeasons, getCourses } from '@/lib/league';
 import { createTournament } from '@/lib/competition';
 import { validateTournament } from '@/lib/validation';
-import type { Season, TournamentStatus } from '@/types/database';
+import type { Course, ScoringFormat, Season, TournamentStatus } from '@/types/database';
+import { SCORING_FORMATS, getScoringFormat } from '@/lib/scoringFormats';
 import { useEffect } from 'react';
 import { useToast } from '@/context/ToastContext';
 
@@ -15,17 +16,23 @@ export function TournamentCreatePage() {
   const navigate = useNavigate();
   const toast = useToast();
   const [seasons, setSeasons] = useState<Season[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [seasonId, setSeasonId] = useState('');
+  const [courseId, setCourseId] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [status, setStatus] = useState<TournamentStatus>('draft');
+  const [scoringFormat, setScoringFormat] = useState<ScoringFormat>('stroke_play');
+  const [flightCount, setFlightCount] = useState(1);
+  const formatHint = getScoringFormat(scoringFormat).hint;
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
   useEffect(() => {
     getSeasons().then((res) => { if (res.data) setSeasons(res.data); });
+    getCourses().then((res) => { if (res.data) setCourses(res.data); });
   }, []);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
@@ -33,19 +40,20 @@ export function TournamentCreatePage() {
     setErrors([]);
     setServerError(null);
 
-    const validation = validateTournament({ name, season_id: seasonId, description, event_date: eventDate || null, course_id: null });
+  const validation = validateTournament({ name, season_id: seasonId, description, event_date: eventDate || null, course_id: courseId || null });
     if (!validation.isValid) { setErrors(validation.errors); return; }
 
     setIsSubmitting(true);
     const result = await createTournament({
       season_id: seasonId, name, description: description || null,
-      event_date: eventDate || null, course_id: null, status,
+      event_date: eventDate || null, course_id: courseId || null, status,
+      scoring_format: scoringFormat, flight_count: flightCount,
     });
     setIsSubmitting(false);
 
     if (result.error) { setServerError(result.error); toast.error(result.error); return; }
     if (result.data) { toast.success('Tournament created successfully'); navigate(`/tournaments/${result.data.id}`); }
-  }, [name, description, seasonId, eventDate, status, navigate]);
+  }, [name, description, seasonId, courseId, eventDate, status, scoringFormat, flightCount, navigate, toast]);
 
   return (
     <Container size="lg" className="space-y-4 py-4">
@@ -70,18 +78,59 @@ export function TournamentCreatePage() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Season *</label>
-            <select value={seasonId} onChange={(e) => setSeasonId(e.target.value)}
+            <label htmlFor="tournament-season" className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Season *</label>
+            <select id="tournament-season" value={seasonId} onChange={(e) => setSeasonId(e.target.value)}
               className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700">
               <option value="">Select a season</option>
               {seasons.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
+            {seasons.length === 0 && (
+              <p className="mt-1.5 rounded-lg border border-tmgl-gold-500/40 bg-tmgl-gold-500/10 p-2.5 text-xs text-tmgl-charcoal-700">
+                No seasons exist yet. A tournament must belong to a season.{' '}
+                <button type="button" onClick={() => navigate('/seasons/new')}
+                  className="font-semibold text-tmgl-green-800 underline hover:text-tmgl-green-700">
+                  Create your first season
+                </button>
+                .
+              </p>
+            )}
           </div>
 
           <div>
             <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Tournament Name *</label>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. TMGL Championship 2026"
               className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700" />
+          </div>
+
+          <div>
+            <label htmlFor="tournament-course" className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Course *</label>
+            <select id="tournament-course" value={courseId} onChange={(e) => setCourseId(e.target.value)}
+              className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700">
+              <option value="">Select a course</option>
+              {courses.map((c) => <option key={c.id} value={c.id}>{c.name}{c.location ? ` — ${c.location}` : ''}</option>)}
+            </select>
+            <p className="mt-1 text-xs text-tmgl-charcoal-500">
+              A course is required before players can enter scores for this tournament.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="tournament-format" className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Scoring Format</label>
+              <select id="tournament-format" value={scoringFormat} onChange={(e) => setScoringFormat(e.target.value as ScoringFormat)}
+                className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700">
+                {SCORING_FORMATS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+              </select>
+              <p className="mt-1 text-xs text-tmgl-charcoal-500">{formatHint}</p>
+            </div>
+            <div>
+              <label htmlFor="tournament-flights" className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Flights</label>
+              <select id="tournament-flights" value={flightCount} onChange={(e) => setFlightCount(parseInt(e.target.value, 10) || 1)}
+                className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700">
+                {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n === 1 ? 'Single flight' : `${n} flights`}</option>)}
+              </select>
+              <p className="mt-1 text-xs text-tmgl-charcoal-500">Players are seeded by handicap index when pairings are generated for a round.</p>
+            </div>
           </div>
 
           <div>

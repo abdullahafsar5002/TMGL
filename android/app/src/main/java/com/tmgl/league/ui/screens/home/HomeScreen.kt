@@ -136,7 +136,7 @@ fun HomeScreen(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(Brush.linearGradient(listOf(TmglGreen, TmglEmerald)))
+                                    .background(Brush.linearGradient(listOf(TmglOnyx, TmglGraphite)))
                                     .padding(24.dp)
                             ) {
                                 Column {
@@ -217,7 +217,7 @@ fun HomeScreen(
                                         score,
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
-                                        color = TmglGreen
+                                        color = MaterialTheme.colorScheme.secondary
                                     )
                                 }
                             }

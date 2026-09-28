@@ -80,22 +80,16 @@ class ScoringFormatsRepository @Inject constructor() {
             front9 = front9Result,
             back9 = back9Result,
             total = totalResult,
-            front9Status = when {
-                front9Result > 0 -> "Player 1 +${front9Result}"
-                front9Result < 0 -> "Player 2 +${-front9Result}"
-                else -> "tied"
-            },
-            back9Status = when {
-                back9Result > 0 -> "Player 1 +${back9Result}"
-                back9Result < 0 -> "Player 2 +${-back9Result}"
-                else -> "tied"
-            },
-            totalStatus = when {
-                totalResult > 0 -> "Player 1 +${totalResult}"
-                totalResult < 0 -> "Player 2 +${-totalResult}"
-                else -> "tied"
-            }
+            front9Status = nassauStatus(front9Result),
+            back9Status = nassauStatus(back9Result),
+            totalStatus = nassauStatus(totalResult)
         )
+    }
+
+    fun nassauStatus(result: Int): String = when {
+        result < 0 -> "Player 1 +${-result}"
+        result > 0 -> "Player 2 +$result"
+        else -> "tied"
     }
 
     fun calculateBestBall(teamScores: List<List<Int>>): Int {

@@ -11,6 +11,7 @@ export interface AuthState {
   profile: Profile | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  profileError: string | null;
 }
 
 export interface AuthActions {

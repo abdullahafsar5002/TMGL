@@ -15,6 +15,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tmgl.league.data.model.FriendlyMatch
 import com.tmgl.league.data.model.FriendlyMatchStatus
+import com.tmgl.league.data.model.displayName
+import com.tmgl.league.data.model.friendlyMatchFormatFrom
 import com.tmgl.league.ui.components.*
 import com.tmgl.league.ui.viewmodel.FriendlyMatchViewModel
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -98,23 +100,29 @@ private fun FriendlyMatchCard(match: FriendlyMatch, onClick: () -> Unit) {
                 )
                 Surface(
                     color = when (match.status) {
-                        FriendlyMatchStatus.IN_PROGRESS -> MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
-                        FriendlyMatchStatus.COMPLETED -> MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                        FriendlyMatchStatus.CANCELLED -> MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
-                        else -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f)
+                        FriendlyMatchStatus.IN_PROGRESS -> MaterialTheme.colorScheme.secondaryContainer
+                        FriendlyMatchStatus.COMPLETED -> MaterialTheme.colorScheme.primaryContainer
+                        FriendlyMatchStatus.REJECTED -> MaterialTheme.colorScheme.errorContainer
+                        FriendlyMatchStatus.ACTIVE -> MaterialTheme.colorScheme.surfaceVariant
                     },
                     shape = MaterialTheme.shapes.small
                 ) {
                     Text(
-                        text = match.status.name.replace("_", " "),
+                        text = match.status.displayName(),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall
+                        style = MaterialTheme.typography.labelSmall,
+                        color = when (match.status) {
+                            FriendlyMatchStatus.IN_PROGRESS -> MaterialTheme.colorScheme.onSecondaryContainer
+                            FriendlyMatchStatus.COMPLETED -> MaterialTheme.colorScheme.onPrimaryContainer
+                            FriendlyMatchStatus.REJECTED -> MaterialTheme.colorScheme.onErrorContainer
+                            FriendlyMatchStatus.ACTIVE -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
                     )
                 }
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = match.matchFormat.replace("_", " ").replaceFirstChar { it.uppercase() },
+                text = friendlyMatchFormatFrom(match.matchFormat).displayName(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

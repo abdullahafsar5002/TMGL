@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Flag, Plus, Loader2, AlertCircle, ArrowLeft, Edit3, Trash2, ChevronRight, Swords } from 'lucide-react';
+import { Flag, Plus, Loader2, AlertCircle, ArrowLeft, Edit3, Trash2, ChevronRight, Swords, ShieldCheck, Trophy, Users } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card, CardHeader, CardTitle } from '@/components/common/Card';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
@@ -151,6 +151,20 @@ export function RoundDetailPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-tmgl-charcoal-900">Matches ({matches.length})</h2>
       </div>
+
+      {canManage && (
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate(`/rounds/${id}/pairings`)}>
+            <Users className="w-4 h-4 mr-1.5" /> Pairings &amp; Flights
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/scorecard/${id}/verify`)}>
+            <ShieldCheck className="w-4 h-4 mr-1.5" /> Verify Scorecards
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/leaderboard?round=${id}`)}>
+            <Trophy className="w-4 h-4 mr-1.5" /> Leaderboard
+          </Button>
+        </div>
+      )}
 
       {matches.length === 0 ? (
         <EmptyState icon={Swords} title="No matches yet" description={canManage ? 'Add the first match to this round.' : 'Matches will appear here once created.'}

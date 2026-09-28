@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { BackLink } from '@/components/common/BackLink';
 import { useNavigate } from 'react-router-dom';
 import { Medal, AlertCircle, RefreshCw, FileText, Inbox, Radio } from 'lucide-react';
 import { Container } from '@/components/common/Container';
@@ -25,6 +26,11 @@ export function LeaderboardPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLive, setIsLive] = useState(false);
+  const [useHandicap, setUseHandicap] = useState(true);
+  const [showInProgress, setShowInProgress] = useState(false);
+  const scoringFormat = rounds.find((r) => r.id === selectedRoundId)?.scoring_format
+    ?? tournaments.find((t) => t.id === selectedTournamentId)?.scoring_format
+    ?? 'stroke_play';
 
   useEffect(() => { getTournaments().then((r) => { if (r.error) setError(r.error); else if (r.data) setTournaments(r.data); }); }, []);
 
@@ -40,11 +46,12 @@ export function LeaderboardPage() {
   const loadLeaderboard = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    const options = { useHandicap, includeInProgress: showInProgress };
     let result;
     if (selectedRoundId) {
-      result = await getLeaderboard(selectedRoundId);
+      result = await getLeaderboard(selectedRoundId, options);
     } else if (selectedTournamentId) {
-      result = await getTournamentLeaderboard(selectedTournamentId);
+      result = await getTournamentLeaderboard(selectedTournamentId, options);
     } else {
       setLeaderboard([]);
       setIsLoading(false);
@@ -53,41 +60,38 @@ export function LeaderboardPage() {
     if (result.error) setError(result.error);
     else if (result.data) setLeaderboard(result.data);
     setIsLoading(false);
-  }, [selectedTournamentId, selectedRoundId]);
+  }, [selectedTournamentId, selectedRoundId, useHandicap, showInProgress]);
 
   useEffect(() => { loadLeaderboard(); }, [loadLeaderboard]);
 
   useEffect(() => {
     if (!selectedTournamentId) return;
 
-    setIsLive(true);
+    setIsLive(false);
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => { void loadLeaderboard(); }, 1200);
+    };
+
     const channel = supabase
-      .channel('live-leaderboard')
+      .channel(`live-leaderboard-${selectedTournamentId}`)
       .on(
         'postgres_changes',
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'scorecard_holes' 
-        },
-        () => {
-          loadLeaderboard();
-        }
+        { event: '*', schema: 'public', table: 'scorecard_holes' },
+        scheduleRefresh
       )
       .on(
         'postgres_changes',
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'scorecards' 
-        },
-        () => {
-          loadLeaderboard();
-        }
+        { event: '*', schema: 'public', table: 'scorecards' },
+        scheduleRefresh
       )
-      .subscribe();
+      .subscribe((status) => {
+        setIsLive(status === 'SUBSCRIBED');
+      });
 
     return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
       supabase.removeChannel(channel);
       setIsLive(false);
     };
@@ -95,6 +99,7 @@ export function LeaderboardPage() {
 
   return (
     <Container size="lg" className="space-y-4 py-4">
+      <BackLink fallbackTo="/" label="Back" />
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
           <Medal className="w-5 h-5 text-tmgl-green-800" /> Leaderboard
@@ -160,38 +165,79 @@ export function LeaderboardPage() {
 
       {!isLoading && leaderboard.length > 0 && (
         <div className="space-y-2">
-          {leaderboard.map((entry) => (
-            <Card key={entry.player_id} className="flex items-center gap-3">
-              <div className="w-10 text-center shrink-0">
-                <p className="text-lg font-bold text-tmgl-charcoal-900">
-                  {entry.position <= 3 ? ['\u{1F947}', '\u{1F948}', '\u{1F949}'][entry.position - 1] : `#${entry.position}`}
-                </p>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-tmgl-charcoal-900 truncate">{entry.player_name}</p>
-                {entry.team_name && <p className="text-xs text-tmgl-charcoal-500">{entry.team_name}</p>}
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-lg font-bold text-tmgl-charcoal-900">{entry.total_strokes}</p>
-                <p className={`text-xs font-semibold ${entry.total_score_to_par <= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                  {formatToPar(entry.total_score_to_par)}
-                </p>
-              </div>
-              <div className="flex flex-col items-end gap-1 shrink-0">
-                {entry.scorecard_status && (
-                  <Badge variant={STATUS_VARIANTS[entry.scorecard_status] ?? 'outline'}>
-                    {entry.scorecard_status?.replace('_', ' ')}
-                  </Badge>
-                )}
-                {entry.scorecard_id && (
-                  <button onClick={(e) => { e.stopPropagation(); navigate(`/scorecard/${entry.scorecard_id}`); }}
-                    className="text-xs text-tmgl-green-800 hover:underline flex items-center gap-0.5">
-                    <FileText className="w-3 h-3" /> Scorecard
-                  </button>
-                )}
-              </div>
-            </Card>
-          ))}
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <p className="text-xs text-tmgl-charcoal-500">
+              {useHandicap ? 'Ranked on net score (handicap applied)' : 'Ranked on gross score'}
+            </p>
+            <div className="flex items-center gap-2">
+              <label htmlFor="leaderboard-scope" className="sr-only">Leaderboard scope</label>
+              <select
+                id="leaderboard-scope"
+                value={showInProgress ? 'all' : 'ranked'}
+                onChange={(event) => setShowInProgress(event.target.value === 'all')}
+                className="min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white px-3 py-2 text-sm text-tmgl-charcoal-800 focus:border-tmgl-gold-500 focus:outline-none focus:ring-2 focus:ring-tmgl-gold-500"
+              >
+                <option value="ranked">Submitted cards only</option>
+                <option value="all">Include in-progress cards</option>
+              </select>
+              <Button variant={useHandicap ? 'gold' : 'outline'} size="sm" onClick={() => setUseHandicap((value) => !value)} aria-pressed={useHandicap}>
+                {useHandicap ? 'Net' : 'Gross'}
+              </Button>
+            </div>
+          </div>
+          {leaderboard.map((entry) => {
+            const isPoints = scoringFormat === 'stableford';
+            const strokes = useHandicap ? entry.net_strokes : entry.total_strokes;
+            const toPar = useHandicap ? entry.net_to_par : entry.total_score_to_par;
+            const thru = entry.holes_completed > 0 ? `Thru ${entry.holes_completed}` : 'Not started';
+            return (
+              <Card key={entry.player_id} className="flex items-center gap-3">
+                <div className="w-10 text-center shrink-0">
+                  <p className="text-lg font-bold text-tmgl-charcoal-900">
+                    {entry.position <= 3 ? ['\u{1F947}', '\u{1F948}', '\u{1F949}'][entry.position - 1] : `#${entry.position}`}
+                  </p>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-tmgl-charcoal-900 truncate">{entry.player_name}</p>
+                  <p className="text-xs text-tmgl-charcoal-500">
+                    {thru} &middot; Index {entry.handicap_index}
+                    {!isPoints && entry.handicap_index > 0 && useHandicap ? ` &rarr; net ${entry.net_strokes}` : ''}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  {isPoints ? (
+                    <>
+                      <p className="text-lg font-bold text-tmgl-charcoal-900">{entry.points ?? 0}</p>
+                      <p className="text-xs text-tmgl-charcoal-500">pts</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-lg font-bold text-tmgl-charcoal-900">{strokes}</p>
+                      <p className={`text-xs font-semibold ${toPar <= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                        {formatToPar(toPar)}
+                      </p>
+                    </>
+                  )}
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  {entry.cut && (
+                    <Badge variant="outline" className="text-tmgl-charcoal-600">{entry.cut}</Badge>
+                  )}
+                  {entry.scorecard_status && (
+                    <Badge variant={STATUS_VARIANTS[entry.scorecard_status] ?? 'outline'}>
+                      {entry.scorecard_status?.replace('_', ' ')}
+                    </Badge>
+                  )}
+                  {entry.scorecard_id && (
+                    <button onClick={(e) => { e.stopPropagation(); navigate(`/scorecard/${entry.scorecard_id}`); }}
+                      className="text-xs text-tmgl-green-800 hover:underline flex items-center gap-0.5">
+                      <FileText className="w-3 h-3" /> Scorecard
+                    </button>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
     </Container>

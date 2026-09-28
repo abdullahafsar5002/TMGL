@@ -17,12 +17,12 @@ export type PracticeRoundStatus = 'draft' | 'in_progress' | 'completed' | 'cance
 
 export interface Profile {
   id: string;
+  email?: string | null;
   full_name: string | null;
   avatar_url: string | null;
   role: UserRole;
   membership_tier: 'free' | 'pro';
   membership_expires_at: string | null;
-  stripe_customer_id: string | null;
   club_name: string | null;
   club_logo_url: string | null;
   club_primary_color: string | null;
@@ -52,7 +52,8 @@ export interface Division {
 
 export interface Player {
   id: string;
-  profile_id: string | null;
+  auth_user_id: string | null;
+  profile_id?: string | null;
   player_code: string | null;
   full_name: string;
   phone: string | null;
@@ -113,18 +114,32 @@ export interface Tournament {
   description: string | null;
   event_date: string | null;
   status: TournamentStatus;
+  scoring_format: ScoringFormat;
+  flight_count: number;
   created_at: string;
   updated_at: string;
 }
+
+export type ScoringFormat =
+  | 'stroke_play'
+  | 'stableford'
+  | 'match_play'
+  | 'nassau'
+  | 'best_ball'
+  | 'scramble';
 
 export interface Round {
   id: string;
   tournament_id: string;
   round_number: number;
   name: string;
-  course_id?: string;
   date: string | null;
   status: MatchStatus;
+  scoring_format: ScoringFormat;
+  cut_after_hole: number | null;
+  cut_line_score: number | null;
+  tee_interval_minutes: number;
+  first_tee_time: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -180,10 +195,15 @@ export interface LeaderboardEntry {
   team_name: string | null;
   total_strokes: number;
   total_score_to_par: number;
+  handicap_index: number;
+  net_strokes: number;
+  net_to_par: number;
   holes_completed: number;
   total_holes: number;
   scorecard_id: string | null;
   scorecard_status: ScorecardStatus | null;
+  points?: number;
+  cut?: string | null;
 }
 
 export interface TeamStanding {
@@ -265,12 +285,14 @@ export interface PlayerStatistics {
   fairways_hit_percentage: number | null;
   greens_in_regulation_percentage: number | null;
   last_round_at: string | null;
+  created_at?: string;
   updated_at: string;
 }
 
-export type FriendlyMatchStatus = 'pending' | 'active' | 'completed' | 'cancelled';
+export type FriendlyMatchStatus = 'active' | 'rejected' | 'in_progress' | 'completed';
 export type FriendlyMatchFormat = 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble';
 export type InvitationStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled';
+export type NotificationType = 'match_update' | 'leaderboard_shift' | 'achievement' | 'system' | 'skin_won' | 'score_verified' | 'tournament' | 'registration' | 'payment' | 'membership';
 
 export interface FriendlyMatch {
   id: string;
@@ -293,12 +315,17 @@ export interface FriendlyMatchPlayer {
   match_id: string;
   player_id: string;
   invitation_status: InvitationStatus;
+  handicap_index: number | null;
   score: number | null;
   to_par: number | null;
   position: number | null;
   joined_at: string | null;
   created_at: string;
   updated_at: string;
+  player?: {
+    full_name: string;
+    handicap_index: number | null;
+  } | null;
 }
 
 export interface FriendlyMatchScore {
@@ -316,12 +343,77 @@ export interface FriendlyMatchScore {
 export interface Notification {
   id: string;
   recipient_id: string;
-  type: string;
+  type: NotificationType;
   title: string;
   message: string;
-  metadata: Record<string, unknown> | null;
+  metadata: Record<string, unknown>;
+  related_entity?: string | null;
+  related_id?: string | null;
   is_read: boolean;
   created_at: string;
+}
+
+export interface Gallery {
+  id: string;
+  title: string;
+  description: string | null;
+  tournament_id: string | null;
+  created_by: string;
+  image_url?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GalleryImage {
+  id: string;
+  gallery_id: string;
+  image_url: string;
+  url?: string | null;
+  caption: string | null;
+  uploaded_by: string;
+  created_at: string;
+}
+
+export interface PlayerDevice {
+  id: string;
+  profile_id: string;
+  fcm_token: string;
+  platform: 'web' | 'android' | 'ios';
+  device_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FeeProduct {
+  id: string;
+  product_key: string;
+  kind: 'membership' | 'event_fee';
+  tournament_id: string | null;
+  amount_minor: number;
+  duration_days: number;
+  currency: 'PKR';
+  description: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FeeInvoice {
+  id: string;
+  invoice_number: string;
+  payer_profile_id: string;
+  product_key: string;
+  kind: 'membership' | 'event_fee';
+  amount_minor: number;
+  currency: 'PKR';
+  status: 'open' | 'paid' | 'void' | 'expired';
+  due_at: string;
+  paid_at: string | null;
+  settled_via: 'cash' | 'bank_transfer' | 'cheque' | 'other' | null;
+  settled_reference: string | null;
+  settled_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Announcement {
@@ -434,13 +526,38 @@ export interface Database {
       };
       notifications: {
         Row: Notification;
-        Insert: Partial<Notification> & { recipient_id: string; type: string; title: string; message: string };
+        Insert: Partial<Notification> & { recipient_id: string; type: NotificationType; title: string; message: string };
         Update: Partial<Notification>;
       };
       announcements: {
         Row: Announcement;
         Insert: Partial<Announcement> & { author_id: string; title: string; content: string };
         Update: Partial<Announcement>;
+      };
+      galleries: {
+        Row: Gallery;
+        Insert: Partial<Gallery> & { title: string; created_by: string };
+        Update: Partial<Gallery>;
+      };
+      gallery_images: {
+        Row: GalleryImage;
+        Insert: Partial<GalleryImage> & { gallery_id: string; image_url: string };
+        Update: Partial<GalleryImage>;
+      };
+      player_devices: {
+        Row: PlayerDevice;
+        Insert: Partial<PlayerDevice> & { profile_id: string; fcm_token: string };
+        Update: Partial<PlayerDevice>;
+      };
+      fee_products: {
+        Row: FeeProduct;
+        Insert: Partial<FeeProduct> & { product_key: string; kind: 'membership' | 'event_fee'; amount_minor: number };
+        Update: Partial<FeeProduct>;
+      };
+      fee_invoices: {
+        Row: FeeInvoice;
+        Insert: Partial<FeeInvoice> & { payer_profile_id: string; product_key: string; amount_minor: number };
+        Update: Partial<FeeInvoice>;
       };
     };
   };

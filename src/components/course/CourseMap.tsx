@@ -13,9 +13,9 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/common/Ca
 import type { Course, CourseHole } from '@/types/database';
 import 'leaflet/dist/leaflet.css';
 
-// Fix Leaflet default icon issue
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+type LeafletIconPrototype = typeof L.Icon.Default.prototype & { _getIconUrl?: () => string };
+const iconPrototype = L.Icon.Default.prototype as LeafletIconPrototype;
+delete iconPrototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',

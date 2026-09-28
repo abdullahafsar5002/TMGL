@@ -1,107 +1,171 @@
 package com.tmgl.league.ui.screens.friendly
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
-import com.tmgl.league.auth.EncryptedAuthStorage
-import com.tmgl.league.data.SupabaseConfig
-import com.tmgl.league.data.repository.AuthRepository
-import com.tmgl.league.data.repository.AuthState
-import io.github.jan.supabase.postgrest.from
-import kotlinx.coroutines.launch
+import com.tmgl.league.data.model.FriendlyMatchFormat
+import com.tmgl.league.data.model.displayName
+import com.tmgl.league.ui.components.LoadingIndicator
+import com.tmgl.league.ui.components.TmglButton
+import com.tmgl.league.ui.components.TmglTextField
+import com.tmgl.league.ui.components.TmglTopBar
+import com.tmgl.league.ui.viewmodel.FriendlyMatchViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FriendlyMatchCreateScreen(navController: NavHostController) {
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val authRepository = remember { AuthRepository(EncryptedAuthStorage(context)) }
-    var playerName by remember { mutableStateOf("") }
+fun FriendlyMatchCreateScreen(
+    navController: NavHostController,
+    viewModel: FriendlyMatchViewModel = hiltViewModel()
+) {
+    val createState by viewModel.createState.collectAsState()
+    var title by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
     var opponentEmail by remember { mutableStateOf("") }
-    var matchDate by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var courseId by remember { mutableStateOf<String?>(null) }
+    var format by remember { mutableStateOf(FriendlyMatchFormat.STROKE_PLAY) }
+    var roundType by remember { mutableIntStateOf(18) }
+    var scheduledDate by remember { mutableStateOf("") }
+    var courseExpanded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) { viewModel.loadCourses() }
+
+    LaunchedEffect(createState.createdMatch) {
+        val created = createState.createdMatch
+        if (created != null) {
+            viewModel.clearCreateState()
+            navController.popBackStack()
+        }
+    }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Create Friendly Match") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
+            TmglTopBar(
+                title = "Create Friendly Match",
+                onBack = { navController.popBackStack() }
             )
         }
     ) { padding ->
+        if (createState.isLoading) {
+            LoadingIndicator(modifier = Modifier.padding(padding))
+            return@Scaffold
+        }
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
+            modifier = Modifier
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            OutlinedTextField(
-                value = playerName,
-                onValueChange = { playerName = it },
-                label = { Text("Your Name") },
-                modifier = Modifier.fillMaxWidth()
+            TmglTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = "Match Title"
             )
-            OutlinedTextField(
+
+            TmglTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = "Notes (optional)"
+            )
+
+            ExposedDropdownMenuBox(
+                expanded = courseExpanded,
+                onExpandedChange = { courseExpanded = it }
+            ) {
+                val selectedCourse = createState.courses.firstOrNull { it.id == courseId }
+                OutlinedTextField(
+                    value = selectedCourse?.let { "${it.name} - ${it.displayLocation}" } ?: "",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Golf Course") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = courseExpanded) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                    shape = MaterialTheme.shapes.medium
+                )
+                ExposedDropdownMenu(
+                    expanded = courseExpanded,
+                    onDismissRequest = { courseExpanded = false }
+                ) {
+                    if (createState.courses.isEmpty()) {
+                        DropdownMenuItem(
+                            text = { Text("No courses available") },
+                            onClick = { courseExpanded = false }
+                        )
+                    }
+                    createState.courses.forEach { course ->
+                        DropdownMenuItem(
+                            text = { Text("${course.name} - ${course.displayLocation}") },
+                            onClick = {
+                                courseId = course.id
+                                courseExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            TmglTextField(
                 value = opponentEmail,
                 onValueChange = { opponentEmail = it },
-                label = { Text("Opponent Email") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = matchDate,
-                onValueChange = { matchDate = it },
-                label = { Text("Date (YYYY-MM-DD)") },
-                modifier = Modifier.fillMaxWidth()
+                label = "Opponent Email (optional)"
             )
 
-            errorMessage?.let {
-                Text(text = it, color = MaterialTheme.colorScheme.error)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(9, 18).forEach { holes ->
+                    FilterChip(
+                        selected = roundType == holes,
+                        onClick = { roundType = holes },
+                        label = { Text("$holes Holes") }
+                    )
+                }
             }
 
-            Button(
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                FriendlyMatchFormat.entries.forEach { option ->
+                    FilterChip(
+                        selected = format == option,
+                        onClick = { format = option },
+                        label = { Text(option.displayName()) }
+                    )
+                }
+            }
+
+            TmglTextField(
+                value = scheduledDate,
+                onValueChange = { scheduledDate = it },
+                label = "Scheduled (YYYY-MM-DD, optional)"
+            )
+
+            createState.error?.let { error ->
+                Text(text = error, color = MaterialTheme.colorScheme.error)
+            }
+
+            TmglButton(
+                text = if (createState.isSubmitting) "Creating..." else "Create Match",
                 onClick = {
-                    if (playerName.isBlank() || opponentEmail.isBlank()) {
-                        errorMessage = "Please fill in all fields"
-                        return@Button
-                    }
-                    isLoading = true; errorMessage = null
-                    scope.launch {
-                        try {
-                            val authState = authRepository.getCurrentUser()
-                            val playerId = (authState as? AuthState.Authenticated)?.userId ?: ""
-                            SupabaseConfig.client.from("friendly_matches").insert(
-                                mapOf(
-                                    "created_by" to playerId,
-                                    "player1_name" to playerName,
-                                    "player2_email" to opponentEmail,
-                                    "match_date" to matchDate,
-                                    "status" to "pending"
-                                )
-                            )
-                            navController.popBackStack()
-                        } catch (e: Exception) {
-                            errorMessage = e.message ?: "Failed to create match"
-                        }
-                        isLoading = false
-                    }
+                    viewModel.createMatch(
+                        courseId = courseId.orEmpty(),
+                        title = title,
+                        description = description,
+                        matchFormat = format.name,
+                        roundType = roundType,
+                        scheduledAt = scheduledDate.takeIf { it.isNotBlank() },
+                        opponentEmail = opponentEmail.takeIf { it.isNotBlank() }
+                    )
                 },
-                enabled = !isLoading && playerName.isNotBlank() && opponentEmail.isNotBlank(),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (isLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                else Text("Create Match")
-            }
+                enabled = title.isNotBlank() && courseId != null && !createState.isSubmitting,
+                loading = createState.isSubmitting
+            )
         }
     }
 }

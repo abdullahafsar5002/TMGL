@@ -1,5 +1,5 @@
 /**
- * Phase 3 Service Layer — Tournaments, Rounds, Matches, Scorecards, Leaderboard
+ * Phase 3 Service Layer â€” Tournaments, Rounds, Matches, Scorecards, Leaderboard
  *
  * All Supabase access is isolated here. Components call these functions
  * instead of writing queries inline.
@@ -9,12 +9,21 @@
  */
 
 import { supabase } from '@/lib/supabase';
+import { toUserFacingServiceError } from '@/lib/errors';
+import {
+  evaluateCut,
+  cutLabel,
+  compareLastDifferingHole,
+  stablefordPointsForHole,
+  type CutReason
+} from '@/lib/standingsRules';
 import type {
   Tournament,
   Round,
   Match,
   Scorecard,
   ScorecardHole,
+  ScorecardStatus,
   LeaderboardEntry,
   TournamentStatus,
   MatchStatus,
@@ -70,7 +79,8 @@ export async function getTournament(id: string): Promise<ServiceResult<Tournamen
 }
 
 export async function createTournament(
-  tournament: Pick<Tournament, 'season_id' | 'name' | 'description' | 'event_date' | 'course_id' | 'status'>
+  tournament: Pick<Tournament, 'season_id' | 'name' | 'description' | 'event_date' | 'course_id' | 'status'> &
+    Partial<Pick<Tournament, 'scoring_format' | 'flight_count'>>
 ): Promise<ServiceResult<Tournament>> {
   const { data, error } = await supabase
     .from('tournaments')
@@ -81,6 +91,8 @@ export async function createTournament(
       event_date: tournament.event_date || null,
       course_id: tournament.course_id || null,
       status: tournament.status || 'draft',
+      scoring_format: tournament.scoring_format ?? 'stroke_play',
+      flight_count: tournament.flight_count ?? 1,
     })
     .select()
     .single();
@@ -128,7 +140,7 @@ export async function getRoundsByTournament(tournamentId: string): Promise<Servi
     .eq('tournament_id', tournamentId)
     .order('round_number');
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to load rounds.') };
   return { data: (data ?? []) as Round[], error: null };
 }
 
@@ -139,12 +151,27 @@ export async function getRound(id: string): Promise<ServiceResult<Round>> {
     .eq('id', id)
     .single();
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to load the round.') };
   return { data: data as Round, error: null };
 }
 
+export async function getCourseIdForRound(roundId: string): Promise<ServiceResult<string | null>> {
+  const roundResult = await getRound(roundId);
+  if (roundResult.error || !roundResult.data) {
+    return { data: null, error: roundResult.error || 'Round not found.' };
+  }
+  const { data, error } = await supabase
+    .from('tournaments')
+    .select('course_id')
+    .eq('id', roundResult.data.tournament_id)
+    .single();
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to find the round course.') };
+  return { data: (data as { course_id: string | null } | null)?.course_id ?? null, error: null };
+}
+
 export async function createRound(
-  round: Pick<Round, 'tournament_id' | 'round_number' | 'name' | 'date'>
+  round: Pick<Round, 'tournament_id' | 'round_number' | 'name' | 'date'> &
+    Partial<Pick<Round, 'scoring_format' | 'cut_after_hole' | 'cut_line_score' | 'tee_interval_minutes' | 'first_tee_time'>>
 ): Promise<ServiceResult<Round>> {
   const { data, error } = await supabase
     .from('rounds')
@@ -153,6 +180,11 @@ export async function createRound(
       round_number: round.round_number,
       name: round.name.trim(),
       date: round.date || null,
+      scoring_format: round.scoring_format ?? 'stroke_play',
+      cut_after_hole: round.cut_after_hole ?? null,
+      cut_line_score: round.cut_line_score ?? null,
+      tee_interval_minutes: round.tee_interval_minutes ?? 9,
+      first_tee_time: round.first_tee_time || null,
     })
     .select()
     .single();
@@ -304,6 +336,25 @@ export async function getScorecardsByRound(roundId: string): Promise<ServiceResu
   return { data: (data ?? []) as Scorecard[], error: null };
 }
 
+export async function isPlayerAssignedToRound(roundId: string, playerId: string): Promise<ServiceResult<boolean>> {
+  const { data: matches, error: matchError } = await supabase
+    .from('matches')
+    .select('player_a_id, player_b_id, team_a_id, team_b_id')
+    .eq('round_id', roundId);
+  if (matchError) return { data: null, error: toUserFacingServiceError(matchError, 'Unable to verify round assignment.') };
+  const rows = (matches ?? []) as Array<{ player_a_id: string | null; player_b_id: string | null; team_a_id: string | null; team_b_id: string | null }>;
+  if (rows.some((match) => match.player_a_id === playerId || match.player_b_id === playerId)) return { data: true, error: null };
+  const teamIds = rows.flatMap((match) => [match.team_a_id, match.team_b_id]).filter((teamId): teamId is string => Boolean(teamId));
+  if (teamIds.length === 0) return { data: false, error: null };
+  const { data: memberships, error: membershipError } = await supabase
+    .from('team_members')
+    .select('team_id')
+    .eq('player_id', playerId)
+    .in('team_id', teamIds);
+  if (membershipError) return { data: null, error: toUserFacingServiceError(membershipError, 'Unable to verify team assignment.') };
+  return { data: (memberships ?? []).length > 0, error: null };
+}
+
 export async function getScorecard(id: string): Promise<ServiceResult<Scorecard>> {
   const { data, error } = await supabase
     .from('scorecards')
@@ -311,7 +362,7 @@ export async function getScorecard(id: string): Promise<ServiceResult<Scorecard>
     .eq('id', id)
     .single();
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to load the scorecard.') };
   return { data: data as Scorecard, error: null };
 }
 
@@ -324,9 +375,10 @@ export async function getScorecardByRoundPlayer(
     .select('*')
     .eq('round_id', roundId)
     .eq('player_id', playerId)
-    .single();
+    .maybeSingle();
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to load the scorecard.') };
+  if (!data) return { data: null, error: 'Scorecard not found.' };
   return { data: data as Scorecard, error: null };
 }
 
@@ -344,7 +396,7 @@ export async function createScorecard(
     .select()
     .single();
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to create the scorecard.') };
   return { data: data as Scorecard, error: null };
 }
 
@@ -369,7 +421,7 @@ export async function rejectScorecard(
     .select()
     .single();
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to reject the scorecard.') };
   return { data: data as Scorecard, error: null };
 }
 
@@ -389,7 +441,7 @@ export async function updateScorecard(
     .select()
     .single();
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to update the scorecard.') };
   return { data: data as Scorecard, error: null };
 }
 
@@ -404,7 +456,7 @@ export async function getScorecardHoles(scorecardId: string): Promise<ServiceRes
     .eq('scorecard_id', scorecardId)
     .order('hole_number');
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to load scorecard holes.') };
   return { data: (data ?? []) as ScorecardHole[], error: null };
 }
 
@@ -416,7 +468,7 @@ export async function upsertScorecardHoles(
     .upsert(holes, { onConflict: 'scorecard_id,hole_number' })
     .select();
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to save scorecard holes.') };
   return { data: (data ?? []) as ScorecardHole[], error: null };
 }
 
@@ -434,49 +486,151 @@ export async function deleteScorecardHoles(scorecardId: string): Promise<Service
 // Leaderboard
 // -------------------------------------------------------------------
 
-export async function getLeaderboard(roundId: string): Promise<ServiceResult<LeaderboardEntry[]>> {
+const RANKED_SCORECARD_STATUSES: ScorecardStatus[] = ['submitted', 'verified', 'amended'];
+
+function toParLabel(value: number): string {
+  if (value === 0) return 'E';
+  return value > 0 ? `+${value}` : String(value);
+}
+
+export interface StandingsOptions {
+  /** Rank by net score after the handicap allowance (league default). */
+  useHandicap?: boolean;
+  /** Include cards that are still being played. Off by default so partial rounds do not distort standings. */
+  includeInProgress?: boolean;
+}
+
+export function buildStandings(
+  rows: Array<{
+    scorecard_id: string;
+    player_id: string;
+    player_name: string;
+    handicap_index: number;
+    gross: number;
+    to_par: number;
+    holes_completed: number;
+    status: ScorecardStatus;
+    points?: number;
+    scores?: number[];
+    is_cut?: boolean;
+    cut_reason?: CutReason;
+  }>,
+  totalHoles: number,
+  options: StandingsOptions = {}
+): LeaderboardEntry[] {
+  const useHandicap = options.useHandicap !== false;
+  const includeInProgress = options.includeInProgress === true;
+  const eligible = rows.filter((row) => (
+    row.status !== 'rejected' && (includeInProgress || RANKED_SCORECARD_STATUSES.includes(row.status))
+  ));
+
+  const entries: LeaderboardEntry[] = eligible.map((row) => {
+    const handicap = useHandicap ? Math.max(0, Math.round(row.handicap_index || 0)) : 0;
+    const net = row.gross - handicap;
+    return {
+      position: 0,
+      player_id: row.player_id,
+      player_name: row.player_name,
+      team_id: null,
+      team_name: null,
+      total_strokes: row.gross,
+      total_score_to_par: row.to_par,
+      handicap_index: row.handicap_index || 0,
+      net_strokes: net,
+      net_to_par: row.to_par - handicap,
+      holes_completed: row.holes_completed,
+      total_holes: totalHoles,
+      scorecard_id: row.scorecard_id,
+      scorecard_status: row.status,
+      points: row.points ?? 0,
+      cut: row.is_cut ? cutLabel({ isCut: true, reason: row.cut_reason ?? null }) : null
+    };
+  });
+
+  const scoresById = new Map<string, number[]>();
+  eligible.forEach((row, index) => {
+    if (row.scores) scoresById.set(entries[index].player_id, row.scores);
+  });
+
+  const metric = (entry: LeaderboardEntry) => entry.net_to_par;
+
+  entries.sort((a, b) => {
+    if (a.holes_completed !== b.holes_completed) return b.holes_completed - a.holes_completed;
+    if (metric(a) !== metric(b)) return metric(a) - metric(b);
+    if (a.net_strokes !== b.net_strokes) return a.net_strokes - b.net_strokes;
+    return compareLastDifferingHole(
+      scoresById.get(a.player_id) ?? [],
+      scoresById.get(b.player_id) ?? [],
+      totalHoles
+    ) ?? 0;
+  });
+
+  let pos = 1;
+  for (let i = 0; i < entries.length; i++) {
+    const previous = entries[i - 1];
+    const same = previous
+      && previous.holes_completed === entries[i].holes_completed
+      && metric(previous) === metric(entries[i])
+      && previous.net_strokes === entries[i].net_strokes;
+    entries[i].position = same ? previous.position : pos;
+    pos = i + 2;
+  }
+
+  return entries;
+}
+
+export function standingsToPar(value: number): string {
+  return toParLabel(value);
+}
+
+export async function getLeaderboard(
+  roundId: string,
+  options: StandingsOptions = {}
+): Promise<ServiceResult<LeaderboardEntry[]>> {
   const { data: scorecards, error } = await supabase
     .from('scorecards')
-    .select('*, players(id, full_name)')
-    .eq('round_id', roundId)
-    .not('total_strokes', 'is', null);
+    .select('id, player_id, status, total_strokes, total_score_to_par, course_id, players!inner(id, full_name, handicap_index)')
+    .eq('round_id', roundId);
 
   if (error) return { data: null, error: error.message };
-
   if (!scorecards || scorecards.length === 0) {
     return { data: [], error: null };
   }
 
-  const entries: LeaderboardEntry[] = scorecards.map((sc, _index) => {
-    const player = sc.players as { id: string; full_name: string } | null;
+  const ids = scorecards.map((card) => card.id as string);
+  const { data: holeRows } = await supabase
+    .from('scorecard_holes')
+    .select('scorecard_id, strokes, par')
+    .in('scorecard_id', ids);
+
+  const byCard = new Map<string, { holes: number; gross: number; par: number }>();
+  for (const row of (holeRows ?? []) as Array<{ scorecard_id: string; strokes: number | null; par: number | null }>) {
+    const entry = byCard.get(row.scorecard_id) ?? { holes: 0, gross: 0, par: 0 };
+    if (row.strokes != null) {
+      entry.holes += 1;
+      entry.gross += row.strokes;
+      entry.par += row.par ?? 0;
+    }
+    byCard.set(row.scorecard_id, entry);
+  }
+
+  const rows = scorecards.map((card) => {
+    const player = card.players as unknown as { id: string; full_name: string; handicap_index: number | null } | null;
+    const tally = byCard.get(card.id as string) ?? { holes: 0, gross: 0, par: 0 };
     return {
-      position: 0,
-      player_id: sc.player_id,
+      scorecard_id: card.id as string,
+      player_id: card.player_id as string,
       player_name: player?.full_name ?? 'Unknown',
-      team_id: null,
-      team_name: null,
-      total_strokes: sc.total_strokes ?? 0,
-      total_score_to_par: sc.total_score_to_par ?? 0,
-      holes_completed: 0,
-      total_holes: 18,
-      scorecard_id: sc.id,
-      scorecard_status: sc.status,
+      handicap_index: Number(player?.handicap_index ?? 0),
+      gross: tally.holes > 0 ? tally.gross : (card.total_strokes ?? 0),
+      to_par: tally.holes > 0 ? tally.gross - tally.par : (card.total_score_to_par ?? 0),
+      holes_completed: tally.holes,
+      status: card.status as ScorecardStatus,
     };
   });
 
-  entries.sort((a, b) => a.total_score_to_par - b.total_score_to_par || a.total_strokes - b.total_strokes);
-
-  let pos = 1;
-  for (let i = 0; i < entries.length; i++) {
-    if (i > 0 && entries[i].total_score_to_par === entries[i - 1].total_score_to_par && entries[i].total_strokes === entries[i - 1].total_strokes) {
-      entries[i].position = entries[i - 1].position;
-    } else {
-      entries[i].position = pos;
-    }
-    pos = i + 2;
-  }
-
-  return { data: entries, error: null };
+  const totalHoles = rows.reduce((max, row) => Math.max(max, row.holes_completed), 0) || 18;
+  return { data: buildStandings(rows, totalHoles, options), error: null };
 }
 
 // -------------------------------------------------------------------
@@ -596,67 +750,177 @@ export async function getTournamentParticipants(tournamentId: string): Promise<S
 // Leaderboard
 // -------------------------------------------------------------------
 
-export async function getTournamentLeaderboard(tournamentId: string): Promise<ServiceResult<LeaderboardEntry[]>> {
+export async function getTournamentLeaderboard(
+  tournamentId: string,
+  options: StandingsOptions = {}
+): Promise<ServiceResult<LeaderboardEntry[]>> {
   const { data: rounds, error: roundsError } = await supabase
     .from('rounds')
-    .select('id')
+    .select('id, scoring_format, cut_after_hole, cut_line_score')
     .eq('tournament_id', tournamentId);
 
   if (roundsError) return { data: null, error: roundsError.message };
   if (!rounds || rounds.length === 0) return { data: [], error: null };
 
   const roundIds = rounds.map((r) => r.id);
+  const roundConfig = new Map(
+    rounds.map((r) => [
+      r.id as string,
+      {
+        cutAfterHole: (r.cut_after_hole as number | null) ?? null,
+        cutLineScore: (r.cut_line_score as number | null) ?? null
+      }
+    ])
+  );
+
+  interface CardTally {
+    holes: number;
+    gross: number;
+    par: number;
+    throughCut: number | null;
+    points: number;
+    scores: number[];
+  }
+
+  const EMPTY_TALLY: CardTally = {
+    holes: 0,
+    gross: 0,
+    par: 0,
+    throughCut: null,
+    points: 0,
+    scores: []
+  };
 
   const { data: scorecards, error } = await supabase
     .from('scorecards')
-    .select('*, players(id, full_name)')
-    .in('round_id', roundIds)
-    .not('total_strokes', 'is', null);
+    .select('id, round_id, player_id, status, dnf, total_strokes, total_score_to_par, players!inner(id, full_name, handicap_index)')
+    .in('round_id', roundIds);
 
   if (error) return { data: null, error: error.message };
   if (!scorecards || scorecards.length === 0) return { data: [], error: null };
 
-  const playerMap = new Map<string, LeaderboardEntry>();
+  const ids = scorecards.map((card) => card.id as string);
+  const { data: holeRows } = await supabase
+    .from('scorecard_holes')
+    .select('scorecard_id, hole_number, strokes, par')
+    .in('scorecard_id', ids);
+
+  const cardRound = new Map(
+    scorecards.map((card) => [card.id as string, card.round_id as string])
+  );
+
+  const holesByCard = new Map<
+    string,
+    Array<{ hole_number: number; strokes: number | null; par: number | null }>
+  >();
+  for (const row of (holeRows ?? []) as Array<{
+    scorecard_id: string;
+    hole_number: number;
+    strokes: number | null;
+    par: number | null;
+  }>) {
+    const list = holesByCard.get(row.scorecard_id) ?? [];
+    list.push(row);
+    holesByCard.set(row.scorecard_id, list);
+  }
+
+  const byCard = new Map<string, CardTally>();
+  for (const [cardId, cardHoles] of holesByCard) {
+    const config = roundConfig.get(cardRound.get(cardId) ?? '');
+    const tally: CardTally = {
+      holes: 0,
+      gross: 0,
+      par: 0,
+      throughCut: null,
+      points: 0,
+      scores: []
+    };
+    for (const row of cardHoles) {
+      if (row.strokes == null) continue;
+      tally.holes += 1;
+      tally.gross += row.strokes;
+      tally.par += row.par ?? 0;
+      tally.scores[row.hole_number - 1] = row.strokes;
+      tally.points += stablefordPointsForHole(row.strokes, row.par ?? 0);
+    }
+    if (config?.cutAfterHole != null && config.cutLineScore != null) {
+      const played = tally.scores.slice(0, config.cutAfterHole).filter((value) => value != null);
+      if (played.length === config.cutAfterHole) {
+        tally.throughCut = played.reduce<number>((sum, value) => sum + (value ?? 0), 0);
+      }
+    }
+    byCard.set(cardId, tally);
+  }
+
+  interface Aggregate {
+    scorecard_id: string;
+    player_id: string;
+    player_name: string;
+    handicap_index: number;
+    gross: number;
+    to_par: number;
+    holes_completed: number;
+    status: ScorecardStatus;
+    points: number;
+    scores: number[];
+    is_cut: boolean;
+    cut_reason: CutReason;
+  }
+
+  const playerMap = new Map<string, Aggregate>();
 
   for (const sc of scorecards) {
-    const player = sc.players as { id: string; full_name: string } | null;
-    const pid = sc.player_id;
+    const player = sc.players as unknown as { id: string; full_name: string; handicap_index: number | null } | null;
+    const pid = sc.player_id as string;
+    const tally = byCard.get(sc.id as string) ?? EMPTY_TALLY;
+    const gross = tally.holes > 0 ? tally.gross : (sc.total_strokes ?? 0);
+    const toPar = tally.holes > 0 ? tally.gross - tally.par : (sc.total_score_to_par ?? 0);
+    const status = sc.status as ScorecardStatus;
+    const config = roundConfig.get(sc.round_id as string);
+    const cut = evaluateCut(tally.throughCut, sc.dnf === true, {
+      cutAfterHole: config?.cutAfterHole ?? null,
+      cutLineScore: config?.cutLineScore ?? null
+    });
     const existing = playerMap.get(pid);
 
     if (existing) {
-      existing.total_strokes += sc.total_strokes ?? 0;
-      existing.total_score_to_par += sc.total_score_to_par ?? 0;
+      if (!RANKED_SCORECARD_STATUSES.includes(status) && options.includeInProgress !== true) continue;
+      existing.gross += gross;
+      existing.to_par += toPar;
+      existing.holes_completed += tally.holes;
+      existing.points += tally.points;
+      existing.scores = [...existing.scores, ...tally.scores];
+      existing.is_cut = existing.is_cut || cut.isCut;
+      if (cut.isCut) existing.cut_reason = cut.reason;
     } else {
       playerMap.set(pid, {
-        position: 0,
+        scorecard_id: sc.id as string,
         player_id: pid,
         player_name: player?.full_name ?? 'Unknown',
-        team_id: null,
-        team_name: null,
-        total_strokes: sc.total_strokes ?? 0,
-        total_score_to_par: sc.total_score_to_par ?? 0,
-        holes_completed: 0,
-        total_holes: 18 * rounds.length,
-        scorecard_id: sc.id,
-        scorecard_status: sc.status,
+        handicap_index: Number(player?.handicap_index ?? 0),
+        gross,
+        to_par: toPar,
+        holes_completed: tally.holes,
+        status,
+        points: tally.points,
+        scores: [...tally.scores],
+        is_cut: cut.isCut,
+        cut_reason: cut.reason
       });
     }
   }
 
-  const entries = Array.from(playerMap.values());
-  entries.sort((a, b) => a.total_score_to_par - b.total_score_to_par || a.total_strokes - b.total_strokes);
-
-  let pos = 1;
-  for (let i = 0; i < entries.length; i++) {
-    if (i > 0 && entries[i].total_score_to_par === entries[i - 1].total_score_to_par && entries[i].total_strokes === entries[i - 1].total_strokes) {
-      entries[i].position = entries[i - 1].position;
-    } else {
-      entries[i].position = pos;
-    }
-    pos = i + 2;
-  }
-
-  return { data: entries, error: null };
+  const rows = Array.from(playerMap.values());
+  const totalHoles = rows.reduce((max, row) => Math.max(max, row.holes_completed), 0) || 18 * rounds.length;
+  const ordered = options.includeInProgress === true ? rows : rows.filter((row) => !row.is_cut);
+  const entries = buildStandings(ordered, totalHoles, options);
+  const cutPlayers = new Map(
+    rows.filter((row) => row.is_cut).map((row) => [row.player_id, cutLabel({ isCut: true, reason: row.cut_reason })])
+  );
+  return {
+    data: entries.map((entry) => ({ ...entry, cut: cutPlayers.get(entry.player_id) ?? null })),
+    error: null
+  };
 }
 
 // -------------------------------------------------------------------
@@ -807,6 +1071,9 @@ export async function getRecentActivity(limit: number = 10): Promise<ServiceResu
     supabase.from('scorecards').select('id, player_id, status, total_strokes, created_at, updated_at').order('updated_at', { ascending: false }).limit(limit),
   ]);
 
+  const firstError = tournamentsRes.error || roundsRes.error || matchesRes.error || scorecardsRes.error;
+  if (firstError) return { data: null, error: toUserFacingServiceError(firstError, 'Unable to load recent activity.') };
+
   const items: ActivityItem[] = [];
 
   if (tournamentsRes.data) {
@@ -856,7 +1123,7 @@ export async function getRecentActivity(limit: number = 10): Promise<ServiceResu
         type: 'scorecard',
         description: `Scorecard ${sc.status}${scoreText}`,
         timestamp: sc.updated_at,
-        path: `/scorecards/${sc.id}`,
+        path: `/scorecard/${sc.id}`,
       });
     }
   }

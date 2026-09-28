@@ -73,7 +73,7 @@ export function DashboardPage() {
     navigate('/', { replace: true });
   };
 
-  const role = profile?.role ?? 'player';
+  const role = profile?.role ?? 'public';
   const isManager = role === 'league_manager' || role === 'super_admin';
 
   if (isLoading) {
@@ -104,8 +104,8 @@ export function DashboardPage() {
       <Card variant="elevated">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-12 h-12 rounded-full bg-tmgl-green-100 border-2 border-tmgl-green-200 flex items-center justify-center shrink-0">
-              <User className="w-6 h-6 text-tmgl-green-700" />
+             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-tmgl-gold-500 bg-tmgl-charcoal-950">
+               <User className="h-6 w-6 text-tmgl-gold-300" />
             </div>
             <div className="min-w-0">
               <h2 className="text-lg font-bold text-tmgl-charcoal-900 truncate">

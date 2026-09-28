@@ -92,14 +92,15 @@ export async function processSkinsForScorecard(
     }
   }
 
-  // Get player names for the skin winners
-  const { data: profiles } = await supabase
-    .from('profiles')
-    .select('id, full_name');
+  const { data: players } = await supabase
+    .from('players')
+    .select('id, auth_user_id, full_name');
 
   const nameMap = new Map<string, string>();
-  (profiles ?? []).forEach((p: { id: string; full_name: string | null }) => {
-    nameMap.set(p.id, p.full_name ?? 'Unknown');
+  const profileIdMap = new Map<string, string>();
+  (players ?? []).forEach((player: { id: string; auth_user_id: string | null; full_name: string }) => {
+    nameMap.set(player.id, player.full_name ?? 'Unknown');
+    if (player.auth_user_id) profileIdMap.set(player.id, player.auth_user_id);
   });
 
   const skins = calculateSkins(allPlayerHoles);
@@ -108,9 +109,11 @@ export async function processSkinsForScorecard(
   for (const skin of skins) {
     if (skin.winnerId === playerId) {
       skin.winnerName = nameMap.get(skin.winnerId) ?? playerName;
+      const recipientId = profileIdMap.get(skin.winnerId);
+      if (!recipientId) continue;
 
       await createNotification({
-        recipient_id: playerId,
+        recipient_id: recipientId,
         type: 'skin_won',
         title: `Hole ${skin.holeNumber} Skin Won!`,
         message: `You won the skin on Hole ${skin.holeNumber} with a ${skin.score} (${skin.score === skin.par ? 'Par' : skin.score < skin.par ? `${skin.score - skin.par} under` : `${skin.score - skin.par} over`})!`,
@@ -141,8 +144,8 @@ export function subscribeToSkins(
       async (payload) => {
         const sc = payload.new as { id: string; player_id: string; status: string };
         if (sc.status === 'submitted' || sc.status === 'verified') {
-          const { data: profile } = await supabase
-            .from('profiles')
+          const { data: player } = await supabase
+            .from('players')
             .select('full_name')
             .eq('id', sc.player_id)
             .maybeSingle();
@@ -151,7 +154,7 @@ export function subscribeToSkins(
             sc.id,
             roundId,
             sc.player_id,
-            (profile as { full_name: string | null })?.full_name ?? 'Player'
+            (player as { full_name: string | null } | null)?.full_name ?? 'Player'
           );
         }
       }

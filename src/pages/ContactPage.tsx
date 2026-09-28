@@ -17,26 +17,37 @@ export function ContactPage() {
     setSending(true);
     setError(null);
 
+    const name = form.name.trim();
+    const email = form.email.trim();
+    const subject = form.subject.trim();
+    const message = form.message.trim();
+    if (!name || !email || !subject || !message) {
+      setError('Please complete every field before sending your message.');
+      setSending(false);
+      return;
+    }
+
     try {
-      const { data: admins } = await supabase
+      const { data: admins, error: adminsError } = await supabase
         .from('profiles')
         .select('id')
         .in('role', ['super_admin', 'league_manager'])
         .limit(5);
 
-      if (admins && admins.length > 0) {
-        for (const admin of admins) {
-          await createNotification({
-            recipient_id: admin.id,
-            type: 'system',
-            title: `Contact: ${form.subject}`,
-            message: `From: ${form.name} (${form.email})\n\n${form.message}`,
-          });
-        }
-      }
+      if (adminsError) throw new Error(adminsError.message);
+      if (!admins || admins.length === 0) throw new Error('No league contact is currently available.');
+
+      const results = await Promise.all(admins.map((admin) => createNotification({
+        recipient_id: admin.id,
+        type: 'system',
+        title: `Contact: ${subject}`,
+        message: `From: ${name} (${email})\n\n${message}`,
+      })));
+      const failed = results.find((result) => result.error);
+      if (failed?.error) throw new Error(failed.error);
       setSubmitted(true);
-    } catch {
-      setError('Failed to send message. Please try again.');
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Failed to send message. Please try again.');
     } finally {
       setSending(false);
     }

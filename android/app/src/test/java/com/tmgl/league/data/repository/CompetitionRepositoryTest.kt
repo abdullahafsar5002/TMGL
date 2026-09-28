@@ -1,21 +1,38 @@
 package com.tmgl.league.data.repository
 
-import org.junit.Assert.*
-import org.junit.Before
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Test
 
 class CompetitionRepositoryTest {
 
-    private lateinit var repository: CompetitionRepository
-
-    @Before
-    fun setup() {
-        repository = CompetitionRepository()
+    @Test
+    fun `repository is constructible for dependency injection`() {
+        val repository = CompetitionRepository()
+        assertNotNull(repository)
     }
 
     @Test
-    fun `getTournaments returns data result`() {
-        // This is a basic structure test - real tests need Supabase mock
-        assertNotNull(repository)
+    fun `getScorecardHoles maps the canonical score column`() {
+        val rows = listOf(
+            com.tmgl.league.data.model.ScorecardHoleRow(
+                id = "hole-1",
+                scorecardId = "scorecard-1",
+                holeNumber = 1,
+                score = 4,
+                par = 4
+            ),
+            com.tmgl.league.data.model.ScorecardHoleRow(
+                id = "hole-2",
+                scorecardId = "scorecard-1",
+                holeNumber = 2,
+                strokes = 5
+            )
+        )
+        val mapped = rows.map { com.tmgl.league.data.model.scorecardHoleRowToModel(it) }
+        assertEquals(listOf(1, 2), mapped.map { it.holeNumber })
+        assertEquals(listOf(4, 5), mapped.map { it.score })
+        assertEquals(4, mapped.first().par)
+        assertEquals(null, mapped[1].par)
     }
 }

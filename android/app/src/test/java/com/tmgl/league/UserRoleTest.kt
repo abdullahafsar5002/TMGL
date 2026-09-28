@@ -73,14 +73,13 @@ class UserRoleTest {
     }
 
     @Test
-    fun `friendly match status has 5 entries`() {
+    fun `friendly match status has 4 entries`() {
         val statuses = com.tmgl.league.data.model.FriendlyMatchStatus.entries
-        assertEquals(5, statuses.size)
-        assertTrue(statuses.contains(com.tmgl.league.data.model.FriendlyMatchStatus.PENDING))
-        assertTrue(statuses.contains(com.tmgl.league.data.model.FriendlyMatchStatus.ACCEPTED))
+        assertEquals(4, statuses.size)
+        assertTrue(statuses.contains(com.tmgl.league.data.model.FriendlyMatchStatus.ACTIVE))
+        assertTrue(statuses.contains(com.tmgl.league.data.model.FriendlyMatchStatus.REJECTED))
         assertTrue(statuses.contains(com.tmgl.league.data.model.FriendlyMatchStatus.IN_PROGRESS))
         assertTrue(statuses.contains(com.tmgl.league.data.model.FriendlyMatchStatus.COMPLETED))
-        assertTrue(statuses.contains(com.tmgl.league.data.model.FriendlyMatchStatus.CANCELLED))
     }
 
     @Test

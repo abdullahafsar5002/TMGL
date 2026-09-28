@@ -36,11 +36,12 @@ export async function uploadImage(
 
   const { error: uploadError } = await supabase.storage
     .from(bucket)
-    .upload(filePath, file, { upsert: true });
+    .upload(filePath, file, { upsert: true, contentType: file.type });
 
   if (uploadError) return { data: null, error: uploadError.message };
 
   const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+  if (!urlData.publicUrl) return { data: null, error: 'The uploaded image URL could not be created.' };
 
   return { data: urlData.publicUrl, error: null };
 }

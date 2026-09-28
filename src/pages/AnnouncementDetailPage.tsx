@@ -98,7 +98,7 @@ export default function AnnouncementDetailPage() {
         </div>
         {isManager && (
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigate(`/announcements/${announcement.id}/edit`)}>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/announcements/manage/${announcement.id}`)}>
               <Edit className="h-4 w-4 mr-1" />
               Edit
             </Button>

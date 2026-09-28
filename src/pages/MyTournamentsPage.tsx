@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { Badge } from '@/components/common/Badge';
 import { Pagination } from '@/components/common/Pagination';
-import { getPlayerByProfileId } from '@/lib/league';
+import { getPlayerByAuthUserId } from '@/lib/league';
 import { supabase } from '@/lib/supabase';
 import type { Tournament } from '@/types/database';
 
@@ -37,7 +37,7 @@ export default function MyTournamentsPage() {
     setLoading(true);
 
     try {
-      const playerResult = await getPlayerByProfileId(user.id);
+      const playerResult = await getPlayerByAuthUserId(user.id);
       if (playerResult.error || !playerResult.data) {
         setError('Player profile not found.');
         return;

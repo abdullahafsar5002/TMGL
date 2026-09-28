@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { BackLink } from '@/components/common/BackLink';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Plus, Search, ChevronRight, Loader2, AlertCircle, Inbox } from 'lucide-react';
 import { Container } from '@/components/common/Container';
@@ -40,6 +41,7 @@ export function CoursesPage() {
 
   return (
     <Container size="lg" className="space-y-4 py-4">
+      <BackLink fallbackTo="/" label="Back" />
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">

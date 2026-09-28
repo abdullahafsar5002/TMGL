@@ -11,11 +11,13 @@ import com.tmgl.league.data.repository.AuthState
 import com.tmgl.league.ui.screens.auth.ForgotPasswordScreen
 import com.tmgl.league.ui.screens.auth.LoginScreen
 import com.tmgl.league.ui.screens.auth.RegisterScreen
+import com.tmgl.league.ui.viewmodel.AuthViewModel
 
 @Composable
 fun AppNavigation(
     navController: NavHostController,
     authState: AuthState,
+    authViewModel: AuthViewModel,
     onAuthStateChanged: (AuthState) -> Unit = {},
     onLoginSuccess: () -> Unit = {},
     onRegisterSuccess: () -> Unit = {},
@@ -29,6 +31,7 @@ fun AppNavigation(
     ) {
         composable(Screen.Login.route) {
             LoginScreen(
+                authViewModel = authViewModel,
                 onLoginSuccess = onLoginSuccess,
                 onRegisterClick = {
                     navController.navigate(Screen.Register.route)
@@ -40,11 +43,15 @@ fun AppNavigation(
         }
 
         composable(Screen.ForgotPassword.route) {
-            ForgotPasswordScreen(navController = navController)
+            ForgotPasswordScreen(
+                navController = navController,
+                authViewModel = authViewModel
+            )
         }
 
         composable(Screen.Register.route) {
             RegisterScreen(
+                authViewModel = authViewModel,
                 onRegisterSuccess = onRegisterSuccess,
                 onLoginClick = {
                     navController.popBackStack()

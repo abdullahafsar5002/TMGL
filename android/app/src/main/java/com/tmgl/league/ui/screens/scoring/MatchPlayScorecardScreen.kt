@@ -13,8 +13,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.tmgl.league.ui.theme.*
 import com.tmgl.league.data.repository.ScoringFormatsRepository
+import com.tmgl.league.ui.viewmodel.ScoringFormatsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,9 +26,9 @@ fun MatchPlayScorecardScreen(
     player1Scores: List<Int>,
     player2Scores: List<Int>,
     pars: List<Int>,
+    repository: ScoringFormatsRepository = hiltViewModel<ScoringFormatsViewModel>().repository,
     onBack: () -> Unit
 ) {
-    val repository = remember { ScoringFormatsRepository() }
     val result = repository.calculateMatchPlay(player1Scores, player2Scores)
 
     Scaffold(

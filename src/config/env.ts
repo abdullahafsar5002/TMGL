@@ -1,37 +1,54 @@
-/**
- * Safe Environment Variable Accessor
- * 
- * Rules:
- * 1. Never expose Supabase service-role keys.
- * 2. Only browser-safe variables prefixed with VITE_ are accessed here.
- * 3. Graceful warnings when keys are missing, preventing unhandled crashes during initial setup.
- */
-
-interface EnvConfig {
+export interface EnvConfig {
   supabaseUrl: string;
   supabaseAnonKey: string;
   isConfigured: boolean;
+  configurationError: string | null;
+  galleryStorageBucket: string;
+  firebaseConfigured: boolean;
 }
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() ?? '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() ?? '';
+const galleryStorageBucket = import.meta.env.VITE_GALLERY_STORAGE_BUCKET?.trim() || 'gallery-images';
 
-const isConfigured = Boolean(
-  supabaseUrl &&
-  supabaseUrl !== 'https://your-project.supabase.co' &&
-  supabaseAnonKey &&
-  supabaseAnonKey !== 'your-anon-publishable-key'
+function isValidUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+const missing: string[] = [];
+if (!supabaseUrl) missing.push('VITE_SUPABASE_URL');
+if (!supabaseAnonKey) missing.push('VITE_SUPABASE_ANON_KEY');
+if (supabaseUrl && !isValidUrl(supabaseUrl)) missing.push('VITE_SUPABASE_URL (must be a valid URL)');
+if (supabaseAnonKey === 'your-anon-publishable-key') missing.push('VITE_SUPABASE_ANON_KEY (placeholder value)');
+if (supabaseAnonKey.startsWith('sb_secret_')) missing.push('VITE_SUPABASE_ANON_KEY (service-role keys are not allowed in the browser)');
+
+const configurationError = missing.length > 0
+  ? `Missing or invalid public Supabase configuration: ${missing.join(', ')}.`
+  : null;
+
+const firebaseConfigured = Boolean(
+  import.meta.env.VITE_FIREBASE_API_KEY &&
+  import.meta.env.VITE_FIREBASE_PROJECT_ID &&
+  import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID &&
+  import.meta.env.VITE_FIREBASE_APP_ID
 );
 
-if (!isConfigured && import.meta.env.DEV) {
-  console.warn(
-    '[TMGL Environment Warning]: Supabase credentials are not configured or using default placeholders. ' +
-    'Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env or .env.local file.'
-  );
+export function assertSupabaseConfig(): void {
+  if (import.meta.env.DEV && configurationError) {
+    throw new Error(configurationError);
+  }
 }
 
 export const env: EnvConfig = {
   supabaseUrl,
   supabaseAnonKey,
-  isConfigured
+  isConfigured: configurationError === null,
+  configurationError,
+  galleryStorageBucket,
+  firebaseConfigured,
 };

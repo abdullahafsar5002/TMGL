@@ -26,10 +26,17 @@ function PageLoader() {
   );
 }
 
-// Lazy loaders for named exports
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function lazyNamed(importFn: () => Promise<any>, name: string) {
-  return lazy(() => importFn().then((m: { [k: string]: React.ComponentType }) => ({ default: m[name] })));
+export function resolveRouteComponent(module: Record<string, unknown>, name: string): React.ComponentType {
+  const component = module[name] ?? module.default;
+  if (typeof component !== 'function' && typeof component !== 'object') {
+    const available = Object.keys(module).join(', ') || 'none';
+    throw new Error(`Lazy route export is unavailable: ${name}. Module exports: ${available}`);
+  }
+  return component as React.ComponentType;
+}
+
+export function lazyNamed(importFn: () => Promise<Record<string, unknown>>, name: string) {
+  return lazy(async () => ({ default: resolveRouteComponent(await importFn(), name) }));
 }
 
 // Public pages
@@ -63,8 +70,10 @@ const CourseCreatePage = lazyNamed(() => import('@/pages/CourseCreatePage'), 'Co
 const MatchesPage = lazyNamed(() => import('@/pages/MatchesPage'), 'MatchesPage');
 const MatchDetailPage = lazyNamed(() => import('@/pages/MatchDetailPage'), 'MatchDetailPage');
 const MatchCreatePage = lazyNamed(() => import('@/pages/MatchCreatePage'), 'MatchCreatePage');
+const TournamentCreatePage = lazyNamed(() => import('@/pages/TournamentCreatePage'), 'TournamentCreatePage');
 const RoundDetailPage = lazyNamed(() => import('@/pages/RoundDetailPage'), 'RoundDetailPage');
 const RoundCreatePage = lazyNamed(() => import('@/pages/RoundCreatePage'), 'RoundCreatePage');
+const PairingPage = lazyNamed(() => import('@/pages/PairingPage'), 'PairingPage');
 const ScorecardPage = lazyNamed(() => import('@/pages/ScorecardPage'), 'ScorecardPage');
 const ScorecardVerifyPage = lazyNamed(() => import('@/pages/ScorecardVerifyPage'), 'ScorecardVerifyPage');
 const ScoringPage = lazyNamed(() => import('@/pages/ScoringPage'), 'ScoringPage');
@@ -89,8 +98,6 @@ const OrganizerDashboardPage = lazyNamed(() => import('@/pages/OrganizerDashboar
 const AnalyticsPage = lazyNamed(() => import('@/pages/AnalyticsPage'), 'AnalyticsPage');
 const UnauthorizedPage = lazyNamed(() => import('@/pages/UnauthorizedPage'), 'UnauthorizedPage');
 
-// Membership
-const MembershipPage = lazyNamed(() => import('@/components/membership/MembershipPage'), 'MembershipPage');
 
 export function AppRouter() {
   return (
@@ -145,6 +152,10 @@ export function AppRouter() {
       {/* Rounds & Scoring */}
       <Route path="/rounds/:id" element={<AuthPage><RoundDetailPage /></AuthPage>} />
       <Route path="/rounds/new" element={<AdminPage><RoundCreatePage /></AdminPage>} />
+      <Route path="/rounds/:id/pairings" element={<AdminPage><PairingPage /></AdminPage>} />
+      <Route path="/rounds/:roundId/matches/new" element={<AdminPage><MatchCreatePage /></AdminPage>} />
+      <Route path="/tournaments/new" element={<AdminPage><TournamentCreatePage /></AdminPage>} />
+      <Route path="/tournaments/:id/rounds/new" element={<AdminPage><RoundCreatePage /></AdminPage>} />
       <Route path="/scorecard/:id" element={<AuthPage><ScorecardPage /></AuthPage>} />
       <Route path="/scorecard/:id/verify" element={<AdminPage><ScorecardVerifyPage /></AdminPage>} />
       <Route path="/scoring/:matchId?" element={<AuthPage><ScoringPage /></AuthPage>} />
@@ -157,6 +168,7 @@ export function AppRouter() {
       <Route path="/practice/new" element={<AuthPage><PracticeCreatePage /></AuthPage>} />
       <Route path="/practice/:id" element={<AuthPage><PracticeDetailPage /></AuthPage>} />
       <Route path="/practice/history" element={<AuthPage><PracticeHistoryPage /></AuthPage>} />
+      <Route path="/practice/:id/score" element={<AuthPage><PracticeScorecardPage /></AuthPage>} />
       <Route path="/practice/:id/scorecard" element={<AuthPage><PracticeScorecardPage /></AuthPage>} />
 
       {/* Friendly Matches */}
@@ -169,15 +181,13 @@ export function AppRouter() {
       <Route path="/announcements" element={<AuthPage><AnnouncementsPage /></AuthPage>} />
       <Route path="/announcements/:id" element={<AuthPage><AnnouncementDetailPage /></AuthPage>} />
       <Route path="/announcements/manage" element={<AdminPage><AnnouncementManagePage /></AdminPage>} />
+      <Route path="/announcements/manage/:id" element={<AdminPage><AnnouncementManagePage /></AdminPage>} />
       <Route path="/notifications" element={<AuthPage><NotificationsPage /></AuthPage>} />
 
       {/* Admin & Analytics */}
       <Route path="/admin" element={<AdminPage><AdminDashboardPage /></AdminPage>} />
       <Route path="/organizer" element={<AuthPage><OrganizerDashboardPage /></AuthPage>} />
       <Route path="/analytics" element={<AdminPage><AnalyticsPage /></AdminPage>} />
-
-      {/* Membership */}
-      <Route path="/membership" element={<AuthPage><MembershipPage /></AuthPage>} />
 
       {/* 404 */}
       <Route path="*" element={<PublicLayout><NotFoundPage /></PublicLayout>} />

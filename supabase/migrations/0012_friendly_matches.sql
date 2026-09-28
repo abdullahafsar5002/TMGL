@@ -8,8 +8,10 @@
 CREATE TYPE public.friendly_match_status AS ENUM (
   'pending',
   'active',
+  'in_progress',
   'completed',
-  'cancelled'
+  'cancelled',
+  'rejected'
 );
 
 -- ============================================================

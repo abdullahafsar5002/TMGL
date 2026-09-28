@@ -13,11 +13,11 @@ import { canManageLeague } from '@/lib/roleGuards';
 import { getTournament, getRoundsByTournament, updateTournament, deleteTournament, getTournamentParticipants, type TournamentParticipant } from '@/lib/competition';
 import { finalizeTournament } from '@/lib/tournamentFinalize';
 import { joinTournament, leaveTournament, isRegistered, getRegistrationCount } from '@/lib/tournamentRegistration';
-import { getPlayerByProfileId } from '@/lib/league';
+import { getPlayerByAuthUserId } from '@/lib/league';
 import { validateTournament } from '@/lib/validation';
-import { getSeasons } from '@/lib/league';
+import { getSeasons, getCourses } from '@/lib/league';
 import { supabase } from '@/lib/supabase';
-import type { Tournament, Round, TournamentStatus, Season, Match, Scorecard } from '@/types/database';
+import type { Tournament, Round, TournamentStatus, Season, Match, Scorecard, Course } from '@/types/database';
 import { useToast } from '@/context/ToastContext';
 
 const STATUS_VARIANTS: Record<TournamentStatus, BadgeVariant> = {
@@ -46,7 +46,9 @@ export function TournamentDetailPage() {
   const [editDate, setEditDate] = useState('');
   const [editStatus, setEditStatus] = useState<TournamentStatus>('draft');
   const [editSeasonId, setEditSeasonId] = useState('');
+  const [editCourseId, setEditCourseId] = useState('');
   const [seasons, setSeasons] = useState<Season[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [editErrors, setEditErrors] = useState<string[]>([]);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -92,7 +94,7 @@ export function TournamentDetailPage() {
   useEffect(() => {
     if (!id || !user) return;
     async function checkRegistration() {
-      const playerResult = await getPlayerByProfileId(user!.id);
+      const playerResult = await getPlayerByAuthUserId(user!.id);
       if (playerResult.data) {
         setPlayerId(playerResult.data.id);
         const regResult = await isRegistered(id!, playerResult.data.id);
@@ -111,9 +113,11 @@ export function TournamentDetailPage() {
     setEditDate(tournament.event_date || '');
     setEditStatus(tournament.status);
     setEditSeasonId(tournament.season_id);
+    setEditCourseId(tournament.course_id || '');
     setEditErrors([]);
     setServerError(null);
     getSeasons().then((r) => { if (r.data) setSeasons(r.data); });
+    getCourses().then((r) => { if (r.data) setCourses(r.data); });
     setShowEdit(true);
   };
 
@@ -121,11 +125,11 @@ export function TournamentDetailPage() {
     if (!id) return;
     setEditErrors([]);
     setServerError(null);
-    const validation = validateTournament({ name: editName, season_id: editSeasonId, description: editDesc || null, event_date: editDate || null, course_id: null });
+    const validation = validateTournament({ name: editName, season_id: editSeasonId, description: editDesc || null, event_date: editDate || null, course_id: editCourseId || null });
     if (!validation.isValid) { setEditErrors(validation.errors); return; }
 
     setIsSaving(true);
-    const result = await updateTournament(id, { name: editName, description: editDesc || null, event_date: editDate || null, status: editStatus });
+    const result = await updateTournament(id, { name: editName, description: editDesc || null, event_date: editDate || null, course_id: editCourseId || null, status: editStatus });
     setIsSaving(false);
 
     if (result.error) { setServerError(result.error); toast.error(result.error); return; }
@@ -450,6 +454,14 @@ export function TournamentDetailPage() {
                     <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Name *</label>
                     <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)}
                       className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700" />
+                  </div>
+                  <div>
+                    <label htmlFor="edit-tournament-course" className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Course *</label>
+                    <select id="edit-tournament-course" value={editCourseId} onChange={(e) => setEditCourseId(e.target.value)}
+                      className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700">
+                      <option value="">Select a course</option>
+                      {courses.map((c) => <option key={c.id} value={c.id}>{c.name}{c.location ? ` — ${c.location}` : ''}</option>)}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Description</label>

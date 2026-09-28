@@ -26,7 +26,7 @@ export function AuthenticatedBottomNav({ currentPath }: AuthenticatedBottomNavPr
   const navigate = useNavigate();
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur border-t border-tmgl-charcoal-200 pb-[env(safe-area-inset-bottom,0px)] shadow-lg">
+    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-tmgl-gold-500/30 bg-tmgl-charcoal-950/95 pb-[env(safe-area-inset-bottom,0px)] shadow-xl backdrop-blur md:hidden">
       <nav className="grid grid-cols-5 h-16 max-w-md mx-auto">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
@@ -41,17 +41,17 @@ export function AuthenticatedBottomNav({ currentPath }: AuthenticatedBottomNavPr
               className={cn(
                 'flex flex-col items-center justify-center touch-target transition-colors relative',
                 isActive
-                  ? 'text-tmgl-green-800 font-bold'
-                  : 'text-tmgl-charcoal-500 hover:text-tmgl-charcoal-800'
+                  ? 'text-tmgl-gold-300 font-bold'
+                  : 'text-tmgl-charcoal-400 hover:text-tmgl-gold-300'
               )}
             >
               {isActive && (
-                <span className="absolute top-0 w-8 h-1 bg-tmgl-green-800 rounded-b-full" />
+                <span className="absolute top-0 h-1 w-8 rounded-b-full bg-tmgl-gold-400" />
               )}
               <Icon
                 className={cn(
                   'w-5 h-5',
-                  isActive ? 'text-tmgl-green-800 stroke-[2.5]' : 'stroke-2'
+                  isActive ? 'text-tmgl-gold-300 stroke-[2.5]' : 'stroke-2'
                 )}
               />
               <span className="text-[10px] mt-1 font-medium tracking-tight">{item.label}</span>

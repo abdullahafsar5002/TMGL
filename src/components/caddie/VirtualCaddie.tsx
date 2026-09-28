@@ -35,12 +35,58 @@ const CATEGORY_ICONS = {
 };
 
 const CATEGORY_COLORS = {
-  approach: 'text-blue-400',
-  tee: 'text-green-400',
-  putting: 'text-yellow-400',
-  course_management: 'text-purple-400',
-  mental: 'text-pink-400',
+  approach: 'text-blue-600',
+  tee: 'text-emerald-600',
+  putting: 'text-amber-600',
+  course_management: 'text-violet-600',
+  mental: 'text-pink-600',
 };
+
+const CONFIDENCE_STYLES = {
+  high: 'bg-emerald-100 text-emerald-800',
+  medium: 'bg-amber-100 text-amber-800',
+  low: 'bg-tmgl-charcoal-100 text-tmgl-charcoal-700',
+};
+
+const TIP_CATEGORIES: ReadonlyArray<CaddieTip['category']> = [
+  'approach',
+  'tee',
+  'putting',
+  'course_management',
+  'mental',
+];
+
+function readTip(value: unknown): CaddieTip | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const record = value as Record<string, unknown>;
+  const title = typeof record.title === 'string' ? record.title.trim() : '';
+  const advice = typeof record.advice === 'string' ? record.advice.trim() : '';
+  if (!title || !advice) return null;
+  const category = TIP_CATEGORIES.includes(record.category as CaddieTip['category'])
+    ? (record.category as CaddieTip['category'])
+    : 'course_management';
+  const confidence = record.confidence === 'high' || record.confidence === 'low'
+    ? record.confidence
+    : 'medium';
+  return { category, title, advice, confidence };
+}
+
+export function normalizeCaddieResponse(value: unknown): CaddieResponse {
+  const record = (typeof value === 'object' && value !== null ? value : {}) as Record<string, unknown>;
+  const tips = Array.isArray(record.tips)
+    ? record.tips.map(readTip).filter((tip): tip is CaddieTip => tip !== null).slice(0, 5)
+    : [];
+  const summary = typeof record.summary === 'string' && record.summary.trim()
+    ? record.summary.trim()
+    : 'Review your recent rounds to find the next stroke to save.';
+  const rating = typeof record.overallRating === 'string' && record.overallRating.trim()
+    ? record.overallRating.trim()
+    : 'In progress';
+  const keyImprovement = typeof record.keyImprovement === 'string' && record.keyImprovement.trim()
+    ? record.keyImprovement.trim()
+    : tips[0]?.title ?? 'Consistency';
+  return { summary, overallRating: rating, keyImprovement, tips };
+}
 
 interface VirtualCaddieProps {
   playerId: string;
@@ -124,48 +170,30 @@ export function VirtualCaddie({ playerId }: VirtualCaddieProps) {
         };
       });
 
-      const analysisPrompt = `You are a professional golf caddie AI. Analyze this player's last ${rounds.length} rounds and provide 5 specific, actionable tips.
-
-Player Performance Data:
-${roundSummaries.map((r, i) => `
-Round ${i + 1} (${r.date ? new Date(r.date).toLocaleDateString() : 'Unknown'}):
-  Score: ${r.total} (${r.toPar > 0 ? '+' : ''}${r.toPar})
-  Par 3 avg: ${r.par3Avg.toFixed(1)} | Par 4 avg: ${r.par4Avg.toFixed(1)} | Par 5 avg: ${r.par5Avg.toFixed(1)}
-  Birdies: ${r.birdies} | Bogeys: ${r.bogeys} | Double+: ${r.doubles}
-  Avg Putts: ${r.avgPutts.toFixed(1)} | Fairways: ${r.fairways}/${r.fairwaysTotal} | GIR: ${r.gir}/${r.girTotal}
-`).join('')}
-
-Respond in this exact JSON format:
-{
-  "summary": "One sentence overall assessment",
-  "overallRating": "one word rating (e.g., 'Solid', 'Improving', 'Needs Work')",
-  "keyImprovement": "The single biggest thing to improve",
-  "tips": [
-    {
-      "category": "approach|tee|putting|course_management|mental",
-      "title": "Short tip title",
-      "advice": "Detailed actionable advice (2-3 sentences)",
-      "confidence": "high|medium|low"
-    }
-  ]
-}`;
-
-      // Call OpenAI via Supabase Edge Function (keeps API key secure server-side)
-      const { data: edgeData, error: edgeError } = await supabase.functions.invoke('openai-caddie', {
-        body: { prompt: analysisPrompt },
+      // Call the edge function with only the player id: the prompt is built
+      // server-side from the player's own rows so the client cannot inject prompts
+      // or read another player's scores. A null content means the service is not
+      // configured or the provider failed, in which case local tips are used.
+      const { data: edgeData } = await supabase.functions.invoke('openai-caddie', {
+        body: { playerId },
       });
 
-      if (edgeError || !edgeData?.content) {
-        const localTips = generateLocalTips(roundSummaries);
-        setTips(localTips);
+      const content = edgeData && typeof edgeData.content === 'string' ? edgeData.content : null;
+      if (!content) {
+        setTips(generateLocalTips(roundSummaries));
         setLoading(false);
         return;
       }
 
-      const parsed = JSON.parse(edgeData.content) as CaddieResponse;
-      setTips(parsed);
+      const parsed = JSON.parse(content) as CaddieResponse;
+      setTips(normalizeCaddieResponse(parsed));
     } catch {
-      setError('Could not generate tips. Try again later.');
+      try {
+        const fallback = await buildLocalTips(playerId);
+        setTips(fallback);
+      } catch {
+        setError('Could not generate tips. Try again later.');
+      }
     } finally {
       setLoading(false);
     }
@@ -174,19 +202,19 @@ Respond in this exact JSON format:
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Sparkles className="w-4 h-4 text-yellow-400" />
+        <CardTitle className="flex items-center gap-2 text-base text-tmgl-charcoal-900">
+          <Sparkles className="w-4 h-4 text-tmgl-gold-600" />
           Virtual Caddie AI
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {!tips && !loading && (
           <div className="text-center py-4">
-            <p className="text-sm text-tmgl-silver/60 mb-4">
+            <p className="text-sm text-tmgl-charcoal-600 mb-4">
               Get personalized tips based on your last rounds.
               Your caddie analyzes your scores, tendencies, and weaknesses.
             </p>
-            <Button onClick={generateTips} className="bg-tmgl-green hover:bg-tmgl-green/90">
+            <Button onClick={generateTips} variant="gold">
               <Sparkles className="w-4 h-4 mr-2" />
               Get Pre-Round Tips
             </Button>
@@ -195,13 +223,13 @@ Respond in this exact JSON format:
 
         {loading && (
           <div className="text-center py-8">
-            <Loader2 className="w-8 h-8 text-tmgl-green animate-spin mx-auto mb-3" />
-            <p className="text-sm text-tmgl-silver/60">Analyzing your game...</p>
+            <Loader2 className="w-8 h-8 text-tmgl-gold-600 animate-spin mx-auto mb-3" />
+            <p className="text-sm text-tmgl-charcoal-600">Analyzing your game...</p>
           </div>
         )}
 
         {error && (
-          <div className="flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
+          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -209,35 +237,31 @@ Respond in this exact JSON format:
 
         {tips && (
           <div className="space-y-4">
-            <div className="text-center p-4 bg-tmgl-charcoal-800/50 rounded-xl">
-              <p className="text-lg font-bold text-tmgl-silver">{tips.overallRating}</p>
-              <p className="text-sm text-tmgl-silver/60 mt-1">{tips.summary}</p>
-              <p className="text-xs text-tmgl-green mt-2">Key Focus: {tips.keyImprovement}</p>
+            <div className="text-center p-4 bg-tmgl-gold-50 border border-tmgl-gold-500/40 rounded-xl">
+              <p className="text-lg font-bold text-tmgl-charcoal-900">{tips.overallRating}</p>
+              <p className="text-sm text-tmgl-charcoal-700 mt-1">{tips.summary}</p>
+              <p className="text-xs font-semibold text-tmgl-gold-700 mt-2">Key Focus: {tips.keyImprovement}</p>
             </div>
 
             <div className="space-y-3">
               {tips.tips.map((tip, i) => {
                 const Icon = CATEGORY_ICONS[tip.category];
                 return (
-                  <div key={i} className="p-3 bg-tmgl-charcoal-800/30 rounded-lg border border-tmgl-charcoal-700/50">
+                  <div key={`${tip.category}-${i}`} className="p-3 bg-white border border-tmgl-charcoal-200 rounded-lg">
                     <div className="flex items-center gap-2 mb-1.5">
-                      <Icon className={`w-4 h-4 ${CATEGORY_COLORS[tip.category]}`} />
-                      <span className="font-semibold text-sm text-tmgl-silver">{tip.title}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                        tip.confidence === 'high' ? 'bg-green-500/20 text-green-400' :
-                        tip.confidence === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                        'bg-gray-500/20 text-gray-400'
-                      }`}>
+                      <Icon className={`w-4 h-4 shrink-0 ${CATEGORY_COLORS[tip.category]}`} />
+                      <span className="font-semibold text-sm text-tmgl-charcoal-900">{tip.title}</span>
+                      <span className={`ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded-full ${CONFIDENCE_STYLES[tip.confidence]}`}>
                         {tip.confidence}
                       </span>
                     </div>
-                    <p className="text-xs text-tmgl-silver/70 leading-relaxed">{tip.advice}</p>
+                    <p className="text-xs text-tmgl-charcoal-600 leading-relaxed">{tip.advice}</p>
                   </div>
                 );
               })}
             </div>
 
-            <Button onClick={generateTips} variant="secondary" className="w-full" size="sm">
+            <Button onClick={generateTips} variant="outline" className="w-full" size="sm">
               Refresh Tips
             </Button>
           </div>
@@ -245,6 +269,60 @@ Respond in this exact JSON format:
       </CardContent>
     </Card>
   );
+}
+
+async function buildLocalTips(playerId: string): Promise<CaddieResponse> {
+  const { data: rounds } = await supabase
+    .from('practice_rounds')
+    .select('id, completed_at')
+    .eq('player_id', playerId)
+    .eq('status', 'completed')
+    .order('completed_at', { ascending: false })
+    .limit(10);
+
+  const roundRows = (rounds ?? []) as Array<{ id: string; completed_at: string | null }>;
+  if (roundRows.length === 0) {
+    return normalizeCaddieResponse({ tips: [] });
+  }
+
+  const { data: scores } = await supabase
+    .from('practice_scores')
+    .select('practice_round_id, par, score, putts, fairway_hit, green_in_regulation')
+    .in('practice_round_id', roundRows.map((round) => round.id));
+
+  const grouped = new Map<string, PracticeScore[]>();
+  for (const row of (scores ?? []) as PracticeScore[]) {
+    const list = grouped.get(row.practice_round_id) ?? [];
+    list.push(row);
+    grouped.set(row.practice_round_id, list);
+  }
+
+  const summaries = roundRows.map((round) => {
+    const holes = grouped.get(round.id) ?? [];
+    const par = holes.reduce((sum, hole) => sum + hole.par, 0);
+    const total = holes.reduce((sum, hole) => sum + hole.score, 0);
+    return {
+      par3Avg: averageOf(holes.filter((hole) => hole.par === 3).map((hole) => hole.score)),
+      par4Avg: averageOf(holes.filter((hole) => hole.par === 4).map((hole) => hole.score)),
+      par5Avg: averageOf(holes.filter((hole) => hole.par === 5).map((hole) => hole.score)),
+      birdies: holes.filter((hole) => hole.score - hole.par === -1).length,
+      bogeys: holes.filter((hole) => hole.score - hole.par === 1).length,
+      doubles: holes.filter((hole) => hole.score - hole.par >= 2).length,
+      avgPutts: averageOf(holes.filter((hole) => typeof hole.putts === 'number').map((hole) => hole.putts as number)),
+      fairways: holes.filter((hole) => hole.fairway_hit === true).length,
+      fairwaysTotal: holes.filter((hole) => typeof hole.fairway_hit === 'boolean').length,
+      gir: holes.filter((hole) => hole.green_in_regulation === true).length,
+      girTotal: holes.filter((hole) => typeof hole.green_in_regulation === 'boolean').length,
+      toPar: total - par,
+    };
+  });
+
+  return normalizeCaddieResponse(generateLocalTips(summaries));
+}
+
+function averageOf(values: number[]): number {
+  if (values.length === 0) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
 function generateLocalTips(rounds: Array<{

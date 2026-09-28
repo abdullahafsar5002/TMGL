@@ -56,7 +56,7 @@ CREATE POLICY "notifications: users can read own"
 
 CREATE POLICY "notifications: system can insert"
   ON public.notifications FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (get_user_role() IN ('super_admin', 'league_manager'));
 
 CREATE POLICY "notifications: user can update own read status"
   ON public.notifications FOR UPDATE

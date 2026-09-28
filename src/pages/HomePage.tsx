@@ -24,15 +24,15 @@ export function HomePage() {
   return (
     <div className="min-h-screen">
       {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-tmgl-green-900 via-tmgl-green-800 to-tmgl-green-950">
+      <section className="relative overflow-hidden bg-gradient-to-br from-tmgl-charcoal-950 via-black to-tmgl-charcoal-900">
         <div className="absolute inset-0 bg-[url('/logo.png')] bg-center bg-no-repeat bg-contain opacity-[0.03]" />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-tmgl-gold/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute right-0 top-0 h-96 w-96 translate-x-1/2 -translate-y-1/2 rounded-full bg-tmgl-gold-500/10 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-tmgl-gold/5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
 
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 lg:py-32">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-tmgl-gold/30 text-tmgl-gold text-sm font-semibold mb-6 backdrop-blur-sm">
+               <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-tmgl-gold-500/40 bg-white/5 px-4 py-2 text-sm font-semibold text-tmgl-gold-300 backdrop-blur-sm">
                 <Trophy className="w-4 h-4" />
                 Toruk Maktu Golf League
               </div>
@@ -81,12 +81,12 @@ export function HomePage() {
       </section>
 
       {/* Stats bar */}
-      <section className="bg-white border-b border-tmgl-charcoal-200">
+      <section className="border-b border-tmgl-charcoal-800 bg-tmgl-charcoal-950 text-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-2 sm:grid-cols-4 gap-6">
           {STATS.map(({ value, label }) => (
             <div key={label} className="text-center">
-              <div className="text-2xl sm:text-3xl font-extrabold text-tmgl-green-800">{value}</div>
-              <div className="text-sm text-tmgl-charcoal-500 mt-1">{label}</div>
+            <div className="text-2xl font-extrabold text-tmgl-gold-300 sm:text-3xl">{value}</div>
+            <div className="mt-1 text-sm text-tmgl-charcoal-400">{label}</div>
             </div>
           ))}
         </div>
@@ -153,7 +153,7 @@ export function HomePage() {
       </section>
 
       {/* CTA */}
-      <section className="py-16 sm:py-24 bg-gradient-to-br from-tmgl-green-800 via-tmgl-green-900 to-tmgl-green-950">
+      <section className="bg-gradient-to-br from-tmgl-charcoal-900 via-black to-tmgl-charcoal-950 py-16 sm:py-24">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-6">
             Ready to Elevate Your Game?

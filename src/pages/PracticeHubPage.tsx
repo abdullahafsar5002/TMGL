@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { StatsCard } from '@/components/common/StatsCard';
 import { Badge } from '@/components/common/Badge';
-import { getPlayerByProfileId } from '@/lib/league';
+import { getPlayerByAuthUserId } from '@/lib/league';
 import { getPracticeRoundsByPlayer } from '@/lib/practice';
 import { getPlayerStatistics } from '@/lib/statistics';
 import { formatToPar } from '@/utils/golf';
@@ -30,7 +30,7 @@ export default function PracticeHubPage() {
     setError(null);
 
     try {
-      const playerResult = await getPlayerByProfileId(user.id);
+      const playerResult = await getPlayerByAuthUserId(user.id);
       if (playerResult.error || !playerResult.data) {
         setError('Player profile not found.');
         return;

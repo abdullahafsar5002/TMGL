@@ -5,7 +5,7 @@ import { Container } from '@/components/common/Container';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { LoadingState } from '@/components/common/LoadingState';
-import { getPlayerByProfileId, updatePlayer } from '@/lib/league';
+import { getPlayerByAuthUserId, updatePlayer } from '@/lib/league';
 import { supabase } from '@/lib/supabase';
 import type { Player } from '@/types/database';
 
@@ -25,7 +25,7 @@ export default function ProfileSettingsPage() {
     setLoading(true);
 
     try {
-      const playerResult = await getPlayerByProfileId(user.id);
+      const playerResult = await getPlayerByAuthUserId(user.id);
       if (playerResult.data) {
         setPlayer(playerResult.data);
         setPhone(playerResult.data.phone ?? '');

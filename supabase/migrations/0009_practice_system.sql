@@ -213,24 +213,6 @@ CREATE POLICY "player_statistics: managers can read all"
   ON public.player_statistics FOR SELECT
   USING (get_user_role() IN ('super_admin', 'league_manager'));
 
--- Only system functions should update statistics (via SECURITY DEFINER)
--- Players can insert their own statistics record (first-time setup)
-CREATE POLICY "player_statistics: players can insert own"
-  ON public.player_statistics FOR INSERT
-  WITH CHECK (player_id IN (
-    SELECT id FROM public.players WHERE profile_id = auth.uid()
-  ));
-
--- Players can update their own statistics record
-CREATE POLICY "player_statistics: players can update own"
-  ON public.player_statistics FOR UPDATE
-  USING (player_id IN (
-    SELECT id FROM public.players WHERE profile_id = auth.uid()
-  ))
-  WITH CHECK (player_id IN (
-    SELECT id FROM public.players WHERE profile_id = auth.uid()
-  ));
-
 -- No direct DELETE policies for players on this table
 
 -- ============================================================

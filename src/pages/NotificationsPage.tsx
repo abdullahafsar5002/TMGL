@@ -25,7 +25,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export default function NotificationsPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,10 +33,12 @@ export default function NotificationsPage() {
 
   const loadData = useCallback(async () => {
     if (!user) return;
+    const profileId = profile?.id ?? user.id;
     setLoading(true);
+    setError(null);
 
     try {
-      const result = await getNotifications(user.id);
+      const result = await getNotifications(profileId);
       if (result.error) setError(result.error);
       else setNotifications(result.data ?? []);
     } catch {
@@ -44,7 +46,7 @@ export default function NotificationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, profile]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -59,7 +61,7 @@ export default function NotificationsPage() {
 
   async function handleMarkAllAsRead() {
     if (!user) return;
-    const result = await markAllAsRead(user.id);
+    const result = await markAllAsRead(profile?.id ?? user.id);
     if (result.error) {
       setError(result.error);
     } else {

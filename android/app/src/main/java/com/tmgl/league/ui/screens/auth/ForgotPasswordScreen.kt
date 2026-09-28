@@ -7,20 +7,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
-import com.tmgl.league.auth.EncryptedAuthStorage
-import com.tmgl.league.data.repository.AuthRepository
-import kotlinx.coroutines.launch
+import com.tmgl.league.ui.viewmodel.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ForgotPasswordScreen(navController: NavHostController) {
-    val context = LocalContext.current
-    val authRepository = remember { AuthRepository(EncryptedAuthStorage(context)) }
-    val scope = rememberCoroutineScope()
+fun ForgotPasswordScreen(
+    navController: NavHostController,
+    authViewModel: AuthViewModel = hiltViewModel()
+) {
     var email by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var successMessage by remember { mutableStateOf<String?>(null) }
@@ -39,18 +36,24 @@ fun ForgotPasswordScreen(navController: NavHostController) {
         }
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(32.dp))
             Text(
-                text = "Enter your email address and we'll send you a link to reset your password.",
+                text = "Enter your email address and we will send you a link to reset your password.",
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedTextField(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = {
+                    email = it
+                    errorMessage = null
+                },
                 label = { Text("Email") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
@@ -72,22 +75,29 @@ fun ForgotPasswordScreen(navController: NavHostController) {
                         errorMessage = "Please enter your email"
                         return@Button
                     }
-                    isLoading = true; errorMessage = null; successMessage = null
-                    scope.launch {
-                        try {
-                            val result = authRepository.resetPassword(email.trim())
+                    isLoading = true
+                    errorMessage = null
+                    successMessage = null
+                    authViewModel.resetPassword(
+                        email.trim(),
+                        onSuccess = {
+                            isLoading = false
                             successMessage = "Password reset email sent. Check your inbox."
-                        } catch (e: Exception) {
-                            errorMessage = e.message ?: "Failed to send reset email"
+                        },
+                        onError = { message ->
+                            isLoading = false
+                            errorMessage = message
                         }
-                        isLoading = false
-                    }
+                    )
                 },
                 enabled = !isLoading && email.isNotBlank(),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                if (isLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                else Text("Send Reset Link")
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    Text("Send Reset Link")
+                }
             }
         }
     }

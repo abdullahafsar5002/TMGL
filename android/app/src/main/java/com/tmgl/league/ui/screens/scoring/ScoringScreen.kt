@@ -1,116 +1,61 @@
 package com.tmgl.league.ui.screens.scoring
 
-import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.tmgl.league.data.model.ScorecardHole
-import com.tmgl.league.data.model.ScorecardStatus
-import com.tmgl.league.data.offline.NetworkMonitor
-import com.tmgl.league.data.offline.OfflineScoreQueue
-import com.tmgl.league.data.offline.PendingScore
-import com.tmgl.league.data.repository.DataResult
-import com.tmgl.league.ui.components.*
-import com.tmgl.league.ui.viewmodel.CompetitionViewModel
-import com.tmgl.league.util.HapticFeedbackHelper
 import androidx.hilt.navigation.compose.hiltViewModel
-import kotlinx.coroutines.launch
+import com.tmgl.league.data.model.ScoreCalculations
+import com.tmgl.league.ui.components.LoadingIndicator
+import com.tmgl.league.ui.components.TmglButton
+import com.tmgl.league.ui.components.TmglCard
+import com.tmgl.league.ui.components.TmglTopBar
+import com.tmgl.league.ui.viewmodel.ScoringViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ScoringScreen(matchId: String?, onBack: () -> Unit) {
-    var holes by remember { mutableStateOf(List(18) { "" }) }
-    var pars by remember { mutableStateOf(List(18) { 4 }) }
-    var isSubmitting by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(matchId != null) }
-    var successMessage by remember { mutableStateOf<String?>(null) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    var scorecardId by remember { mutableStateOf<String?>(null) }
-    val viewModel: CompetitionViewModel = hiltViewModel()
-    val repository = viewModel.repository
-    val scope = rememberCoroutineScope()
-    val focusManager = LocalFocusManager.current
-    val context = LocalContext.current
-    val hapticPerformer = HapticFeedbackHelper.rememberHapticPerformer()
-    val maxStrokesPerHole = 15
+fun ScoringScreen(
+    roundId: String?,
+    matchId: String?,
+    onBack: () -> Unit,
+    scoringViewModel: ScoringViewModel = hiltViewModel()
+) {
+    val uiState by scoringViewModel.uiState.collectAsState()
 
-    LaunchedEffect(matchId) {
-        if (matchId == null) {
-            isLoading = false
-            return@LaunchedEffect
-        }
-        isLoading = true
-        when (val result = repository.getScorecardByMatch(matchId)) {
-            is DataResult.Success -> {
-                val sc = result.data
-                scorecardId = sc.id
-                when (val holesResult = repository.getScorecardHoles(sc.id)) {
-                    is DataResult.Success -> {
-                        if (holesResult.data.isNotEmpty()) {
-                            holes = List(18) { i ->
-                                holesResult.data.find { it.holeNumber == i + 1 }?.strokes?.toString() ?: ""
-                            }
-                            pars = List(18) { i ->
-                                holesResult.data.find { it.holeNumber == i + 1 }?.par ?: 4
-                            }
-                        }
-                    }
-                    is DataResult.Error -> { errorMessage = holesResult.message }
-                }
-            }
-            is DataResult.Error -> { errorMessage = result.message }
-        }
-        isLoading = false
+    LaunchedEffect(roundId, matchId) {
+        scoringViewModel.load(roundId, matchId)
     }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Score Entry") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back") } },
+            TmglTopBar(
+                title = "Score Entry",
+                onBack = onBack,
                 actions = {
-                    IconButton(onClick = {
-                        val totalStrokes = holes.sumOf { it.toIntOrNull() ?: 0 }
-                        val totalToPar = holes.mapIndexed { i, s ->
-                            val strokes = s.toIntOrNull() ?: 0
-                            if (strokes > 0) strokes - pars[i] else 0
-                        }.sum()
-                        val scoreText = if (totalToPar == 0) "E" else if (totalToPar > 0) "+$totalToPar" else "$totalToPar"
-
-                        val shareText = buildString {
-                            appendLine("🏌️ TMGL Scorecard")
-                            appendLine("Total: $totalStrokes ($scoreText)")
-                            appendLine("Played on TMGL app")
+                    if (uiState.isQueuedOffline) {
+                        IconButton(onClick = { scoringViewModel.syncPending() }) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Retry sync")
                         }
-                        val sendIntent = Intent().apply {
-                            action = Intent.ACTION_SEND
-                            putExtra(Intent.EXTRA_TEXT, shareText)
-                            type = "text/plain"
-                        }
-                        context.startActivity(Intent.createChooser(sendIntent, "Share Scorecard"))
-                    }) {
-                        Icon(Icons.Default.Share, "Share")
                     }
                 }
             )
         }
     ) { paddingValues ->
+        if (uiState.isLoading) {
+            LoadingIndicator(modifier = Modifier.padding(paddingValues))
+            return@Scaffold
+        }
+
         LazyColumn(
             modifier = Modifier
                 .padding(paddingValues)
@@ -122,13 +67,13 @@ fun ScoringScreen(matchId: String?, onBack: () -> Unit) {
                 TmglCard {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Enter your scores for each hole",
+                            text = "Enter your score for each hole",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        if (matchId != null) {
+                        if (uiState.roundId != null) {
                             Text(
-                                text = "Scorecard: $matchId",
+                                text = "Round: ${uiState.roundId}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -137,172 +82,117 @@ fun ScoringScreen(matchId: String?, onBack: () -> Unit) {
                 }
             }
 
-            if (isLoading) {
-                item {
-                    LoadingIndicator(modifier = Modifier.fillMaxWidth().padding(32.dp))
+            items(uiState.holes, key = { it.holeNumber }) { hole ->
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.width(72.dp)) {
+                            Text(
+                                text = "Hole ${hole.holeNumber}",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Par ${hole.par}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.weight(1f))
+                        OutlinedTextField(
+                            value = hole.scoreText,
+                            onValueChange = { scoringViewModel.setScore(hole.holeNumber, it) },
+                            modifier = Modifier.width(88.dp),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Done
+                            ),
+                            singleLine = true,
+                            shape = MaterialTheme.shapes.small
+                        )
+                    }
                 }
             }
 
-            if (!isLoading) {
-                itemsIndexed(holes, key = { index, _ -> index }) { index, score ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
+            item {
+                TmglCard {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column(modifier = Modifier.width(60.dp)) {
-                                Text(
-                                    text = "Hole ${index + 1}",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "Par ${pars[index]}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Spacer(modifier = Modifier.weight(1f))
-                            OutlinedTextField(
-                                value = score,
-                                onValueChange = { newScore ->
-                                    holes = holes.toMutableList().apply {
-                                        this[index] = newScore.filter { it.isDigit() }
-                                    }
-                                    hapticPerformer(HapticFeedbackHelper.HapticType.CLOCK_TICK)
-                                },
-                                modifier = Modifier.width(80.dp),
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Done
-                                ),
-                                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-                                singleLine = true,
-                                shape = MaterialTheme.shapes.small
+                            Text("Total Strokes", style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                text = "${uiState.totalStrokes}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
                             )
                         }
-                    }
-                }
-
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    val totalStrokes = holes.sumOf { it.toIntOrNull() ?: 0 }
-                    val totalToPar = holes.mapIndexed { i, s ->
-                        val strokes = s.toIntOrNull() ?: 0
-                        if (strokes > 0) strokes - pars[i] else 0
-                    }.sum()
-                    TmglCard {
-                        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Total Strokes", style = MaterialTheme.typography.bodyMedium)
-                            Text("$totalStrokes", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        }
-                        if (totalStrokes > 0) {
-                            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        if (uiState.totalStrokes > 0) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
                                 Text("To Par", style = MaterialTheme.typography.bodyMedium)
                                 Text(
-                                    text = if (totalToPar >= 0) "+$totalToPar" else "$totalToPar",
+                                    text = ScoreCalculations.toParLabel(uiState.totalToPar),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (totalToPar <= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                                )
-                            }
-                        }
-                    }
-                }
-
-                if (successMessage != null) {
-                    item {
-                        hapticPerformer(HapticFeedbackHelper.HapticType.SUCCESS)
-                        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-                            Text(text = successMessage ?: "", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        }
-                    }
-                }
-
-                if (errorMessage != null) {
-                    item {
-                        hapticPerformer(HapticFeedbackHelper.HapticType.ERROR)
-                        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
-                            Text(text = errorMessage ?: "", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onErrorContainer)
-                        }
-                    }
-                }
-
-                item {
-                    TmglButton(
-                        text = if (isSubmitting) "Submitting..." else "Submit Scorecard",
-                        onClick = {
-                            isSubmitting = true
-                            errorMessage = null
-                            successMessage = null
-
-                            scope.launch {
-                                if (scorecardId == null) {
-                                    errorMessage = "No scorecard loaded"
-                                    isSubmitting = false
-                                    return@launch
-                                }
-
-                                val validHoles = holes.mapIndexedNotNull { i, s ->
-                                    val strokes = s.toIntOrNull()
-                                    if (strokes != null && strokes > 0) {
-                                        ScorecardHole(
-                                            scorecardId = scorecardId ?: "",
-                                            holeNumber = i + 1,
-                                            par = pars[i],
-                                            strokes = strokes,
-                                            scoreToPar = strokes - pars[i]
-                                        )
-                                    } else null
-                                }
-
-                                if (validHoles.isEmpty()) {
-                                    errorMessage = "Enter at least one score"
-                                    isSubmitting = false
-                                    return@launch
-                                }
-
-                                val offlineScores = validHoles.map { hole ->
-                                    PendingScore(
-                                        eventId = "",
-                                        matchId = matchId ?: "",
-                                        holeNumber = hole.holeNumber,
-                                        par = hole.par,
-                                        strokes = hole.strokes,
-                                        scoreToPar = hole.scoreToPar
-                                    )
-                                }
-
-                                val upsertResult = repository.upsertScorecardHoles(validHoles)
-                                if (upsertResult is DataResult.Error) {
-                                    for (score in offlineScores) {
-                                        OfflineScoreQueue.add(context, score)
+                                    color = if (uiState.totalToPar <= 0) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.error
                                     }
-                                    successMessage = "Saved offline (${validHoles.size} holes). Will sync when connected."
-                                    isSubmitting = false
-                                    return@launch
-                                }
-
-                                val totalStrokes = validHoles.sumOf { it.strokes }
-                                val totalToPar = validHoles.sumOf { it.scoreToPar }
-                                val updateResult = repository.updateScorecard(
-                                    scorecardId = scorecardId ?: "",
-                                    totalStrokes = totalStrokes,
-                                    totalScoreToPar = totalToPar,
-                                    status = ScorecardStatus.SUBMITTED
                                 )
-
-                                if (updateResult is DataResult.Error) {
-                                    errorMessage = updateResult.message
-                                } else {
-                                    successMessage = "Scorecard saved! (${validHoles.size} holes, $totalStrokes strokes)"
-                                }
-                                isSubmitting = false
                             }
-                        },
-                        enabled = holes.any { it.isNotEmpty() } && !isSubmitting
-                    )
+                        }
+                    }
                 }
+            }
+
+            uiState.message?.let { message ->
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        )
+                    ) {
+                        Text(
+                            text = message,
+                            modifier = Modifier.padding(16.dp),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
+            }
+
+            uiState.error?.let { error ->
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Text(
+                            text = error,
+                            modifier = Modifier.padding(16.dp),
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+            }
+
+            item {
+                TmglButton(
+                    text = if (uiState.isSubmitting) "Submitting..." else "Submit Scorecard",
+                    onClick = { scoringViewModel.submit() },
+                    enabled = !uiState.isSubmitting && uiState.holes.any { it.score != null },
+                    loading = uiState.isSubmitting
+                )
             }
         }
     }

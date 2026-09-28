@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trophy, Plus, Search, ChevronRight, AlertCircle } from 'lucide-react';
 import { Container } from '@/components/common/Container';
+import { BackLink } from '@/components/common/BackLink';
 import { Card, CardHeader, CardTitle } from '@/components/common/Card';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
@@ -51,6 +52,7 @@ export function TournamentsPage() {
 
   return (
     <Container size="lg" className="space-y-4 py-4">
+      <BackLink fallbackTo="/" label="Back" />
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">

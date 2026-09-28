@@ -5,41 +5,32 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.tmgl.league.ui.theme.*
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.tmgl.league.data.model.Course
+import com.tmgl.league.ui.components.ErrorState
+import com.tmgl.league.ui.components.LoadingIndicator
+import com.tmgl.league.ui.viewmodel.CourseSearchViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CourseSearchScreen(
     onCourseSelected: (Course) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    viewModel: CourseSearchViewModel = hiltViewModel()
 ) {
-    var searchQuery by remember { mutableStateOf("") }
-    var courses by remember { mutableStateOf<List<Course>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(false) }
+    val state by viewModel.state.collectAsState()
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Find Course") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = TmglGold
-                )
-            )
+            TmglCourseTopBar(title = "Find Course", onBack = onBack)
         }
     ) { padding ->
         Column(
@@ -48,37 +39,38 @@ fun CourseSearchScreen(
                 .padding(padding)
         ) {
             OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                label = { Text("Search courses...") },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                value = state.query,
+                onValueChange = viewModel::onQueryChanged,
+                label = { Text("Search by name or location") },
+                singleLine = true,
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
                 shape = RoundedCornerShape(12.dp)
             )
 
-            if (isLoading) {
-                Box(
+            when {
+                state.isLoading && state.courses.isEmpty() -> LoadingIndicator()
+                state.error != null && state.courses.isEmpty() -> ErrorState(
+                    message = state.error.orEmpty(),
+                    onRetry = viewModel::refresh
+                )
+                state.hasSearched && state.courses.isEmpty() -> Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = TmglGold)
+                    Text(
+                        text = "No courses match your search",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-            } else if (courses.isEmpty() && searchQuery.isNotEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("No courses found", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                }
-            } else {
-                LazyColumn(
+                else -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(courses) { course ->
+                    items(state.courses, key = { it.id }) { course ->
                         CourseCard(
                             course = course,
                             onClick = { onCourseSelected(course) }
@@ -90,6 +82,25 @@ fun CourseSearchScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun TmglCourseTopBar(title: String, onBack: () -> Unit) {
+    TopAppBar(
+        title = { Text(title) },
+        navigationIcon = {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            titleContentColor = MaterialTheme.colorScheme.onPrimary,
+            navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
+        )
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CourseCard(course: Course, onClick: () -> Unit) {
     Card(
@@ -101,31 +112,29 @@ private fun CourseCard(course: Course, onClick: () -> Unit) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = course.name,
-                fontSize = 16.sp,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = TmglGold
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "${course.city}, ${course.state}",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                text = course.displayLocation,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Row {
-                AssistChip(
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SuggestionChip(
                     onClick = {},
-                    label = { Text("${course.par} Par", fontSize = 12.sp) }
+                    label = { Text("${course.holesCount} Holes") }
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                AssistChip(
+                SuggestionChip(
                     onClick = {},
-                    label = { Text("${course.numHoles} Holes", fontSize = 12.sp) }
+                    label = { Text("Rating ${course.displayRating}") }
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                AssistChip(
+                SuggestionChip(
                     onClick = {},
-                    label = { Text("${course.rating} / ${course.slope}", fontSize = 12.sp) }
+                    label = { Text("Slope ${course.displaySlope}") }
                 )
             }
         }

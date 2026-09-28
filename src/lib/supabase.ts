@@ -1,11 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
-import { env } from '@/config/env';
+import { assertSupabaseConfig, env } from '@/config/env';
 
-/**
- * Supabase Browser Client Singleton
- * 
- * Uses publishable/anon key only. Never include service-role key.
- */
+assertSupabaseConfig();
+
 export const supabase = createClient(
   env.supabaseUrl || 'https://placeholder.supabase.co',
   env.supabaseAnonKey || 'placeholder-anon-key',

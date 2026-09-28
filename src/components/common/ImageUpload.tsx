@@ -73,9 +73,22 @@ export function ImageUpload({
 
   const handleRemove = async () => {
     if (value) {
-      const url = new URL(value);
-      const path = url.pathname.split('/object/signing/')[1] ?? value.split('/').slice(-2).join('/');
-      await deleteImage(bucket, path);
+      try {
+        const url = new URL(value);
+        const marker = `/object/public/${bucket}/`;
+        const markerIndex = url.pathname.indexOf(marker);
+        const path = markerIndex >= 0
+          ? decodeURIComponent(url.pathname.slice(markerIndex + marker.length))
+          : url.pathname.split('/').filter(Boolean).slice(-2).join('/');
+        const result = await deleteImage(bucket, path);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+      } catch {
+        setError('The image URL could not be cleaned up safely.');
+        return;
+      }
     }
     onChange(null);
     setError(null);

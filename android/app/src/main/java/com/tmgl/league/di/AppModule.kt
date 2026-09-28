@@ -8,6 +8,8 @@ import com.tmgl.league.data.offline.NetworkMonitor
 import com.tmgl.league.data.repository.AuthRepository
 import com.tmgl.league.data.repository.CompetitionRepository
 import com.tmgl.league.data.repository.CourseRepository
+import com.tmgl.league.data.repository.CurrentPlayerRepository
+import com.tmgl.league.data.repository.DeviceRepository
 import com.tmgl.league.data.repository.FriendlyMatchRepository
 import com.tmgl.league.data.repository.HandicapRepository
 import com.tmgl.league.data.repository.LeagueRepository
@@ -34,9 +36,24 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideAuthRepository(encryptedStorage: EncryptedAuthStorage): AuthRepository {
-        return AuthRepository(encryptedStorage)
+    fun provideAuthRepository(
+        encryptedStorage: EncryptedAuthStorage,
+        deviceRepository: DeviceRepository,
+        currentPlayerRepository: CurrentPlayerRepository,
+        @ApplicationContext context: Context
+    ): AuthRepository {
+        return AuthRepository(encryptedStorage, deviceRepository, currentPlayerRepository, context)
     }
+
+    @Provides
+    @Singleton
+    fun provideDeviceRepository(encryptedStorage: EncryptedAuthStorage): DeviceRepository {
+        return DeviceRepository(encryptedStorage)
+    }
+
+    @Provides
+    @Singleton
+    fun provideCurrentPlayerRepository(): CurrentPlayerRepository = CurrentPlayerRepository()
 
     @Provides
     @Singleton

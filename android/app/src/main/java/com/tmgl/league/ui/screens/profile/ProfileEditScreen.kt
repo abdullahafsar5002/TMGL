@@ -21,31 +21,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.tmgl.league.auth.EncryptedAuthStorage
 import com.tmgl.league.data.SupabaseConfig
 import androidx.compose.ui.platform.LocalContext
-import com.tmgl.league.data.repository.AuthRepository
+import com.tmgl.league.data.auth.SessionSync
+import com.tmgl.league.data.model.Profile
 import com.tmgl.league.data.repository.AuthState
 import com.tmgl.league.ui.components.*
-import com.tmgl.league.ui.theme.TmglGreen
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.launch
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-
-@Serializable
-private data class ProfileUpdate(
-    @SerialName("full_name") val fullName: String,
-    val phone: String? = null,
-    @SerialName("handicap_index") val handicapIndex: Double? = null
-)
 
 @Composable
 fun ProfileEditScreen(onBack: () -> Unit) {
     var authState by remember { mutableStateOf<AuthState>(AuthState.Loading) }
-    val context = LocalContext.current
-    val authRepository = remember { AuthRepository(EncryptedAuthStorage(context)) }
     val scope = rememberCoroutineScope()
 
     var fullName by rememberSaveable { mutableStateOf("") }
@@ -61,13 +49,23 @@ fun ProfileEditScreen(onBack: () -> Unit) {
 
     LaunchedEffect(Unit) {
         isLoading = true
-        authState = authRepository.getCurrentUser()
-        val state = authState as? AuthState.Authenticated
-        if (state != null) {
-            fullName = state.profile?.fullName ?: ""
-            phone = state.profile?.phone ?: ""
-            handicap = state.profile?.handicapIndex?.toString() ?: ""
-            avatarUrl = state.profile?.avatarUrl ?: ""
+        val snapshot = SessionSync.snapshot()
+        authState = SessionSync.toAuthState(snapshot, null)
+        val profile = snapshot?.let { id ->
+            try {
+                SupabaseConfig.client.from("profiles")
+                    .select { filter { eq("id", id.userId) } }
+                    .decodeList<Profile>()
+                    .firstOrNull()
+            } catch (_: Exception) {
+                null
+            }
+        }
+        if (snapshot != null) {
+            fullName = profile?.fullName.orEmpty()
+            phone = profile?.phone.orEmpty()
+            handicap = profile?.handicapIndex?.toString().orEmpty()
+            avatarUrl = profile?.avatarUrl.orEmpty()
         }
         isLoading = false
     }
@@ -104,12 +102,13 @@ fun ProfileEditScreen(onBack: () -> Unit) {
                             uri?.let {
                                 scope.launch {
                                     try {
-                                        val userId = SupabaseConfig.client.auth.currentUserOrNull()?.id ?: return@launch
+                                        val userId = SessionSync.authUserId() ?: return@launch
                                         val bytes = context.contentResolver.openInputStream(it)?.readBytes() ?: return@launch
                                         val ext = context.contentResolver.getType(it)?.substringAfterLast("/") ?: "jpg"
 
                                         val storageUrl = "${com.tmgl.league.BuildConfig.SUPABASE_URL}/storage/v1/object/avatars/$userId.$ext"
-                                        val accessToken = authRepository.encryptedStorage.getAccessToken() ?: com.tmgl.league.BuildConfig.SUPABASE_ANON_KEY
+                                        val accessToken = SupabaseConfig.client.auth.currentAccessTokenOrNull()
+                                            ?: com.tmgl.league.BuildConfig.SUPABASE_ANON_KEY
 
                                         val connection = java.net.URL(storageUrl).openConnection() as java.net.HttpURLConnection
                                         connection.requestMethod = "POST"
@@ -146,8 +145,8 @@ fun ProfileEditScreen(onBack: () -> Unit) {
                                 } else {
                                     Icon(Icons.Default.Person, contentDescription = "Avatar", modifier = Modifier.size(100.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                FilledIconButton(onClick = { launcher.launch("image/*") }, modifier = Modifier.size(32.dp), colors = IconButtonDefaults.filledIconButtonColors(containerColor = TmglGreen)) {
-                                    Icon(Icons.Default.CameraAlt, contentDescription = "Change photo", modifier = Modifier.size(16.dp), tint = Color.White)
+                                FilledIconButton(onClick = { launcher.launch("image/*") }, modifier = Modifier.size(32.dp), colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primary)) {
+                                    Icon(Icons.Default.CameraAlt, contentDescription = "Change photo", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimary)
                                 }
                             }
                             Spacer(Modifier.height(8.dp))

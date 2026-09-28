@@ -13,19 +13,22 @@ export interface FinalizeResult {
   trophy_winner_id: string | null;
   trophy_winner_name: string | null;
   total_scorecards: number;
+  withdrawn_players: number;
   handicaps_updated: number;
   message: string;
 }
 
 /**
  * Finalize a tournament:
- * 1. Lock all scorecards (set status to 'verified' if still 'submitted')
- * 2. Determine the winner (lowest total strokes)
- * 3. Award trophy
- * 4. Recalculate handicaps for all participants
+ * 1. Read the verified scorecards for every round
+ * 2. Determine the winner from each player's total across all rounds (net of handicap)
+ * 3. Award the champion trophy
+ * 4. Recalculate official handicap indexes from WHS differentials
+ *
+ * Verification is never bypassed: only verified cards are ranked, and a
+ * tournament with unverified cards reports them instead of silently approving.
  */
 export async function finalizeTournament(tournamentId: string): Promise<ServiceResult<FinalizeResult>> {
-  // 1. Get round IDs for this tournament
   const { data: rounds, error: roundError } = await supabase
     .from('rounds')
     .select('id')
@@ -37,113 +40,130 @@ export async function finalizeTournament(tournamentId: string): Promise<ServiceR
     return { data: null, error: 'No rounds found for this tournament.' };
   }
 
-  // 2. Get all scorecards for these rounds
   const { data: scorecards, error: scError } = await supabase
     .from('scorecards')
-    .select('id, player_id, total_strokes, status')
-    .in('round_id', roundIds)
-    .order('total_strokes', { ascending: true });
+    .select('id, player_id, total_strokes, total_score_to_par, status, dnf, players(id, full_name, handicap_index)')
+    .in('round_id', roundIds);
 
   if (scError) return { data: null, error: scError.message };
   if (!scorecards || scorecards.length === 0) {
     return { data: null, error: 'No scorecards found for this tournament.' };
   }
 
-  // 3. Auto-verify any submitted scorecards
-  const submittedIds = scorecards
-    .filter(sc => sc.status === 'submitted' || sc.status === 'in_progress')
-    .map(sc => sc.id);
-
-  if (submittedIds.length > 0) {
-    await supabase
-      .from('scorecards')
-      .update({ status: 'verified', updated_at: new Date().toISOString() })
-      .in('id', submittedIds);
+  const pending = scorecards.filter(card => card.status === 'submitted' || card.status === 'in_progress');
+  if (pending.length > 0) {
+    return {
+      data: null,
+      error: `${pending.length} scorecard${pending.length === 1 ? ' is' : 's are'} not verified yet. Verify them before finalizing.`,
+    };
   }
 
-  // 4. Determine winner (lowest strokes, skip nulls)
-  const validScorecards = scorecards
-    .filter(sc => sc.total_strokes != null)
-    .sort((a, b) => (a.total_strokes ?? Infinity) - (b.total_strokes ?? Infinity));
+  const withdrawn = scorecards.filter(card => card.dnf === true);
+  const ranked = scorecards.filter(card => card.status === 'verified' || card.status === 'amended');
+  const played = ranked.filter(card => card.total_strokes != null && card.dnf !== true);
 
-  const winner = validScorecards[0] ?? null;
+  if (played.length === 0) {
+    return { data: null, error: 'No verified scorecards with scores to finalize.' };
+  }
 
-  // 5. Award trophy if winner exists
+  const totals = new Map<string, { gross: number; toPar: number; roundsPlayed: number; name: string; handicap: number }>();
+
+  for (const card of played) {
+    const player = card.players as unknown as { id: string; full_name: string; handicap_index: number | null } | null;
+    const playerId = card.player_id as string;
+    const gross = card.total_strokes ?? 0;
+    const toPar = card.total_score_to_par ?? 0;
+    const existing = totals.get(playerId);
+
+    if (existing) {
+      existing.gross += gross;
+      existing.toPar += toPar;
+      existing.roundsPlayed += 1;
+    } else {
+      totals.set(playerId, {
+        gross,
+        toPar,
+        roundsPlayed: 1,
+        name: player?.full_name ?? 'Unknown player',
+        handicap: Number(player?.handicap_index ?? 0),
+      });
+    }
+  }
+
+  const standings = [...totals.entries()]
+    .map(([playerId, value]) => ({
+      playerId,
+      name: value.name,
+      gross: value.gross,
+      roundsPlayed: value.roundsPlayed,
+      net: value.gross - Math.max(0, Math.round(value.handicap * value.roundsPlayed)),
+    }))
+    .sort((a, b) => a.net - b.net || a.gross - b.gross);
+
+  const top = standings[0];
+  const winner = top && standings[1] && top.net === standings[1].net && top.gross === standings[1].gross ? null : top ?? null;
+
   if (winner) {
-    // Upsert a trophy record
-    await supabase
+    const { error: trophyError } = await supabase
       .from('tournament_trophies')
       .upsert({
         tournament_id: tournamentId,
-        player_id: winner.player_id,
+        player_id: winner.playerId,
         trophy_type: 'champion',
         awarded_at: new Date().toISOString(),
       }, { onConflict: 'tournament_id,trophy_type' });
+    if (trophyError) return { data: null, error: trophyError.message };
   }
 
-  // 6. Get winner name
-  let winnerName: string | null = null;
-  if (winner) {
-    const { data: player } = await supabase
-      .from('players')
-      .select('full_name')
-      .eq('id', winner.player_id)
-      .single();
-    winnerName = player?.full_name ?? null;
-  }
-
-  // 7. Recalculate handicaps for all participants
-  const playerIds = [...new Set(scorecards.map(sc => sc.player_id))];
+  const playerIds = [...totals.keys()];
   let handicapsUpdated = 0;
 
   for (const playerId of playerIds) {
-    const { data: allCards } = await supabase
-      .from('scorecards')
-      .select('total_strokes, total_score_to_par')
+    const { data: differentials, error: diffError } = await supabase
+      .from('score_differentials')
+      .select('differential')
       .eq('player_id', playerId)
-      .eq('status', 'verified')
-      .not('total_strokes', 'is', null)
-      .order('updated_at', { ascending: false })
+      .order('calculated_at', { ascending: false })
       .limit(20);
 
-    if (!allCards || allCards.length < 3) continue;
+    if (diffError) return { data: null, error: diffError.message };
+    const values = (differentials ?? [])
+      .map(row => Number(row.differential))
+      .filter(value => Number.isFinite(value));
+    if (values.length < 3) continue;
 
-    // Simple handicap: average of best 8 differentials (or fewer)
-    const differentials = allCards
-      .map(c => c.total_score_to_par)
-      .filter((d): d is number => d != null)
-      .sort((a, b) => a - b);
+    const best = [...values].sort((a, b) => a - b).slice(0, 8);
+    const average = best.reduce((sum, value) => sum + value, 0) / best.length;
+    const index = Math.max(0, Math.min(54, Math.round(average * 0.96 * 10) / 10));
 
-    const count = Math.min(differentials.length, 8);
-    if (count === 0) continue;
-
-    const avg = differentials.slice(0, count).reduce((a, b) => a + b, 0) / count;
-    const newHandicap = parseFloat(avg.toFixed(1));
-
-    await supabase
+    const { error: updateError } = await supabase
       .from('players')
-      .update({ handicap_index: newHandicap, updated_at: new Date().toISOString() })
+      .update({ handicap_index: index, updated_at: new Date().toISOString() })
       .eq('id', playerId);
+    if (updateError) return { data: null, error: updateError.message };
 
     handicapsUpdated++;
   }
 
-  // 8. Mark tournament as completed
-  await supabase
+  const { error: statusError } = await supabase
     .from('tournaments')
     .update({ status: 'completed', updated_at: new Date().toISOString() })
     .eq('id', tournamentId);
+  if (statusError) return { data: null, error: statusError.message };
+
+  const tieNote = winner ? '' : ' The top two players are tied on net and gross, so no champion trophy was awarded.';
 
   return {
     data: {
       tournament_id: tournamentId,
-      trophy_winner_id: winner?.player_id ?? null,
-      trophy_winner_name: winnerName,
+      trophy_winner_id: winner?.playerId ?? null,
+      trophy_winner_name: winner?.name ?? null,
       total_scorecards: scorecards.length,
+      withdrawn_players: withdrawn.length,
       handicaps_updated: handicapsUpdated,
       message: winner
-        ? `Tournament finalized. ${winnerName} wins with ${winner.total_strokes} strokes. ${handicapsUpdated} handicaps updated.`
-        : 'Tournament finalized. No valid scorecards to determine a winner.',
+        ? `Tournament finalized. ${winner.name} wins with ${winner.gross} strokes (net ${winner.net}).${withdrawn.length > 0 ? ` ${withdrawn.length} withdrawn scorecard${withdrawn.length === 1 ? '' : 's'} excluded.` : ''} ${handicapsUpdated} handicaps updated.${tieNote}`
+        : `Tournament finalized. No champion trophy awarded.${withdrawn.length > 0 ? ` ${withdrawn.length} withdrawn scorecard${withdrawn.length === 1 ? '' : 's'} excluded.` : ''}${tieNote}`,
     },
     error: null,
   };

@@ -10,6 +10,7 @@ import { RoundSummaryExport } from '@/components/scorecard/RoundSummaryExport';
 import { useAuth } from '@/context/AuthContext';
 import { canManageLeague } from '@/lib/roleGuards';
 import { getScorecard, getScorecardHoles, getRound, getTournament } from '@/lib/competition';
+import { getCourse, getPlayerByAuthUserId } from '@/lib/league';
 import { supabase } from '@/lib/supabase';
 import { computeScorecardSummary } from '@/lib/scoring';
 import { formatToPar } from '@/utils/golf';
@@ -27,6 +28,7 @@ export function ScorecardPage() {
   const [holes, setHoles] = useState<ScorecardHole[]>([]);
   const [playerName, setPlayerName] = useState('');
   const [roundName, setRoundName] = useState('');
+  const [courseName, setCourseName] = useState('');
   const [tournamentId, setTournamentId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +37,9 @@ export function ScorecardPage() {
   const [activeHole, setActiveHole] = useState<number | null>(null);
   const [noteText, setNoteText] = useState('');
   const [isSavingNote, setIsSavingNote] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
   const [courseId, setCourseId] = useState<string | null>(null);
+  const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
 
   const canManage = canManageLeague(profile?.role);
 
@@ -43,26 +47,48 @@ export function ScorecardPage() {
     if (!id) return;
     setIsLoading(true);
     setError(null);
-    const [scRes, holesRes] = await Promise.all([getScorecard(id), getScorecardHoles(id)]);
-    if (scRes.error || !scRes.data) { setError(scRes.error || 'Scorecard not found'); setIsLoading(false); return; }
+    const [scRes, holesRes, ownPlayerRes] = await Promise.all([
+      getScorecard(id),
+      getScorecardHoles(id),
+      profile ? getPlayerByAuthUserId(profile.id) : Promise.resolve({ data: null, error: null } as const),
+    ]);
+    if (scRes.error || !scRes.data) {
+      setError(scRes.error || 'Scorecard not found');
+      setIsLoading(false);
+      return;
+    }
     setScorecard(scRes.data);
-    if (holesRes.data) {
-      setHoles(holesRes.data);
+    if (holesRes.error) setError(holesRes.error);
+    else setHoles(holesRes.data ?? []);
+    if (ownPlayerRes.data) setCurrentPlayerId(ownPlayerRes.data.id);
+
+    const roundResult = await getRound(scRes.data.round_id);
+    if (roundResult.error) setError(roundResult.error);
+    if (roundResult.data) {
+      setRoundName(`Round ${roundResult.data.round_number}: ${roundResult.data.name}`);
+      const tournamentResult = await getTournament(roundResult.data.tournament_id);
+      if (tournamentResult.error) setError(tournamentResult.error);
+      if (tournamentResult.data) setTournamentId(tournamentResult.data.id);
     }
 
-    const rRes = await getRound(scRes.data.round_id);
-    if (rRes.data) {
-      setRoundName(`Round ${rRes.data.round_number}: ${rRes.data.name}`);
-      setCourseId(rRes.data.course_id ?? null);
-      const tRes = await getTournament(rRes.data.tournament_id);
-      if (tRes.data) setTournamentId(tRes.data.id);
+    const courseIdFromScorecard = scRes.data.course_id;
+    setCourseId(courseIdFromScorecard);
+    if (courseIdFromScorecard) {
+      const courseResult = await getCourse(courseIdFromScorecard);
+      if (courseResult.error) setError(courseResult.error);
+      if (courseResult.data) setCourseName(courseResult.data.name);
     }
 
-    const { data: player } = await supabase.from('players').select('full_name').eq('id', scRes.data!.player_id).single();
+    const { data: player, error: playerError } = await supabase
+      .from('players')
+      .select('full_name')
+      .eq('id', scRes.data.player_id)
+      .single();
+    if (playerError) setError(playerError.message);
     if (player) setPlayerName(player.full_name);
 
     setIsLoading(false);
-  }, [id]);
+  }, [id, profile]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -74,17 +100,19 @@ export function ScorecardPage() {
     
     setActiveHole(holeNumber);
     setNoteText('');
+    setNoteError(null);
 
     if (!courseId || !scorecard) return;
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('course_notes')
       .select('note_text')
       .eq('player_id', scorecard.player_id)
       .eq('course_id', courseId)
       .eq('hole_number', holeNumber)
-      .single();
+      .maybeSingle();
 
+    if (error) setNoteError(error.message);
     if (data) setNoteText(data.note_text);
   };
 
@@ -103,7 +131,9 @@ export function ScorecardPage() {
       });
 
     if (error) {
-      console.error('Error saving note:', error);
+      setNoteError(error.message);
+    } else {
+      setNoteError(null);
     }
     setIsSavingNote(false);
   };
@@ -121,6 +151,7 @@ export function ScorecardPage() {
   );
 
   const summary = computeScorecardSummary(holes);
+  const canEdit = canManage || currentPlayerId === scorecard.player_id;
 
   return (
     <Container size="lg" className="space-y-4 py-4">
@@ -134,7 +165,8 @@ export function ScorecardPage() {
             <FileText className="w-5 h-5 text-tmgl-green-800" /> Scorecard
           </h1>
           {playerName && <p className="text-sm text-tmgl-charcoal-500 mt-0.5">{playerName}</p>}
-          {roundName && <p className="text-xs text-tmgl-charcoal-400 mt-0.5">{roundName}</p>}
+           {roundName && <p className="mt-0.5 text-xs text-tmgl-charcoal-500">{roundName}</p>}
+           {courseName && <p className="mt-0.5 text-xs text-tmgl-charcoal-400">{courseName}</p>}
         </div>
         <Badge variant={STATUS_VARIANTS[scorecard.status]}>{scorecard.status?.replace('_', ' ')}</Badge>
       </div>
@@ -181,7 +213,7 @@ export function ScorecardPage() {
         <RoundSummaryExport
           data={{
             playerName: playerName || 'Player',
-            courseName: roundName || 'Course',
+             courseName: courseName || 'Course',
             roundDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
             holes,
           }}
@@ -198,18 +230,18 @@ export function ScorecardPage() {
                   <span>Hole</span><span className="text-center">Par</span><span className="text-center">Strokes</span><span className="text-right">To Par</span>
                 </div>
                 {holes.filter((h) => h.hole_number <= 9).map((h) => (
-                  <div key={h.id} 
-                    onClick={() => handleHoleClick(h.hole_number)}
-                    className={`grid grid-cols-4 gap-2 px-3 py-2 bg-white rounded-lg border transition-colors cursor-pointer ${activeHole === h.hole_number ? 'border-tmgl-green-500 bg-green-50' : 'border-tmgl-charcoal-100'} text-sm`}
-                  >
+                   <button type="button" key={h.id}
+                     onClick={() => handleHoleClick(h.hole_number)}
+                     className={`grid w-full grid-cols-4 gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${activeHole === h.hole_number ? 'border-tmgl-gold-500 bg-tmgl-gold-50' : 'border-tmgl-charcoal-100 bg-white'}`}
+                   >
                     <span className="font-medium">{h.hole_number}</span>
                     <span className="text-center text-tmgl-charcoal-500">{h.par}</span>
                     <span className="text-center font-semibold">{h.strokes}</span>
-                    <span className={`text-right font-bold ${h.score_to_par <= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                      {formatToPar(h.score_to_par)}
-                    </span>
-                  </div>
-                ))}
+                     <span className={`text-right font-bold ${h.score_to_par <= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                       {formatToPar(h.score_to_par)}
+                     </span>
+                   </button>
+                 ))}
               </div>
 
               {holes.some((h) => h.hole_number > 9) && (
@@ -220,18 +252,18 @@ export function ScorecardPage() {
                       <span>Hole</span><span className="text-center">Par</span><span className="text-center">Strokes</span><span className="text-right">To Par</span>
                     </div>
                     {holes.filter((h) => h.hole_number > 9).map((h) => (
-                      <div key={h.id} 
-                        onClick={() => handleHoleClick(h.hole_number)}
-                        className={`grid grid-cols-4 gap-2 px-3 py-2 bg-white rounded-lg border transition-colors cursor-pointer ${activeHole === h.hole_number ? 'border-tmgl-green-500 bg-green-50' : 'border-tmgl-charcoal-100'} text-sm`}
-                      >
+                       <button type="button" key={h.id}
+                         onClick={() => handleHoleClick(h.hole_number)}
+                         className={`grid w-full grid-cols-4 gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${activeHole === h.hole_number ? 'border-tmgl-gold-500 bg-tmgl-gold-50' : 'border-tmgl-charcoal-100 bg-white'}`}
+                       >
                         <span className="font-medium">{h.hole_number}</span>
                         <span className="text-center text-tmgl-charcoal-500">{h.par}</span>
                         <span className="text-center font-semibold">{h.strokes}</span>
-                        <span className={`text-right font-bold ${h.score_to_par <= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                          {formatToPar(h.score_to_par)}
-                        </span>
-                      </div>
-                    ))}
+                         <span className={`text-right font-bold ${h.score_to_par <= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                           {formatToPar(h.score_to_par)}
+                         </span>
+                       </button>
+                     ))}
                   </div>
                 </>
               )}
@@ -260,11 +292,12 @@ export function ScorecardPage() {
                   placeholder="Example: Aim left of the bunker, 140 yards to pin..."
                   className="w-full p-3 text-sm rounded-lg border border-tmgl-charcoal-200 min-h-[120px] focus:outline-none focus:ring-2 focus:ring-tmgl-green-700"
                 />
-                <Button 
-                  onClick={saveNote} 
-                  disabled={isSavingNote}
-                  className="w-full bg-tmgl-green-800 hover:bg-tmgl-green-700 text-white"
-                >
+                 {noteError && <p role="alert" className="text-sm text-red-700">{noteError}</p>}
+                 <Button
+                   onClick={saveNote}
+                   disabled={isSavingNote}
+                   className="w-full bg-tmgl-green-800 hover:bg-tmgl-green-700 text-white"
+                 >
                   {isSavingNote ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                   Save Note
                 </Button>
@@ -275,7 +308,7 @@ export function ScorecardPage() {
       </div>
 
       <div className="flex gap-3 flex-wrap">
-        {canManage && scorecard.status !== 'verified' && (
+        {canEdit && !['verified', 'rejected'].includes(scorecard.status) && (
           <Button variant="primary" size="sm" onClick={() => navigate(`/scoring?round_id=${scorecard.round_id}&player_id=${scorecard.player_id}`)} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
             <Edit3 className="w-4 h-4 mr-1.5" /> Edit Scorecard
           </Button>

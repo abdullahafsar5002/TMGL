@@ -8,7 +8,7 @@ import { Button } from '@/components/common/Button';
 import { LoadingState } from '@/components/common/LoadingState';
 import { Badge } from '@/components/common/Badge';
 import { useToast } from '@/context/ToastContext';
-import { getPlayerByProfileId } from '@/lib/league';
+import { getPlayerByAuthUserId } from '@/lib/league';
 import {
   getFriendlyMatch,
   getFriendlyMatchPlayers,
@@ -17,6 +17,7 @@ import {
   updateFriendlyMatchPlayerResult,
   getMatchFormatLabel,
   calculateStablefordPoints,
+  calculateFriendlyScore,
 } from '@/lib/friendly';
 import { formatToPar } from '@/utils/golf';
 import type { FriendlyMatch, FriendlyMatchPlayer, CourseHole } from '@/types/database';
@@ -43,6 +44,7 @@ export default function FriendlyMatchScorePage() {
   const [matchPlayer, setMatchPlayer] = useState<FriendlyMatchPlayer | null>(null);
   const [entries, setEntries] = useState<HoleEntry[]>([]);
   const [activeHole, setActiveHole] = useState(1);
+  const handicapIndex = matchPlayer?.handicap_index ?? null;
 
   const isEditable = match?.status === 'active';
 
@@ -51,7 +53,7 @@ export default function FriendlyMatchScorePage() {
     setLoading(true);
 
     try {
-      const playerResult = await getPlayerByProfileId(user.id);
+      const playerResult = await getPlayerByAuthUserId(user.id);
       if (playerResult.error || !playerResult.data) {
         setError('Player profile not found.');
         return;
@@ -84,9 +86,17 @@ export default function FriendlyMatchScorePage() {
         .select('*')
         .eq('course_id', matchResult.data.course_id)
         .order('hole_number');
-      const holesData = (courseHolesResult.data ?? []) as CourseHole[];
+       if (courseHolesResult.error) {
+         setError(courseHolesResult.error.message);
+         return;
+       }
+       const holesData = (courseHolesResult.data ?? []) as CourseHole[];
 
       const scoresResult = await getFriendlyMatchScores(myPlayer.id);
+      if (scoresResult.error) {
+        setError(scoresResult.error);
+        return;
+      }
       const existingScores = scoresResult.data ?? [];
 
       const totalHoles = matchResult.data.round_type;
@@ -120,6 +130,20 @@ export default function FriendlyMatchScorePage() {
   const totalScore = scoredEntries.reduce((sum, e) => sum + parseInt(e.score, 10), 0);
   const totalPar = scoredEntries.reduce((sum, e) => sum + e.par, 0);
   const toPar = scoredEntries.length > 0 ? totalScore - totalPar : 0;
+  const matchFormat = match?.match_format ?? 'stroke_play';
+  const resultScore = matchFormat === 'stableford'
+    ? scoredEntries.reduce(
+      (sum, entry) => sum + calculateFriendlyScore(
+        parseInt(entry.score, 10),
+        entry.par,
+        handicapIndex,
+        matchFormat
+      ),
+      0
+    )
+    : scoredEntries.length > 0
+      ? calculateFriendlyScore(totalScore, totalPar, handicapIndex, matchFormat)
+      : 0;
   const totalStableford = match?.match_format === 'stableford'
     ? scoredEntries.reduce((sum, e) => sum + calculateStablefordPoints(parseInt(e.score, 10), e.par), 0)
     : null;
@@ -179,13 +203,17 @@ export default function FriendlyMatchScorePage() {
         return;
       }
 
-      await updateFriendlyMatchPlayerResult(matchPlayer.id, {
-        score: totalScore,
+      const result = await updateFriendlyMatchPlayerResult(matchPlayer.id, {
+        score: resultScore,
         to_par: toPar,
       });
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
 
       toast.success('Scorecard submitted!');
-      navigate(`/friendly/${match.id}`);
+      navigate(`/friendly-matches/${match.id}`);
     } catch {
       setError('Failed to complete scorecard.');
     } finally {

@@ -3,8 +3,9 @@ package com.tmgl.league.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tmgl.league.data.SupabaseConfig
+import com.tmgl.league.data.auth.SessionSync
+import com.tmgl.league.data.repository.CurrentPlayerRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +23,9 @@ data class HomeUiState(
 )
 
 @HiltViewModel
-class HomeViewModel @Inject constructor() : ViewModel() {
+class HomeViewModel @Inject constructor(
+    private val currentPlayerRepository: CurrentPlayerRepository
+) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState
 
@@ -48,8 +51,8 @@ class HomeViewModel @Inject constructor() : ViewModel() {
 
     private suspend fun fetchHomeData() {
         try {
-            val userId = SupabaseConfig.client.auth.currentUserOrNull()?.id
-            if (userId == null) {
+            val authUserId = SessionSync.authUserId()
+            if (authUserId.isNullOrBlank()) {
                 _uiState.value = _uiState.value.copy(
                     userName = "Player",
                     handicap = "--",
@@ -59,35 +62,44 @@ class HomeViewModel @Inject constructor() : ViewModel() {
                 return
             }
 
+            val playerId = currentPlayerRepository.getCurrentPlayerId()
             val profile = SupabaseConfig.client.from("profiles")
-                .select { filter { eq("id", userId) } }
+                .select { filter { eq("id", authUserId) } }
                 .decodeList<Map<String, Any>>()
                 .firstOrNull()
 
             val userName = profile?.get("full_name")?.toString() ?: "Player"
             val handicap = profile?.get("handicap_index")?.toString() ?: "--"
 
-            val rounds = SupabaseConfig.client.from("practice_rounds")
-                .select { filter { eq("user_id", userId) } }
-                .decodeList<Map<String, Any>>()
-
-            val recentScores = try {
-                val scorecards = SupabaseConfig.client.from("scorecards")
-                    .select {
-                        filter { eq("player_id", userId) }
-                        order("created_at", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
-                        limit(5)
-                    }
-                    .decodeList<Map<String, Any>>()
-                scorecards.map { sc ->
-                    val total = sc["total_strokes"]?.toString() ?: "0"
-                    val toPar = sc["total_score_to_par"]?.toString()?.toIntOrNull() ?: 0
-                    val label = sc["status"]?.toString() ?: "Round"
-                    val score = if (toPar == 0) "E" else if (toPar > 0) "+$toPar" else "$toPar"
-                    label to "$total ($score)"
-                }
-            } catch (_: Exception) {
+            val rounds = if (playerId.isNullOrBlank()) {
                 emptyList()
+            } else {
+                SupabaseConfig.client.from("practice_rounds")
+                    .select { filter { eq("player_id", playerId) } }
+                    .decodeList<Map<String, Any>>()
+            }
+
+            val recentScores = if (playerId.isNullOrBlank()) {
+                emptyList()
+            } else {
+                try {
+                    val scorecards = SupabaseConfig.client.from("scorecards")
+                        .select {
+                            filter { eq("player_id", playerId) }
+                            order("created_at", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+                            limit(5)
+                        }
+                        .decodeList<Map<String, Any>>()
+                    scorecards.map { sc ->
+                        val total = sc["total_strokes"]?.toString() ?: "0"
+                        val toPar = sc["total_score_to_par"]?.toString()?.toIntOrNull() ?: 0
+                        val label = sc["status"]?.toString() ?: "Round"
+                        val score = if (toPar == 0) "E" else if (toPar > 0) "+$toPar" else "$toPar"
+                        label to "$total ($score)"
+                    }
+                } catch (_: Exception) {
+                    emptyList()
+                }
             }
 
             _uiState.value = _uiState.value.copy(

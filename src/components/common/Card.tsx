@@ -7,10 +7,10 @@ export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export function Card({ className, variant = 'default', children, ...props }: CardProps) {
   const variants = {
-    default: 'bg-white border border-tmgl-charcoal-200 shadow-sm',
-    elevated: 'bg-white shadow-md border border-tmgl-charcoal-100',
-    bordered: 'bg-white border-2 border-tmgl-charcoal-200',
-    hover: 'bg-white border border-tmgl-charcoal-200 shadow-sm hover:shadow-md',
+    default: 'bg-white border border-tmgl-charcoal-800 shadow-sm',
+    elevated: 'bg-white shadow-lg border border-tmgl-charcoal-700',
+    bordered: 'bg-white border-2 border-tmgl-charcoal-700',
+    hover: 'bg-white border border-tmgl-charcoal-700 shadow-sm hover:border-tmgl-gold-500 hover:shadow-md',
   };
 
   return (

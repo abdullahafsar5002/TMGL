@@ -19,11 +19,23 @@ sealed class Screen(val route: String) {
     data object MatchDetail : Screen("matches/{id}") {
         fun createRoute(id: String) = "matches/$id"
     }
-    data object Scoring : Screen("scoring?match_id={matchId}") {
-        fun createRoute(matchId: String? = null) = if (matchId != null) "scoring?match_id=$matchId" else "scoring"
+    data object Scoring : Screen("scoring?round_id={roundId}&match_id={matchId}") {
+        fun createRoute(roundId: String? = null, matchId: String? = null): String {
+            val params = buildList {
+                roundId?.let { add("round_id=$it") }
+                matchId?.let { add("match_id=$it") }
+            }
+            return if (params.isEmpty()) "scoring" else "scoring?${params.joinToString("&")}"
+        }
     }
-    data object FastScoring : Screen("fast_scoring?match_id={matchId}") {
-        fun createRoute(matchId: String? = null) = if (matchId != null) "fast_scoring?match_id=$matchId" else "fast_scoring"
+    data object FastScoring : Screen("fast_scoring?round_id={roundId}&match_id={matchId}") {
+        fun createRoute(roundId: String? = null, matchId: String? = null): String {
+            val params = buildList {
+                roundId?.let { add("round_id=$it") }
+                matchId?.let { add("match_id=$it") }
+            }
+            return if (params.isEmpty()) "fast_scoring" else "fast_scoring?${params.joinToString("&")}"
+        }
     }
     data object Leaderboard : Screen("leaderboard")
     data object Players : Screen("players")
@@ -69,9 +81,6 @@ sealed class Screen(val route: String) {
     data object SeasonStandings : Screen("season_standings")
     data object Flights : Screen("flights/{tournamentId}") {
         fun createRoute(tournamentId: String) = "flights/$tournamentId"
-    }
-    data object SideGames : Screen("side_games/{tournamentId}") {
-        fun createRoute(tournamentId: String) = "side_games/$tournamentId"
     }
     data object ScoreVerification : Screen("score_verification/{roundId}") {
         fun createRoute(roundId: String) = "score_verification/$roundId"

@@ -3,57 +3,64 @@ package com.tmgl.league.ui.theme
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 val LocalDarkMode = staticCompositionLocalOf { false }
 
 private val LightColorScheme = lightColorScheme(
-    primary = TmglGreen,
-    onPrimary = SurfaceLight,
-    primaryContainer = TmglGreenLight,
-    onPrimaryContainer = SurfaceLight,
-    secondary = TmglGold,
-    onSecondary = TmglCharcoal,
+    primary = TmglOnyx,
+    onPrimary = TmglPlatinum,
+    primaryContainer = TmglSlate,
+    onPrimaryContainer = TmglPlatinum,
+    secondary = TmglGoldMuted,
+    onSecondary = TmglPlatinum,
     secondaryContainer = TmglGoldLight,
-    onSecondaryContainer = TmglCharcoal,
-    tertiary = TmglEmerald,
-    onTertiary = SurfaceLight,
-    tertiaryContainer = Color(0xFFE8F5E9),
-    onTertiaryContainer = TmglGreenDark,
+    onSecondaryContainer = TmglGoldDeep,
+    tertiary = TmglGoldDeep,
+    onTertiary = TmglPlatinum,
+    tertiaryContainer = TmglGoldLight,
+    onTertiaryContainer = TmglGoldDeep,
     background = BackgroundLight,
     onBackground = OnSurfaceLight,
     surface = SurfaceLight,
     onSurface = OnSurfaceLight,
-    surfaceVariant = Color(0xFFF3F4F6),
+    surfaceVariant = SurfaceVariantLight,
     onSurfaceVariant = TmglCharcoalLight,
     outline = OutlineLight,
+    outlineVariant = Color(0xFFE6E0D2),
     error = OutOfBounds,
-    onError = SurfaceLight
+    onError = TmglPlatinum,
+    errorContainer = Color(0xFFF9DEDC),
+    onErrorContainer = Color(0xFF410E0B)
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = TmglEmerald,
-    onPrimary = SurfaceLight,
-    primaryContainer = TmglGreen,
-    onPrimaryContainer = SurfaceLight,
+    primary = TmglGraphite,
+    onPrimary = TmglGoldLight,
+    primaryContainer = TmglSlate,
+    onPrimaryContainer = TmglGoldLight,
     secondary = TmglGold,
-    onSecondary = TmglCharcoal,
-    secondaryContainer = TmglGoldMuted,
-    onSecondaryContainer = SurfaceLight,
-    tertiary = Water,
-    onTertiary = SurfaceLight,
-    tertiaryContainer = Color(0xFF1A2A3E),
-    onTertiaryContainer = Water,
+    onSecondary = TmglOnyx,
+    secondaryContainer = TmglGoldDeep,
+    onSecondaryContainer = TmglGoldLight,
+    tertiary = TmglGoldBright,
+    onTertiary = TmglOnyx,
+    tertiaryContainer = TmglGraphite,
+    onTertiaryContainer = TmglGoldLight,
     background = BackgroundDark,
     onBackground = OnSurfaceDark,
     surface = SurfaceDark,
     onSurface = OnSurfaceDark,
-    surfaceVariant = Color(0xFF242A38),
-    onSurfaceVariant = OnSurfaceDark.copy(alpha = 0.7f),
+    surfaceVariant = SurfaceVariantDark,
+    onSurfaceVariant = Color(0xFFCDC9BE),
     outline = OutlineDark,
-    error = OutOfBounds,
-    onError = SurfaceLight
+    outlineVariant = Color(0xFF2C2C35),
+    error = Color(0xFFF2B8B5),
+    onError = Color(0xFF601410),
+    errorContainer = Color(0xFF8C1D18),
+    onErrorContainer = Color(0xFFF9DEDC)
 )
 
 @Composable
@@ -63,7 +70,7 @@ fun TmglTheme(
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
-    androidx.compose.runtime.CompositionLocalProvider(LocalDarkMode provides darkTheme) {
+    CompositionLocalProvider(LocalDarkMode provides darkTheme) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = TmglTypography,

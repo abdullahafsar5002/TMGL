@@ -13,18 +13,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.tmgl.league.ui.theme.*
 import com.tmgl.league.data.model.StablefordPoints
 import com.tmgl.league.data.repository.ScoringFormatsRepository
+import com.tmgl.league.ui.viewmodel.ScoringFormatsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StablefordScorecardScreen(
     playerName: String,
     holes: List<StablefordHoleScore>,
+    repository: ScoringFormatsRepository = hiltViewModel<ScoringFormatsViewModel>().repository,
     onBack: () -> Unit
 ) {
-    val repository = remember { ScoringFormatsRepository() }
     val totalPoints = holes.sumOf { repository.calculateStableford(it.score, it.par) }
 
     Scaffold(

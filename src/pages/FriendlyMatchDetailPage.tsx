@@ -9,7 +9,7 @@ import { LoadingState } from '@/components/common/LoadingState';
 import { Badge } from '@/components/common/Badge';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useToast } from '@/context/ToastContext';
-import { getPlayerByProfileId, getPlayers } from '@/lib/league';
+import { getPlayerByAuthUserId, getPlayers } from '@/lib/league';
 import {
   getFriendlyMatch,
   getFriendlyMatchPlayers,
@@ -23,10 +23,10 @@ import {
 import type { FriendlyMatch, FriendlyMatchPlayer, Player } from '@/types/database';
 
 const STATUS_VARIANTS: Record<string, 'default' | 'success' | 'warning' | 'info' | 'danger'> = {
-  pending: 'info',
+  in_progress: 'info',
   active: 'warning',
   completed: 'success',
-  cancelled: 'danger',
+  rejected: 'danger',
 };
 
 const INVITATION_VARIANTS: Record<string, 'default' | 'success' | 'warning' | 'danger'> = {
@@ -63,7 +63,7 @@ export default function FriendlyMatchDetailPage() {
     setLoading(true);
 
     try {
-      const playerResult = await getPlayerByProfileId(user.id);
+      const playerResult = await getPlayerByAuthUserId(user.id);
       if (playerResult.error || !playerResult.data) {
         setError('Player profile not found.');
         return;
@@ -110,19 +110,19 @@ export default function FriendlyMatchDetailPage() {
     }
   }
 
-  async function handleCancelMatch() {
+  async function handleRejectMatch() {
     if (!id) return;
     setActionLoading(true);
     try {
-      const result = await updateFriendlyMatch(id, { status: 'cancelled' });
+      const result = await updateFriendlyMatch(id, { status: 'rejected' });
       if (result.error) {
         setError(result.error);
         return;
       }
       setMatch(result.data);
-      toast.success('Match cancelled.');
+      toast.info('Match rejected.');
     } catch {
-      setError('Failed to cancel match.');
+      setError('Failed to reject match.');
     } finally {
       setActionLoading(false);
     }
@@ -135,7 +135,7 @@ export default function FriendlyMatchDetailPage() {
       setError(result.error);
     } else {
       toast.success('Match deleted.');
-      navigate('/friendly');
+      navigate('/friendly-matches');
     }
   }
 
@@ -200,7 +200,7 @@ export default function FriendlyMatchDetailPage() {
     if (result.error) {
       setError(result.error);
     } else {
-      setPlayers(prev => prev.filter(p => p.player_id !== playerId) as FriendlyMatchPlayer[]);
+      setPlayers(prev => prev.filter(p => p.player_id !== playerId));
       toast.info('Player removed.');
     }
   }
@@ -256,7 +256,7 @@ export default function FriendlyMatchDetailPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Participants ({players.length})</CardTitle>
-                {isCreator && match.status === 'pending' && (
+                {isCreator && match.status === 'in_progress' && (
                   <Button variant="outline" size="sm" onClick={() => setShowInviteDialog(true)}>
                     <UserPlus className="h-4 w-4 mr-1" />
                     Invite
@@ -274,13 +274,16 @@ export default function FriendlyMatchDetailPage() {
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
                           <span className="text-sm font-medium text-green-700">
-                            {(p as unknown as { players?: { full_name?: string } }).players?.full_name?.charAt(0) ?? '?'}
+                            {p.player?.full_name?.charAt(0) ?? '?'}
                           </span>
                         </div>
                         <div>
                           <p className="font-medium text-gray-900">
-                            {(p as unknown as { players?: { full_name?: string } }).players?.full_name ?? 'Unknown Player'}
+                            {p.player?.full_name ?? 'Unknown Player'}
                           </p>
+                          {p.handicap_index !== null && (
+                            <p className="text-xs text-gray-500">Handicap {p.handicap_index}</p>
+                          )}
                           {p.joined_at && (
                             <p className="text-xs text-gray-500">Joined {new Date(p.joined_at).toLocaleDateString()}</p>
                           )}
@@ -293,7 +296,7 @@ export default function FriendlyMatchDetailPage() {
                         {p.score !== null && (
                           <span className="font-bold text-gray-900">{p.score}</span>
                         )}
-                        {isCreator && match.status === 'pending' && p.invitation_status === 'pending' && (
+                        {isCreator && match.status === 'in_progress' && p.invitation_status === 'pending' && (
                           <Button variant="ghost" size="sm" onClick={() => handleRemovePlayer(p.player_id)}>
                             <X className="h-4 w-4" />
                           </Button>
@@ -333,14 +336,14 @@ export default function FriendlyMatchDetailPage() {
           </Card>
 
           <div className="space-y-2">
-            {match.status === 'pending' && isCreator && allAccepted && players.length > 0 && (
+            {match.status === 'in_progress' && isCreator && allAccepted && players.length > 0 && (
               <Button variant="primary" fullWidth onClick={handleStartMatch} disabled={actionLoading}>
                 <Play className="h-4 w-4 mr-2" />
                 {actionLoading ? 'Starting...' : 'Start Match'}
               </Button>
             )}
 
-            {match.status === 'pending' && isParticipant && myInvitation?.invitation_status === 'pending' && (
+            {match.status === 'in_progress' && isParticipant && myInvitation?.invitation_status === 'pending' && (
               <>
                 <Button variant="primary" fullWidth onClick={handleAcceptInvitation} disabled={actionLoading}>
                   Accept Invitation
@@ -352,17 +355,17 @@ export default function FriendlyMatchDetailPage() {
             )}
 
             {(match.status === 'active' || match.status === 'completed') && isParticipant && myInvitation && (
-              <Link to={`/friendly/${match.id}/score`}>
+              <Link to={`/friendly-matches/${match.id}/score`}>
                 <Button variant="primary" fullWidth>
                   {match.status === 'active' ? 'Enter Scores' : 'View Scorecard'}
                 </Button>
               </Link>
             )}
 
-            {match.status === 'pending' && isCreator && (
+            {match.status === 'in_progress' && isCreator && (
               <>
-                <Button variant="outline" fullWidth onClick={handleCancelMatch} disabled={actionLoading}>
-                  Cancel Match
+              <Button variant="outline" fullWidth onClick={handleRejectMatch} disabled={actionLoading}>
+                Reject Match
                 </Button>
                 <Button variant="danger" fullWidth onClick={() => setShowDeleteConfirm(true)}>
                   <Trash2 className="h-4 w-4 mr-2" />

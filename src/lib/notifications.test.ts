@@ -90,7 +90,7 @@ describe('Notifications Service', () => {
     it('returns a Promise', () => {
       const result = createNotification({
         recipient_id: 'test',
-        type: 'test',
+        type: 'system',
         title: 'Test',
         message: 'Test message',
       });
@@ -100,7 +100,7 @@ describe('Notifications Service', () => {
     it('returns ServiceResult shape', async () => {
       const result = await createNotification({
         recipient_id: 'nonexistent',
-        type: 'test',
+        type: 'system',
         title: 'Test',
         message: 'Test',
       });

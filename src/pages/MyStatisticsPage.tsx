@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Container } from '@/components/common/Container';
+import { Button } from '@/components/common/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/common/Card';
 import { EmptyState } from '@/components/common/EmptyState';
 import { LoadingState } from '@/components/common/LoadingState';
@@ -10,26 +11,28 @@ import { StatPieChart } from '@/components/common/StatPieChart';
 import { PerformanceChart } from '@/components/common/PerformanceChart';
 import { StatsChart } from '@/components/common/StatsChart';
 import { AdvancedAnalytics } from '@/components/analytics/AdvancedAnalytics';
-import { getPlayerByProfileId } from '@/lib/league';
-import { getPlayerStatistics } from '@/lib/statistics';
+import { getPlayerByAuthUserId } from '@/lib/league';
+import { getPlayerStatistics, refreshPlayerStatistics } from '@/lib/statistics';
 import { supabase } from '@/lib/supabase';
 import { formatToPar } from '@/utils/golf';
 import type { PlayerStatistics, PracticeRound } from '@/types/database';
 
 export default function MyStatisticsPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<PlayerStatistics | null>(null);
   const [recentRounds, setRecentRounds] = useState<PracticeRound[]>([]);
   const [playerId, setPlayerId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
+    setError(null);
 
     try {
-      const playerResult = await getPlayerByProfileId(user.id);
+      const playerResult = await getPlayerByAuthUserId(profile?.id ?? user.id);
       if (playerResult.error || !playerResult.data) {
         setError('Player profile not found.');
         return;
@@ -52,22 +55,48 @@ export default function MyStatisticsPage() {
         return;
       }
       if (statsResult.data) setStats(statsResult.data);
-      setRecentRounds((roundsResult.data ?? []) as PracticeRound[]);
+      if (roundsResult.error) setError(roundsResult.error.message);
+      setRecentRounds((roundsResult.data ?? []) as unknown as PracticeRound[]);
     } catch {
       setError('Failed to load statistics.');
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, profile]);
+
+  const handleRefresh = async () => {
+    if (!playerId) return;
+    setRefreshing(true);
+    setError(null);
+    const result = await refreshPlayerStatistics(playerId);
+    if (result.error) setError(result.error);
+    else setStats(result.data);
+    setRefreshing(false);
+  };
 
   useEffect(() => { loadData(); }, [loadData]);
 
   if (loading) return <LoadingState message="Loading statistics..." />;
 
+  if (error && !stats) {
+    return (
+      <Container className="py-8">
+        <h1 className="mb-6 text-3xl font-bold text-tmgl-charcoal-950">My Statistics</h1>
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">{error}</div>
+      </Container>
+    );
+  }
+
   if (!stats || stats.rounds_played === 0) {
     return (
       <Container className="py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">My Statistics</h1>
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-3xl font-bold text-tmgl-charcoal-950">My Statistics</h1>
+        <Button variant="outline" size="sm" onClick={() => void handleRefresh()} disabled={refreshing || !playerId}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Refreshing...' : 'Refresh statistics'}
+        </Button>
+      </div>
         <EmptyState
           icon={BarChart3}
           title="No statistics yet"
@@ -101,7 +130,13 @@ export default function MyStatisticsPage() {
 
   return (
     <Container className="py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">My Statistics</h1>
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-3xl font-bold text-tmgl-charcoal-950">My Statistics</h1>
+        <Button variant="outline" size="sm" onClick={() => void handleRefresh()} disabled={refreshing || !playerId}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Refreshing...' : 'Refresh statistics'}
+        </Button>
+      </div>
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>

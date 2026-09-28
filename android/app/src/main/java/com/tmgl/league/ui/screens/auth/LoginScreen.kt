@@ -22,7 +22,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.tmgl.league.R
 import com.tmgl.league.ui.components.TmglButton
 import com.tmgl.league.ui.components.TmglTextField
-import com.tmgl.league.ui.theme.TmglGreen
 import com.tmgl.league.ui.viewmodel.AuthViewModel
 
 @Composable
@@ -40,7 +39,7 @@ fun LoginScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(TmglGreen)
+            .background(MaterialTheme.colorScheme.primary)
             .verticalScroll(rememberScrollState())
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally

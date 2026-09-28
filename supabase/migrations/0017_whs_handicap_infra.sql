@@ -33,69 +33,11 @@ ALTER TABLE public.score_differentials ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Players can view their own differentials" ON public.score_differentials;
 CREATE POLICY "Players can view their own differentials" 
-ON public.score_differentials FOR SELECT 
-USING (
-    EXISTS (
-        SELECT 1 FROM public.profiles p WHERE p.id = player_id AND p.id = auth.uid()
-    )
-);
+ON public.score_differentials FOR SELECT
+USING (player_id = auth.uid());
 
 DROP POLICY IF EXISTS "Admins can manage all differentials" ON public.score_differentials;
 CREATE POLICY "Admins can manage all differentials" 
-ON public.score_differentials FOR ALL 
-USING (
-    EXISTS (
-        SELECT 1 FROM public.profiles 
-        WHERE id = auth.uid() AND role::text IN ('admin', 'super_admin', 'league_manager', 'manager')
-    )
-);
-
--- 4. Automation: Calculate Differential on Score Verification
--- We create a function that calculates the differential the moment a scorecard is verified.
-CREATE OR REPLACE FUNCTION public.calculate_and_store_differential()
-RETURNS TRIGGER AS $$
-DECLARE
-    v_course_rating DECIMAL(4, 2);
-    v_slope_rating INTEGER;
-    v_gross_score INTEGER;
-    v_differential DECIMAL(5, 2);
-BEGIN
-    -- Only calculate for verified scores
-    IF NEW.status = 'verified' AND (OLD.status IS NULL OR OLD.status != 'verified') THEN
-        
-        -- 1. Get Course Data
-        SELECT course_rating, slope_rating INTO v_course_rating, v_slope_rating
-        FROM public.courses c
-        JOIN public.rounds r ON r.course_id = c.id
-        WHERE r.id = NEW.round_id;
-
-        -- 2. Calculate Gross Score (Sum of hole scores)
-        SELECT SUM(score) INTO v_gross_score
-        FROM public.hole_scores
-        WHERE round_id = NEW.round_id;
-
-        -- 3. WHS Formula: (113 / Slope) * (Gross - Rating)
-        v_differential := (113.0 / v_slope_rating) * (v_gross_score - v_course_rating);
-
-        -- 4. Store the result
-        INSERT INTO public.score_differentials (player_id, round_id, course_id, gross_score, differential)
-        VALUES (
-            NEW.player_id, 
-            NEW.round_id, 
-            (SELECT course_id FROM public.rounds WHERE id = NEW.round_id),
-            v_gross_score, 
-            v_differential
-        )
-        ON CONFLICT (round_id) DO UPDATE 
-        SET gross_score = EXCLUDED.gross_score, differential = EXCLUDED.differential;
-        
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Attach the differential calculator to the scorecards table
-DROP TRIGGER IF EXISTS trg_calculate_differential ON public.scorecards;
-CREATE TRIGGER trg_calculate_differential
-AFTER UPDATE ON public.scorecards
-FOR EACH ROW EXECUTE FUNCTION public.calculate_and_store_differential();
+ON public.score_differentials FOR ALL
+USING (get_user_role() IN ('super_admin', 'league_manager'))
+WITH CHECK (get_user_role() IN ('super_admin', 'league_manager'));

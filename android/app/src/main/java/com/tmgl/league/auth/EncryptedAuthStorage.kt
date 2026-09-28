@@ -8,6 +8,14 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
+data class StoredSession(
+    val userId: String,
+    val email: String?,
+    val accessToken: String,
+    val refreshToken: String,
+    val expiresAtMillis: Long
+)
+
 @Singleton
 class EncryptedAuthStorage @Inject constructor(
     @ApplicationContext private val context: Context
@@ -24,21 +32,19 @@ class EncryptedAuthStorage @Inject constructor(
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
 
-    companion object {
-        private const val KEY_ACCESS_TOKEN = "access_token"
-        private const val KEY_REFRESH_TOKEN = "refresh_token"
-        private const val KEY_USER_ID = "user_id"
-        private const val KEY_USER_EMAIL = "user_email"
-        private const val KEY_TOKEN_EXPIRY = "token_expiry"
-    }
-
-    fun saveSession(accessToken: String, refreshToken: String, userId: String, email: String?) {
+    fun saveSession(
+        accessToken: String,
+        refreshToken: String,
+        userId: String,
+        email: String?,
+        expiresAtMillis: Long
+    ) {
         prefs.edit()
             .putString(KEY_ACCESS_TOKEN, accessToken)
             .putString(KEY_REFRESH_TOKEN, refreshToken)
             .putString(KEY_USER_ID, userId)
             .putString(KEY_USER_EMAIL, email)
-            .putLong(KEY_TOKEN_EXPIRY, System.currentTimeMillis() + (60 * 60 * 1000)) // 1 hour
+            .putLong(KEY_TOKEN_EXPIRY, expiresAtMillis)
             .apply()
     }
 
@@ -50,24 +56,32 @@ class EncryptedAuthStorage @Inject constructor(
 
     fun getUserEmail(): String? = prefs.getString(KEY_USER_EMAIL, null)
 
-    fun getTokenExpiry(): Long = prefs.getLong(KEY_TOKEN_EXPIRY, 0)
+    fun getTokenExpiry(): Long = prefs.getLong(KEY_TOKEN_EXPIRY, 0L)
 
-    fun isTokenExpired(): Boolean {
-        return System.currentTimeMillis() > getTokenExpiry() - (5 * 60 * 1000) // 5 min buffer
-    }
-
-    fun updateAccessToken(accessToken: String, expiresIn: Long) {
-        prefs.edit()
-            .putString(KEY_ACCESS_TOKEN, accessToken)
-            .putLong(KEY_TOKEN_EXPIRY, System.currentTimeMillis() + (expiresIn * 1000))
-            .apply()
+    fun getSession(): StoredSession? {
+        val userId = getUserId() ?: return null
+        val accessToken = getAccessToken() ?: return null
+        val refreshToken = getRefreshToken() ?: return null
+        return StoredSession(
+            userId = userId,
+            email = getUserEmail(),
+            accessToken = accessToken,
+            refreshToken = refreshToken,
+            expiresAtMillis = getTokenExpiry()
+        )
     }
 
     fun clearSession() {
         prefs.edit().clear().apply()
     }
 
-    fun hasSession(): Boolean {
-        return getAccessToken() != null && getUserId() != null
+    fun hasSession(): Boolean = getSession() != null
+
+    companion object {
+        private const val KEY_ACCESS_TOKEN = "access_token"
+        private const val KEY_REFRESH_TOKEN = "refresh_token"
+        private const val KEY_USER_ID = "user_id"
+        private const val KEY_USER_EMAIL = "user_email"
+        private const val KEY_TOKEN_EXPIRY = "token_expiry"
     }
 }

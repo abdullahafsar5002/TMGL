@@ -14,6 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tmgl.league.data.SupabaseConfig
+import com.tmgl.league.data.leaderboard.LeaderboardStandings
+import com.tmgl.league.data.model.ScoreCalculations
 import com.tmgl.league.data.repository.DataResult
 import com.tmgl.league.ui.theme.*
 import com.tmgl.league.ui.viewmodel.CompetitionViewModel
@@ -21,11 +23,17 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import io.github.jan.supabase.postgrest.from
 import kotlinx.serialization.Serializable
 
+private fun toParLabel(value: Int): String = ScoreCalculations.toParLabel(value)
+
 data class TournamentLeaderboardEntry(
     val position: Int,
+    val playerId: String,
     val playerName: String,
+    val handicapIndex: Double?,
     val totalStrokes: Int,
+    val netStrokes: Int,
     val totalToPar: Int,
+    val netToPar: Int,
     val holesCompleted: Int
 )
 
@@ -38,50 +46,66 @@ fun TournamentLeaderboardScreen(
     var entries by remember { mutableStateOf<List<TournamentLeaderboardEntry>>(emptyList()) }
     var tournamentName by remember { mutableStateOf("Tournament") }
     var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     val viewModel: CompetitionViewModel = hiltViewModel()
     val repository = viewModel.repository
 
     LaunchedEffect(tournamentId) {
-        try {
-            when (val tResult = repository.getTournament(tournamentId)) {
-                is DataResult.Success -> tournamentName = tResult.data.name
-                is DataResult.Error -> {}
-            }
-            when (val roundsResult = repository.getRoundsByTournament(tournamentId)) {
-                is DataResult.Success -> {
-                    val allEntries = mutableMapOf<String, Int>()
-                    val nameMap = mutableMapOf<String, String>()
-                    val holeCount = mutableMapOf<String, Int>()
+        isLoading = true
+        errorMessage = null
+        when (val tResult = repository.getTournament(tournamentId)) {
+            is DataResult.Success -> tournamentName = tResult.data.name
+            is DataResult.Error -> {}
+        }
+        when (val roundsResult = repository.getRoundsByTournament(tournamentId)) {
+            is DataResult.Success -> {
+                val infoById = mutableMapOf<String, LeaderboardStandings.PlayerInfo>()
+                val totalsById = mutableMapOf<String, LeaderboardStandings.GrossTotal>()
+                var roundFailure: String? = null
 
-                    for (round in roundsResult.data) {
-                        when (val scResult = repository.getLeaderboard(round.id)) {
-                            is DataResult.Success -> {
-                                for (entry in scResult.data) {
-                                    val current = allEntries[entry.playerId] ?: 0
-                                    allEntries[entry.playerId] = current + entry.totalStrokes
-                                    nameMap[entry.playerId] = entry.playerName
-                                    holeCount[entry.playerId] = (holeCount[entry.playerId] ?: 0) + 9
-                                }
+                for (round in roundsResult.data) {
+                    when (val scResult = repository.getLeaderboard(round.id)) {
+                        is DataResult.Success -> {
+                            for (entry in scResult.data) {
+                                infoById[entry.playerId] = LeaderboardStandings.PlayerInfo(
+                                    playerId = entry.playerId,
+                                    fullName = entry.playerName,
+                                    handicapIndex = entry.handicapIndex
+                                )
+                                val previous = totalsById[entry.playerId]
+                                totalsById[entry.playerId] = LeaderboardStandings.GrossTotal(
+                                    playerId = entry.playerId,
+                                    grossStrokes = (previous?.grossStrokes ?: 0) + entry.totalStrokes,
+                                    holesCompleted = (previous?.holesCompleted ?: 0) + entry.holesCompleted,
+                                    toPar = (previous?.toPar ?: 0) + entry.totalScoreToPar,
+                                    scorecardId = entry.scorecardId,
+                                    scorecardStatus = entry.scorecardStatus
+                                )
                             }
-                            is DataResult.Error -> {}
                         }
+                        is DataResult.Error -> roundFailure = scResult.message
                     }
-
-                    entries = allEntries.entries
-                        .sortedBy { it.value }
-                        .mapIndexed { index, (playerId, strokes) ->
-                            TournamentLeaderboardEntry(
-                                position = index + 1,
-                                playerName = nameMap[playerId] ?: "Player",
-                                totalStrokes = strokes,
-                                totalToPar = strokes - (18 * roundsResult.data.size),
-                                holesCompleted = holeCount[playerId] ?: 0
-                            )
-                        }
                 }
-                is DataResult.Error -> {}
+
+                entries = LeaderboardStandings
+                    .build(infoById.values.toList(), totalsById.values.toList())
+                    .map { standing ->
+                        TournamentLeaderboardEntry(
+                            position = standing.position,
+                            playerId = standing.playerId,
+                            playerName = standing.playerName,
+                            handicapIndex = standing.handicapIndex,
+                            totalStrokes = standing.grossStrokes,
+                            netStrokes = standing.netStrokes,
+                            totalToPar = standing.toPar,
+                            netToPar = standing.netToPar,
+                            holesCompleted = standing.holesCompleted
+                        )
+                    }
+                if (entries.isEmpty()) errorMessage = roundFailure ?: "No scored rounds yet"
             }
-        } catch (_: Exception) {}
+            is DataResult.Error -> errorMessage = roundsResult.message
+        }
         isLoading = false
     }
 
@@ -104,7 +128,11 @@ fun TournamentLeaderboardScreen(
             }
         } else if (entries.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No scores yet", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    text = errorMessage ?: "No scores yet",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         } else {
             LazyColumn(
@@ -142,18 +170,34 @@ fun TournamentLeaderboardScreen(
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(entry.playerName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                                Text("${entry.holesCompleted} holes played", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    text = "${entry.holesCompleted} holes played",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                entry.handicapIndex?.let { handicap ->
+                                    Text(
+                                        text = "HC ${String.format("%.1f", handicap)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text("${entry.totalStrokes}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text("${entry.netStrokes}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 Text(
-                                    text = if (entry.totalToPar >= 0) "+${entry.totalToPar}" else "${entry.totalToPar}",
+                                    text = toParLabel(entry.netToPar),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = when {
-                                        entry.totalToPar < 0 -> MaterialTheme.colorScheme.tertiary
-                                        entry.totalToPar == 0 -> TmglGreen
+                                        entry.netToPar < 0 -> MaterialTheme.colorScheme.tertiary
+                                        entry.netToPar == 0 -> TmglGreen
                                         else -> MaterialTheme.colorScheme.error
                                     }
+                                )
+                                Text(
+                                    text = "gross ${entry.totalStrokes} (${toParLabel(entry.totalToPar)})",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }

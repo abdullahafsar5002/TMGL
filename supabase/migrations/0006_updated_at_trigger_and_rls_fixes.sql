@@ -8,7 +8,8 @@ BEGIN
   NEW.updated_at = now();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public;
 
 -- 2. Apply trigger to all tables with updated_at column
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.profiles

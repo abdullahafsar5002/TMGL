@@ -48,10 +48,10 @@ fun TmglTopBar(
         },
         actions = actions,
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = TmglGreen,
-            titleContentColor = Color.White,
-            navigationIconContentColor = Color.White,
-            actionIconContentColor = Color.White
+            containerColor = MaterialTheme.colorScheme.primary,
+            titleContentColor = MaterialTheme.colorScheme.onPrimary,
+            navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+            actionIconContentColor = MaterialTheme.colorScheme.onPrimary
         )
     )
 }
@@ -97,7 +97,17 @@ fun TmglGradientButton(
                 .fillMaxSize()
                 .background(
                     brush = Brush.horizontalGradient(
-                        colors = if (enabled) listOf(TmglGreen, TmglEmerald) else listOf(Color.Gray, Color.Gray)
+                        colors = if (enabled) {
+                            listOf(
+                                MaterialTheme.colorScheme.primary,
+                                MaterialTheme.colorScheme.primaryContainer
+                            )
+                        } else {
+                            listOf(
+                                MaterialTheme.colorScheme.surfaceVariant,
+                                MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        }
                     ),
                     shape = MaterialTheme.shapes.medium
                 ),
@@ -113,7 +123,11 @@ fun TmglGradientButton(
                 Text(
                     text = text,
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onPrimary
+                    color = if (enabled) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
                 )
             }
         }
@@ -181,7 +195,7 @@ fun TmglTextField(
 @Composable
 fun LoadingIndicator(modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(color = TmglGreen)
+        CircularProgressIndicator(color = MaterialTheme.colorScheme.secondary)
     }
 }
 
@@ -254,7 +268,7 @@ fun InfoRow(label: String, value: String) {
 fun TmglScoreChip(score: Int, modifier: Modifier = Modifier) {
     val color = when {
         score < 0 -> Fairway
-        score == 0 -> TmglGold
+        score == 0 -> MaterialTheme.colorScheme.secondary
         else -> OutOfBounds
     }
     Surface(
@@ -290,7 +304,7 @@ fun TmglSectionHeader(
         )
         if (action != null) {
             TextButton(onClick = action) {
-                Text("See All", color = TmglGold)
+                Text("See All", color = MaterialTheme.colorScheme.secondary)
             }
         }
     }
@@ -313,7 +327,7 @@ fun TmglStatCard(
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (icon != null) {
-                    Icon(icon, contentDescription = null, tint = TmglGold, modifier = Modifier.size(20.dp))
+                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                 }
                 Text(text = label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

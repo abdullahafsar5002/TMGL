@@ -23,13 +23,8 @@ USING (auth.uid() = player_id);
 
 DROP POLICY IF EXISTS "Admins can view all course notes" ON public.course_notes;
 CREATE POLICY "Admins can view all course notes" 
-ON public.course_notes FOR SELECT 
-USING (
-    EXISTS (
-        SELECT 1 FROM public.profiles 
-        WHERE id = auth.uid() AND role::text IN ('admin', 'super_admin', 'league_manager', 'manager')
-    )
-);
+ON public.course_notes FOR SELECT
+USING (get_user_role() IN ('super_admin', 'league_manager'));
 
 -- 2. Equipment Bag (Gear Tracking)
 -- Allows players to track their clubs and gear.
@@ -52,10 +47,5 @@ USING (auth.uid() = player_id);
 
 DROP POLICY IF EXISTS "Admins can view all equipment" ON public.player_equipment;
 CREATE POLICY "Admins can view all equipment" 
-ON public.player_equipment FOR SELECT 
-USING (
-    EXISTS (
-        SELECT 1 FROM public.profiles 
-        WHERE id = auth.uid() AND role::text IN ('admin', 'super_admin', 'league_manager', 'manager')
-    )
-);
+ON public.player_equipment FOR SELECT
+USING (get_user_role() IN ('super_admin', 'league_manager'));

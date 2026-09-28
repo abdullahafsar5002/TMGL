@@ -61,30 +61,34 @@ ALTER TABLE tournament_registrations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tournament_trophies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE shot_tracking ENABLE ROW LEVEL SECURITY;
 
--- Tournament registrations: anyone can read, authenticated players can register themselves
-CREATE POLICY "Public read tournament_registrations" ON tournament_registrations FOR SELECT USING (true);
-
--- RLS: Use TO authenticated to restrict to logged-in users only.
--- Ownership checks (player_id = current user) are enforced in application code.
--- This avoids the auth.uid() uuid-vs-text type resolution bug in Supabase SQL Editor.
+CREATE POLICY "Public read tournament_registrations" ON tournament_registrations FOR SELECT
+  USING (EXISTS (SELECT 1 FROM tournaments t WHERE t.id = tournament_id AND t.status IN ('open', 'live', 'completed', 'cancelled')));
 
 DROP POLICY IF EXISTS "Player register self" ON tournament_registrations;
 CREATE POLICY "Player register self" ON tournament_registrations
-  FOR INSERT TO authenticated WITH CHECK (true);
+  FOR INSERT TO authenticated
+  WITH CHECK (player_id IN (SELECT id FROM players WHERE profile_id = auth.uid()));
 
 DROP POLICY IF EXISTS "Player unregister self" ON tournament_registrations;
 CREATE POLICY "Player unregister self" ON tournament_registrations
-  FOR DELETE TO authenticated USING (true);
+  FOR DELETE TO authenticated
+  USING (player_id IN (SELECT id FROM players WHERE profile_id = auth.uid()));
 
--- Trophies: public read
-CREATE POLICY "Public read trophies" ON tournament_trophies FOR SELECT USING (true);
+CREATE POLICY "Public read trophies" ON tournament_trophies FOR SELECT
+  USING (EXISTS (SELECT 1 FROM tournaments t WHERE t.id = tournament_id AND t.status IN ('open', 'live', 'completed', 'cancelled')));
 
 DROP POLICY IF EXISTS "Admin manage trophies" ON tournament_trophies;
 CREATE POLICY "Admin manage trophies" ON tournament_trophies
-  FOR ALL TO authenticated USING (true);
+  FOR ALL TO authenticated
+  USING (get_user_role() IN ('super_admin', 'league_manager'))
+  WITH CHECK (get_user_role() IN ('super_admin', 'league_manager'));
 
--- Shot tracking: players can manage their own shots
-CREATE POLICY "Public read shots" ON shot_tracking FOR SELECT USING (true);
-CREATE POLICY "Player insert shots" ON shot_tracking FOR INSERT WITH CHECK (true);
-CREATE POLICY "Player update shots" ON shot_tracking FOR UPDATE USING (true);
-CREATE POLICY "Player delete shots" ON shot_tracking FOR DELETE USING (true);
+CREATE POLICY "Public read shots" ON shot_tracking FOR SELECT
+  USING (practice_score_id IS NOT NULL OR scorecard_hole_id IS NOT NULL);
+CREATE POLICY "Player insert shots" ON shot_tracking FOR INSERT
+  WITH CHECK (practice_score_id IS NOT NULL OR scorecard_hole_id IS NOT NULL);
+CREATE POLICY "Player update shots" ON shot_tracking FOR UPDATE
+  USING (practice_score_id IS NOT NULL OR scorecard_hole_id IS NOT NULL)
+  WITH CHECK (practice_score_id IS NOT NULL OR scorecard_hole_id IS NOT NULL);
+CREATE POLICY "Player delete shots" ON shot_tracking FOR DELETE
+  USING (practice_score_id IS NOT NULL OR scorecard_hole_id IS NOT NULL);

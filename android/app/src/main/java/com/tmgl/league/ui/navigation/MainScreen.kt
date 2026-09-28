@@ -7,7 +7,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -23,6 +25,7 @@ import com.tmgl.league.ui.components.ErrorSnackbarHost
 import kotlinx.coroutines.launch
 import com.tmgl.league.data.repository.AuthState
 import com.tmgl.league.data.SupabaseConfig
+import com.tmgl.league.ui.viewmodel.ScoringFormatsViewModel
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
@@ -59,10 +62,7 @@ import com.tmgl.league.ui.screens.tournaments.TournamentsScreen
 import com.tmgl.league.ui.screens.tournaments.SeasonStandingsScreen
 import com.tmgl.league.ui.screens.tournaments.PairingsScreen
 import com.tmgl.league.ui.screens.tournaments.FlightsScreen
-import com.tmgl.league.ui.screens.tournaments.SideGamesScreen
 import com.tmgl.league.ui.screens.tournaments.ScoreVerificationScreen
-import com.tmgl.league.ui.theme.TmglGreen
-import com.tmgl.league.ui.theme.TmglGreenDark
 
 private val mainTabs = setOf(
     Screen.Home.route,
@@ -76,6 +76,7 @@ private val mainTabs = setOf(
 fun MainScreen(
     authState: AuthState,
     onAuthStateChanged: (AuthState) -> Unit,
+    onSignOut: () -> Unit,
     networkMonitor: NetworkMonitor,
     errorHandler: GlobalErrorHandler,
     initialDeepLink: android.net.Uri? = null
@@ -83,6 +84,7 @@ fun MainScreen(
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val scoringFormatsRepository = hiltViewModel<ScoringFormatsViewModel>().repository
 
     val showBottomBar = currentRoute in mainTabs
 
@@ -114,7 +116,8 @@ fun MainScreen(
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar(
-                    containerColor = TmglGreen
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 ) {
                     bottomNavItems.forEach { item ->
                         val selected = currentRoute == item.screen.route
@@ -139,10 +142,10 @@ fun MainScreen(
                             },
                             label = { Text(item.label) },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = TmglGreenDark,
-                                selectedTextColor = TmglGreenDark,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                selectedIconColor = MaterialTheme.colorScheme.secondary,
+                                selectedTextColor = MaterialTheme.colorScheme.secondary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+                                unselectedTextColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
                                 indicatorColor = MaterialTheme.colorScheme.surface
                             )
                         )
@@ -221,7 +224,7 @@ fun MainScreen(
             composable(Screen.Profile.route) {
                 ProfileScreen(
                     onBack = { navController.popBackStack() },
-                    onSignOut = { onAuthStateChanged(AuthState.Unauthenticated) },
+                    onSignOut = onSignOut,
                     onEditProfile = { navController.navigate(Screen.ProfileEdit.route) }
                 )
             }
@@ -242,7 +245,6 @@ fun MainScreen(
                     onViewLeaderboard = { id -> navController.navigate(Screen.TournamentLeaderboard.createRoute(id)) },
                     onViewSeasonStandings = { navController.navigate(Screen.SeasonStandings.route) },
                     onViewFlights = { id -> navController.navigate(Screen.Flights.createRoute(id)) },
-                    onViewSideGames = { id -> navController.navigate(Screen.SideGames.createRoute(id)) },
                     onVerifyScores = { id -> navController.navigate(Screen.ScoreVerification.createRoute(id)) },
                     onViewPairings = { tournamentId, roundId -> navController.navigate(Screen.Pairings.createRoute(tournamentId, roundId)) }
                 )
@@ -314,16 +316,6 @@ fun MainScreen(
             }
 
             composable(
-                Screen.SideGames.route,
-                arguments = listOf(navArgument("tournamentId") { type = NavType.StringType })
-            ) { backStackEntry ->
-                SideGamesScreen(
-                    tournamentId = backStackEntry.arguments?.getString("tournamentId") ?: "",
-                    onBack = { navController.popBackStack() }
-                )
-            }
-
-            composable(
                 Screen.ScoreVerification.route,
                 arguments = listOf(navArgument("roundId") { type = NavType.StringType })
             ) { backStackEntry ->
@@ -373,15 +365,19 @@ fun MainScreen(
                 MatchDetailScreen(
                     matchId = backStackEntry.arguments?.getString("id") ?: "",
                     onBack = { navController.popBackStack() },
-                    onEnterScores = { id -> navController.navigate(Screen.Scoring.createRoute(id)) }
+                    onEnterScores = { id -> navController.navigate(Screen.Scoring.createRoute(matchId = id)) }
                 )
             }
 
             composable(
                 Screen.Scoring.route,
-                arguments = listOf(navArgument("matchId") { type = NavType.StringType; nullable = true; defaultValue = null })
+                arguments = listOf(
+                    navArgument("roundId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("matchId") { type = NavType.StringType; nullable = true; defaultValue = null }
+                )
             ) { backStackEntry ->
                 ScoringScreen(
+                    roundId = backStackEntry.arguments?.getString("roundId"),
                     matchId = backStackEntry.arguments?.getString("matchId"),
                     onBack = { navController.popBackStack() }
                 )
@@ -389,9 +385,13 @@ fun MainScreen(
 
             composable(
                 Screen.FastScoring.route,
-                arguments = listOf(navArgument("matchId") { type = NavType.StringType; nullable = true; defaultValue = null })
+                arguments = listOf(
+                    navArgument("roundId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("matchId") { type = NavType.StringType; nullable = true; defaultValue = null }
+                )
             ) { backStackEntry ->
                 FastScoringScreen(
+                    roundId = backStackEntry.arguments?.getString("roundId"),
                     matchId = backStackEntry.arguments?.getString("matchId"),
                     onBack = { navController.popBackStack() }
                 )
@@ -457,7 +457,7 @@ fun MainScreen(
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     onBack = { navController.popBackStack() },
-                    onSignOut = { onAuthStateChanged(AuthState.Unauthenticated) },
+                    onSignOut = onSignOut,
                     isDarkMode = isDarkMode,
                     onDarkModeChanged = { enabled ->
                         coroutineScope.launch {
@@ -497,6 +497,7 @@ fun MainScreen(
                 arguments = listOf(navArgument("id") { type = NavType.StringType })
             ) { backStackEntry ->
                 ScoringScreen(
+                    roundId = null,
                     matchId = backStackEntry.arguments?.getString("id"),
                     onBack = { navController.popBackStack() }
                 )
@@ -556,9 +557,10 @@ fun MainScreen(
                 Screen.CourseGps.route,
                 arguments = listOf(navArgument("courseId") { type = NavType.StringType })
             ) { backStackEntry ->
-                var gpsHole by remember { mutableIntStateOf(1) }
+                val courseId = backStackEntry.arguments?.getString("courseId").orEmpty()
+                var gpsHole by rememberSaveable(courseId) { mutableIntStateOf(1) }
                 com.tmgl.league.ui.screens.courses.CourseGpsScreen(
-                    course = com.tmgl.league.data.model.Course(id = backStackEntry.arguments?.getString("courseId") ?: ""),
+                    courseId = courseId,
                     selectedHole = gpsHole,
                     onHoleChanged = { gpsHole = it },
                     onBack = { navController.popBackStack() }
@@ -648,35 +650,20 @@ fun MainScreen(
 
                 LaunchedEffect(playerName) {
                     try {
-                        val db = SupabaseConfig.client
-                        val players = db.from("players")
+                        val players = SupabaseConfig.client.from("players")
                             .select(Columns.raw("id")) {
                                 filter { eq("full_name", playerName) }
                             }
                             .decodeList<PlayerData>()
                         if (players.isNotEmpty()) {
-                            val sc = db.from("scorecards")
-                                .select(Columns.raw("id, round_id")) {
-                                    filter { eq("player_id", players.first().id) }
-                                    filter { eq("status", "verified") }
-                                    order("updated_at", Order.DESCENDING)
-                                    limit(1)
-                                }
-                                .decodeList<ScorecardRef>()
-                            if (sc.isNotEmpty()) {
-                                val rawHoles = db.from("scorecard_holes")
-                                    .select(Columns.raw("hole_number, par, strokes")) {
-                                        filter { eq("scorecard_id", sc.first().id) }
-                                        order("hole_number", Order.ASCENDING)
-                                    }
-                                    .decodeList<RawHoleData>()
-                                holes = rawHoles.map {
-                                    com.tmgl.league.ui.screens.scoring.StablefordHoleScore(
-                                        hole = it.hole_number,
-                                        par = it.par,
-                                        score = it.strokes
-                                    )
-                                }
+                            val loaded = loadVerifiedScorecardHoles(players.first().id)
+                            val pars = loadCoursePars(loaded.courseId)
+                            holes = loaded.holes.map {
+                                com.tmgl.league.ui.screens.scoring.StablefordHoleScore(
+                                    hole = it.holeNumber,
+                                    par = pars[it.holeNumber] ?: 4,
+                                    score = it.scoreValue()
+                                )
                             }
                         }
                     } catch (_: Exception) {}
@@ -713,39 +700,12 @@ fun MainScreen(
                         val p1 = players.find { it.full_name == player1Name }
                         val p2 = players.find { it.full_name == player2Name }
                         if (p1 != null && p2 != null) {
-                            val sc1 = db.from("scorecards")
-                                .select(Columns.raw("id")) {
-                                    filter { eq("player_id", p1.id) }
-                                    filter { eq("status", "verified") }
-                                    order("updated_at", Order.DESCENDING)
-                                    limit(1)
-                                }
-                                .decodeList<ScorecardRef>()
-                            val sc2 = db.from("scorecards")
-                                .select(Columns.raw("id")) {
-                                    filter { eq("player_id", p2.id) }
-                                    filter { eq("status", "verified") }
-                                    order("updated_at", Order.DESCENDING)
-                                    limit(1)
-                                }
-                                .decodeList<ScorecardRef>()
-                            if (sc1.isNotEmpty() && sc2.isNotEmpty()) {
-                                val h1 = db.from("scorecard_holes")
-                                    .select(Columns.raw("hole_number, par, strokes")) {
-                                        filter { eq("scorecard_id", sc1.first().id) }
-                                        order("hole_number", Order.ASCENDING)
-                                    }
-                                    .decodeList<RawHoleData>()
-                                val h2 = db.from("scorecard_holes")
-                                    .select(Columns.raw("hole_number, par, strokes")) {
-                                        filter { eq("scorecard_id", sc2.first().id) }
-                                        order("hole_number", Order.ASCENDING)
-                                    }
-                                    .decodeList<RawHoleData>()
-                                p1Scores = h1.map { it.strokes }
-                                p2Scores = h2.map { it.strokes }
-                                parsList = h1.map { it.par }
-                            }
+                            val loaded1 = loadVerifiedScorecardHoles(p1.id)
+                            val loaded2 = loadVerifiedScorecardHoles(p2.id)
+                            p1Scores = loaded1.holes.map { it.scoreValue() }
+                            p2Scores = loaded2.holes.map { it.scoreValue() }
+                            val pars = loadCoursePars(loaded1.courseId)
+                            parsList = loaded1.holes.map { pars[it.holeNumber] ?: 4 }
                         }
                     } catch (_: Exception) {}
                 }
@@ -756,6 +716,7 @@ fun MainScreen(
                     player1Scores = p1Scores,
                     player2Scores = p2Scores,
                     pars = parsList,
+                    repository = scoringFormatsRepository,
                     onBack = { navController.popBackStack() }
                 )
             }
@@ -782,51 +743,29 @@ fun MainScreen(
                         val p1 = players.find { it.full_name == player1Name }
                         val p2 = players.find { it.full_name == player2Name }
                         if (p1 != null && p2 != null) {
-                            val sc1 = db.from("scorecards")
-                                .select(Columns.raw("id")) {
-                                    filter { eq("player_id", p1.id) }
-                                    filter { eq("status", "verified") }
-                                    order("updated_at", Order.DESCENDING)
-                                    limit(1)
-                                }
-                                .decodeList<ScorecardRef>()
-                            val sc2 = db.from("scorecards")
-                                .select(Columns.raw("id")) {
-                                    filter { eq("player_id", p2.id) }
-                                    filter { eq("status", "verified") }
-                                    order("updated_at", Order.DESCENDING)
-                                    limit(1)
-                                }
-                                .decodeList<ScorecardRef>()
-                            if (sc1.isNotEmpty() && sc2.isNotEmpty()) {
-                                val h1 = db.from("scorecard_holes")
-                                    .select(Columns.raw("hole_number, par, strokes")) {
-                                        filter { eq("scorecard_id", sc1.first().id) }
-                                        order("hole_number", Order.ASCENDING)
-                                    }
-                                    .decodeList<RawHoleData>()
-                                val h2 = db.from("scorecard_holes")
-                                    .select(Columns.raw("hole_number, par, strokes")) {
-                                        filter { eq("scorecard_id", sc2.first().id) }
-                                        order("hole_number", Order.ASCENDING)
-                                    }
-                                    .decodeList<RawHoleData>()
-                                val front9P1 = h1.filter { it.hole_number <= 9 }.sumOf { it.strokes }
-                                val front9P2 = h2.filter { it.hole_number <= 9 }.sumOf { it.strokes }
-                                val back9P1 = h1.filter { it.hole_number > 9 }.sumOf { it.strokes }
-                                val back9P2 = h2.filter { it.hole_number > 9 }.sumOf { it.strokes }
-                                val front9 = front9P1 - front9P2
-                                val back9 = back9P1 - back9P2
-                                val total = front9 + back9
-                                nassauResult = com.tmgl.league.data.model.NassauResult(
-                                    front9 = front9,
-                                    back9 = back9,
-                                    total = total,
-                                    front9Status = if (front9 > 0) "Player 1 leads" else if (front9 < 0) "Player 2 leads" else "Tied",
-                                    back9Status = if (back9 > 0) "Player 1 leads" else if (back9 < 0) "Player 2 leads" else "Tied",
-                                    totalStatus = if (total > 0) "Player 1 leads" else if (total < 0) "Player 2 leads" else "Tied"
-                                )
-                            }
+                            val loaded1 = loadVerifiedScorecardHoles(p1.id)
+                            val loaded2 = loadVerifiedScorecardHoles(p2.id)
+                            val pars = loadCoursePars(loaded1.courseId ?: loaded2.courseId)
+                            val parsByIndex = (0 until 18).map { pars[it + 1] ?: DEFAULT_HOLE_PAR }
+                            val front9Scores1 = loaded1.holes.filter { it.holeNumber in 1..9 }
+                                .sortedBy { it.holeNumber }
+                                .map { it.scoreValue() }
+                            val back9Scores1 = loaded1.holes.filter { it.holeNumber in 10..18 }
+                                .sortedBy { it.holeNumber }
+                                .map { it.scoreValue() }
+                            val front9Scores2 = loaded2.holes.filter { it.holeNumber in 1..9 }
+                                .sortedBy { it.holeNumber }
+                                .map { it.scoreValue() }
+                            val back9Scores2 = loaded2.holes.filter { it.holeNumber in 10..18 }
+                                .sortedBy { it.holeNumber }
+                                .map { it.scoreValue() }
+                            nassauResult = scoringFormatsRepository.calculateNassau(
+                                front9Scores1 = front9Scores1,
+                                back9Scores1 = back9Scores1,
+                                front9Scores2 = front9Scores2,
+                                back9Scores2 = back9Scores2,
+                                pars = parsByIndex
+                            )
                         }
                     } catch (_: Exception) {}
                 }
@@ -835,6 +774,7 @@ fun MainScreen(
                     player1Name = player1Name,
                     player2Name = player2Name,
                     result = nassauResult,
+                    repository = scoringFormatsRepository,
                     onBack = { navController.popBackStack() }
                 )
             }
@@ -870,12 +810,64 @@ private data class PlayerData(
 
 @Serializable
 private data class ScorecardRef(
-    val id: String = ""
+    val id: String = "",
+    val course_id: String? = null
 )
 
 @Serializable
-private data class RawHoleData(
+private data class ScorecardHoleData(
+    @kotlinx.serialization.SerialName("hole_number") val holeNumber: Int = 0,
+    val score: Int? = null,
+    val strokes: Int? = null,
+    val par: Int? = null
+) {
+    fun scoreValue(): Int = score ?: strokes ?: 0
+}
+
+@Serializable
+private data class CourseHoleData(
     val hole_number: Int = 0,
-    val par: Int = 4,
-    val strokes: Int = 0
+    val par: Int = 4
 )
+
+private data class VerifiedScorecardHoles(
+    val courseId: String?,
+    val holes: List<ScorecardHoleData>
+)
+
+private suspend fun loadVerifiedScorecardHoles(playerId: String): VerifiedScorecardHoles {
+    val db = SupabaseConfig.client
+    val scorecard = db.from("scorecards")
+        .select(Columns.raw("id, course_id")) {
+            filter { eq("player_id", playerId) }
+            filter { eq("status", "verified") }
+            order("updated_at", Order.DESCENDING)
+            limit(1)
+        }
+        .decodeList<ScorecardRef>()
+        .firstOrNull() ?: return VerifiedScorecardHoles(null, emptyList())
+
+    val holes = db.from("scorecard_holes")
+        .select {
+            filter { eq("scorecard_id", scorecard.id) }
+            order("hole_number", Order.ASCENDING)
+        }
+        .decodeList<ScorecardHoleData>()
+    return VerifiedScorecardHoles(scorecard.course_id, holes)
+}
+
+private suspend fun loadCoursePars(courseId: String?): Map<Int, Int> {
+    if (courseId.isNullOrBlank()) return emptyMap()
+    return try {
+        SupabaseConfig.client.from("course_holes")
+            .select(Columns.raw("hole_number, par")) {
+                filter { eq("course_id", courseId) }
+            }
+            .decodeList<CourseHoleData>()
+            .associate { it.hole_number to it.par }
+    } catch (_: Exception) {
+        emptyMap()
+    }
+}
+
+private const val DEFAULT_HOLE_PAR = 4

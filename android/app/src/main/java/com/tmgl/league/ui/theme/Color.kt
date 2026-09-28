@@ -2,53 +2,54 @@ package com.tmgl.league.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// ── Brand ─────────────────────────────────────────────
-val TmglGreen = Color(0xFF0B3D2E)
-val TmglGreenLight = Color(0xFF1A5C44)
-val TmglGreenDark = Color(0xFF062419)
-val TmglEmerald = Color(0xFF2E7D5B)
-val TmglSage = Color(0xFF8BAF9B)
+val TmglBlack = Color(0xFF050506)
+val TmglOnyx = Color(0xFF0B0B0E)
+val TmglGraphite = Color(0xFF1A1A20)
+val TmglSlate = Color(0xFF2A2A33)
+val TmglPlatinum = Color(0xFFF2EFE6)
 
-// ── Gold Accent ───────────────────────────────────────
 val TmglGold = Color(0xFFD4AF37)
-val TmglGoldLight = Color(0xFFF5E6B8)
+val TmglGoldLight = Color(0xFFF1E3B4)
 val TmglGoldBright = Color(0xFFFFD700)
-val TmglGoldMuted = Color(0xFFB8962E)
+val TmglGoldMuted = Color(0xFF9A7B24)
+val TmglGoldDeep = Color(0xFF6E551A)
 
-// ── Neutral ───────────────────────────────────────────
+val TmglGreen = TmglOnyx
+val TmglGreenLight = TmglGraphite
+val TmglGreenDark = TmglBlack
+val TmglEmerald = TmglGold
+val TmglSage = TmglGoldLight
+
 val TmglCharcoal = Color(0xFF111827)
 val TmglCharcoalLight = Color(0xFF374151)
 val TmglIvory = Color(0xFFFDFBF5)
 val TmglParchment = Color(0xFFF5F0E8)
 val TmglCarbon = Color(0xFF1A1F2C)
 
-// ── Semantic (Golf) ───────────────────────────────────
-val Fairway = Color(0xFF16A34A)
-val Rough = Color(0xFFF59E0B)
-val Sand = Color(0xFFEAB308)
-val Water = Color(0xFF3B82F6)
-val OutOfBounds = Color(0xFFDC2626)
+val Fairway = Color(0xFF2E7D32)
+val Rough = Color(0xFFB26A00)
+val Sand = Color(0xFF8A6D00)
+val Water = Color(0xFF1565C0)
+val OutOfBounds = Color(0xFFB3261E)
 
-// ── Status ────────────────────────────────────────────
-val StatusActive = Color(0xFF16A34A)
-val StatusCompleted = Color(0xFF3B82F6)
-val StatusDraft = Color(0xFFF59E0B)
-val StatusLive = Color(0xFFDC2626)
+val StatusActive = Color(0xFF2E7D32)
+val StatusCompleted = Color(0xFF1565C0)
+val StatusDraft = Color(0xFFB26A00)
+val StatusLive = Color(0xFFB3261E)
 val StatusCancelled = Color(0xFF6B7280)
 
-// ── Medal ─────────────────────────────────────────────
-val MedalGold = Color(0xFFFFD700)
+val MedalGold = Color(0xFFD4AF37)
 val MedalSilver = Color(0xFFC0C0C0)
-val MedalBronze = Color(0xFFCD7F32)
+val MedalBronze = Color(0xFFA97142)
 
-// ── Light Mode ────────────────────────────────────────
-val BackgroundLight = Color(0xFFF9FAFB)
+val BackgroundLight = Color(0xFFFAF8F3)
 val SurfaceLight = Color(0xFFFFFFFF)
-val OnSurfaceLight = Color(0xFF111827)
-val OutlineLight = Color(0xFFE5E7EB)
+val OnSurfaceLight = Color(0xFF14140F)
+val OutlineLight = Color(0xFFD8D2C4)
+val SurfaceVariantLight = Color(0xFFF1EDE3)
 
-// ── Dark Mode (neutral, not green!) ───────────────────
-val BackgroundDark = Color(0xFF0F1218)
-val SurfaceDark = Color(0xFF1A1F2C)
-val OnSurfaceDark = Color(0xFFF0F2F5)
-val OutlineDark = Color(0xFF2D3548)
+val BackgroundDark = TmglBlack
+val SurfaceDark = TmglOnyx
+val SurfaceVariantDark = TmglGraphite
+val OnSurfaceDark = Color(0xFFF3F1EA)
+val OutlineDark = Color(0xFF3A3A44)

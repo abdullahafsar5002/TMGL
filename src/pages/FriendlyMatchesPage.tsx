@@ -9,17 +9,17 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { Badge } from '@/components/common/Badge';
 import { Pagination } from '@/components/common/Pagination';
-import { getPlayerByProfileId } from '@/lib/league';
+import { getPlayerByAuthUserId } from '@/lib/league';
 import { getFriendlyMatchesByPlayer, getMatchFormatLabel } from '@/lib/friendly';
 import type { FriendlyMatch } from '@/types/database';
 
 const PAGE_SIZE = 10;
 
 const STATUS_VARIANTS: Record<string, 'default' | 'success' | 'warning' | 'info' | 'danger'> = {
-  pending: 'info',
+  in_progress: 'info',
   active: 'warning',
   completed: 'success',
-  cancelled: 'danger',
+  rejected: 'danger',
 };
 
 export default function FriendlyMatchesPage() {
@@ -35,7 +35,7 @@ export default function FriendlyMatchesPage() {
     setLoading(true);
 
     try {
-      const playerResult = await getPlayerByProfileId(user.id);
+      const playerResult = await getPlayerByAuthUserId(user.id);
       if (playerResult.error || !playerResult.data) {
         setError('Player profile not found.');
         return;
@@ -72,7 +72,7 @@ export default function FriendlyMatchesPage() {
           <h1 className="text-3xl font-bold text-gray-900">Friendly Matches</h1>
           <p className="text-gray-500 mt-1">{matches.length} total matches</p>
         </div>
-        <Link to="/friendly/new">
+        <Link to="/friendly-matches/new">
           <Button variant="primary">
             <Plus className="h-4 w-4 mr-2" />
             New Match
@@ -104,7 +104,7 @@ export default function FriendlyMatchesPage() {
           description={search ? 'Try a different search.' : 'Create a friendly match to play with other members.'}
           action={
             !search ? (
-              <Link to="/friendly/new">
+              <Link to="/friendly-matches/new">
                 <Button variant="primary">
                   <Plus className="h-4 w-4 mr-2" />
                   Create Match
@@ -117,7 +117,7 @@ export default function FriendlyMatchesPage() {
         <>
           <div className="space-y-3">
             {paginated.map(match => (
-              <Link key={match.id} to={`/friendly/${match.id}`}>
+              <Link key={match.id} to={`/friendly-matches/${match.id}`}>
                 <Card variant="bordered" className="hover:shadow-md transition-shadow cursor-pointer">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">

@@ -34,6 +34,7 @@ class TestActivity : FragmentActivity() {
                         )
                     ),
                     onAuthStateChanged = {},
+                    onSignOut = {},
                     networkMonitor = networkMonitor,
                     errorHandler = errorHandler
                 )

@@ -6,9 +6,9 @@ import { Container } from '@/components/common/Container';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { LoadingState } from '@/components/common/LoadingState';
-import { getPlayerByProfileId, getCourses } from '@/lib/league';
+import { getPlayerByAuthUserId, getCourses } from '@/lib/league';
 import { createFriendlyMatch } from '@/lib/friendly';
-import type { Course } from '@/types/database';
+import type { Course, FriendlyMatchFormat } from '@/types/database';
 
 const MATCH_FORMATS = [
   { value: 'stroke_play', label: 'Stroke Play' },
@@ -30,7 +30,7 @@ export default function FriendlyMatchCreatePage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [courseId, setCourseId] = useState('');
-  const [matchFormat, setMatchFormat] = useState('stroke_play');
+  const [matchFormat, setMatchFormat] = useState<FriendlyMatchFormat>('stroke_play');
   const [roundType, setRoundType] = useState<9 | 18>(18);
   const [scheduledAt, setScheduledAt] = useState('');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -66,7 +66,7 @@ export default function FriendlyMatchCreatePage() {
       return;
     }
 
-    const playerResult = await getPlayerByProfileId(user.id);
+    const playerResult = await getPlayerByAuthUserId(user.id);
     if (playerResult.error || !playerResult.data) {
       setError('Player profile not found.');
       return;
@@ -94,7 +94,7 @@ export default function FriendlyMatchCreatePage() {
         return;
       }
 
-      navigate(`/friendly/${matchResult.data.id}`);
+      navigate(`/friendly-matches/${matchResult.data.id}`);
     } catch {
       setError('Failed to create friendly match.');
     } finally {
@@ -170,7 +170,7 @@ export default function FriendlyMatchCreatePage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Match Format *</label>
               <select
                 value={matchFormat}
-                onChange={e => setMatchFormat(e.target.value)}
+                onChange={e => setMatchFormat(e.target.value as FriendlyMatchFormat)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
               >
                 {MATCH_FORMATS.map(f => (

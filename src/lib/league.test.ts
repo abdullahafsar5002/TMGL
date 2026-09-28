@@ -339,9 +339,9 @@ describe('League Service Layer', () => {
 
     it('auto-provisions player when profile exists but no player row', async () => {
       // This tests the provisioning logic path:
-      // 1. Query players WHERE profile_id = X -> 0 rows
+      // 1. Query players WHERE auth_user_id = X -> 0 rows
       // 2. Query profiles WHERE id = X -> profile with full_name
-      // 3. INSERT player with profile_id = X, full_name from profile
+      // 3. INSERT player with auth_user_id = X, full_name from profile
       // In unit test we just verify the function does not throw
       // and returns a ServiceResult shape
       try {

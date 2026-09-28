@@ -1,130 +1,90 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Trophy, Menu, X } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Menu, Trophy, X } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Button } from '@/components/common/Button';
+import { useAuth } from '@/context/AuthContext';
+import { canManageLeague } from '@/lib/roleGuards';
 
 const publicNavLinks = [
   { label: 'Home', path: '/' },
   { label: 'Tournaments', path: '/tournaments' },
   { label: 'Leaderboard', path: '/leaderboard' },
+  { label: 'Gallery', path: '/gallery' },
   { label: 'About', path: '/about' },
   { label: 'News', path: '/news' },
+  { label: 'Contact', path: '/contact' },
 ];
+
+const linkClass = 'block min-h-[44px] w-full rounded-md px-3 py-2 text-left text-sm font-medium text-tmgl-charcoal-100 transition-colors hover:bg-tmgl-charcoal-900 hover:text-tmgl-gold-300';
+const desktopLinkClass = 'rounded-md px-2 py-2 text-tmgl-charcoal-200 transition-colors hover:bg-tmgl-charcoal-900 hover:text-tmgl-gold-300';
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated, profile } = useAuth();
+  const isManager = canManageLeague(profile?.role);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
 
-  const closeMenu = useCallback(() => {
+  const closeMenu = useCallback((restoreFocus = false) => {
     setMobileMenuOpen(false);
-    menuButtonRef.current?.focus();
+    if (restoreFocus) menuButtonRef.current?.focus();
   }, []);
 
   useEffect(() => {
-    if (!mobileMenuOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeMenu();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [mobileMenuOpen, closeMenu]);
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node) &&
-          menuButtonRef.current && !menuButtonRef.current.contains(e.target as Node)) {
-        closeMenu();
-      }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeMenu(true);
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    const handlePointerDown = (event: MouseEvent) => {
+      if (headerRef.current && !headerRef.current.contains(event.target as Node)) closeMenu(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handlePointerDown);
+    };
   }, [mobileMenuOpen, closeMenu]);
 
   return (
-    <header className="sticky top-0 z-40 bg-tmgl-green-900 border-b border-tmgl-green-700/50 text-white shadow-md">
+    <header ref={headerRef} className="sticky top-0 z-40 border-b border-tmgl-gold-500/30 bg-tmgl-charcoal-950 text-white shadow-lg">
       <Container size="lg">
-        <div className="flex items-center justify-between h-16">
-          <button
-            onClick={() => navigate('/')}
-            className="flex items-center gap-3 touch-target"
-            aria-label="Go to home"
-          >
-            <div className="w-10 h-10 rounded-lg bg-tmgl-green-800 border border-tmgl-gold/60 flex items-center justify-center shadow-inner">
-              <Trophy className="w-5 h-5 text-tmgl-gold" />
-            </div>
-            <div>
-              <span className="font-extrabold tracking-wider text-base sm:text-lg uppercase text-white">
-                TMGL
-              </span>
-              <span className="hidden sm:inline-block ml-2 text-xs font-semibold px-2 py-0.5 rounded bg-tmgl-green-700/60 text-tmgl-gold border border-tmgl-gold/30">
-                Toruk Maktu Golf League
-              </span>
-            </div>
-          </button>
+        <div className="flex h-16 items-center justify-between">
+          <Link to="/" className="touch-target flex min-w-0 items-center gap-3 text-left" aria-label="Go to TMGL home">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-tmgl-gold-500/70 bg-tmgl-charcoal-900 shadow-inner"><Trophy className="h-5 w-5 text-tmgl-gold-400" /></span>
+            <span className="min-w-0"><span className="block truncate text-base font-extrabold uppercase tracking-wider text-white sm:text-lg">TMGL</span><span className="hidden text-xs font-semibold text-tmgl-gold-300 sm:inline">Toruk Maktu Golf League</span></span>
+          </Link>
 
-          <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
-            {publicNavLinks.map((link) => (
-              <button
-                key={link.label}
-                onClick={() => navigate(link.path)}
-                className="text-tmgl-charcoal-200 hover:text-tmgl-gold transition-colors py-2"
-              >
-                {link.label}
-              </button>
-            ))}
+          <nav aria-label="Primary navigation" className="hidden items-center gap-5 text-sm font-medium lg:flex">
+            {publicNavLinks.slice(0, 5).map((link) => <Link key={link.label} to={link.path} className={desktopLinkClass}>{link.label}</Link>)}
           </nav>
 
-          <div className="hidden sm:flex items-center gap-3">
-            <Button
-              variant="gold"
-              size="sm"
-              onClick={() => navigate('/login')}
-              className="font-bold tracking-wide"
-            >
-              Sign in
-            </Button>
+          <div className="hidden items-center gap-3 sm:flex">
+            {isManager && <Button variant="outline" size="sm" onClick={() => navigate('/seasons')} className="font-bold">Seasons</Button>}
+            {isManager && <Button variant="outline" size="sm" onClick={() => navigate('/admin')} className="font-bold">Admin</Button>}
+            {isAuthenticated ? <Button variant="gold" size="sm" onClick={() => navigate('/dashboard')} className="font-bold">{profile?.full_name ? 'Dashboard' : 'My dashboard'}</Button> : <Button variant="gold" size="sm" onClick={() => navigate('/login')} className="font-bold">Sign in</Button>}
           </div>
 
-          <div className="sm:hidden flex items-center" ref={menuRef}>
-            <button
-              ref={menuButtonRef}
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg text-tmgl-charcoal-200 hover:text-white hover:bg-tmgl-green-800 touch-target focus:outline-none focus:ring-2 focus:ring-tmgl-gold"
-              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
-              aria-expanded={mobileMenuOpen}
-            >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          <div className="flex items-center sm:hidden">
+            <button ref={menuButtonRef} onClick={() => setMobileMenuOpen((open) => !open)} className="touch-target rounded-lg p-2 text-tmgl-charcoal-200 hover:bg-tmgl-charcoal-900 hover:text-tmgl-gold-300" aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'} aria-expanded={mobileMenuOpen} aria-controls="mobile-navigation">
+              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
           </div>
         </div>
 
-        {mobileMenuOpen && (
-          <div className="sm:hidden py-4 border-t border-tmgl-green-800/80 space-y-2">
-            {publicNavLinks.map((link) => (
-              <button
-                key={link.label}
-                onClick={() => { closeMenu(); navigate(link.path); }}
-                className="block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-tmgl-charcoal-100 hover:bg-tmgl-green-800"
-              >
-                {link.label}
-              </button>
-            ))}
-            <div className="pt-2 border-t border-tmgl-green-800">
-              <Button
-                variant="gold"
-                fullWidth
-                size="md"
-                onClick={() => { closeMenu(); navigate('/login'); }}
-              >
-                Sign in
-              </Button>
-            </div>
-          </div>
-        )}
+        {mobileMenuOpen && <nav id="mobile-navigation" aria-label="Mobile navigation" className="space-y-1 border-t border-tmgl-charcoal-800 py-4 sm:hidden">
+          {publicNavLinks.map((link) => <Link key={link.label} to={link.path} className={linkClass} onClick={() => closeMenu(false)}>{link.label}</Link>)}
+          {isManager && <Link to="/seasons" className={linkClass} onClick={() => closeMenu(false)}>Seasons</Link>}
+          {isManager && <Link to="/admin" className={linkClass} onClick={() => closeMenu(false)}>Admin</Link>}
+          <div className="border-t border-tmgl-charcoal-800 pt-3"><Button variant="gold" fullWidth onClick={() => { closeMenu(false); navigate(isAuthenticated ? '/dashboard' : '/login'); }}>{isAuthenticated ? 'Open dashboard' : 'Sign in'}</Button></div>
+        </nav>}
       </Container>
     </header>
   );

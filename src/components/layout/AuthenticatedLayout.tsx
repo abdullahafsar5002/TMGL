@@ -10,13 +10,10 @@ interface AuthenticatedLayoutProps {
 
 export function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
   const location = useLocation();
-
   return (
-    <div className="min-h-screen flex flex-col bg-tmgl-charcoal-50 text-tmgl-charcoal-900 pb-20 md:pb-0">
+    <div className="flex min-h-screen flex-col overflow-x-hidden bg-tmgl-charcoal-50 text-tmgl-charcoal-950 pb-20 md:pb-0">
       <Header />
-      <main className="flex-1 py-6 sm:py-8">
-        {children}
-      </main>
+      <main className="flex-1 py-6 sm:py-8">{children}</main>
       <AuthenticatedBottomNav currentPath={location.pathname} />
       <OfflineIndicator />
     </div>

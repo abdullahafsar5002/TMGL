@@ -1,323 +1,416 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Edit3, ArrowLeft, Loader2, AlertCircle, Save, CheckCircle, Plus, Minus } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle, Edit3, Loader2, Minus, Plus, Save } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
-import { getScorecardHoles, upsertScorecardHoles, updateScorecard } from '@/lib/competition';
-import { getRoundsByTournament } from '@/lib/competition';
-import { getTournaments } from '@/lib/competition';
-import { getPlayers } from '@/lib/league';
-import { supabase } from '@/lib/supabase';
-import { holeScoreToPar, computeScorecardSummary, type HoleEntry } from '@/lib/scoring';
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
+import {
+  createScorecard,
+  getCourseIdForRound,
+  getRoundsByTournament,
+  isPlayerAssignedToRound,
+  getScorecardByRoundPlayer,
+  getScorecardHoles,
+  getTournaments,
+  updateScorecard,
+  upsertScorecardHoles,
+} from '@/lib/competition';
+import { getCourseHoles, getPlayerByAuthUserId, getPlayers } from '@/lib/league';
+import { canManageLeague } from '@/lib/roleGuards';
+import { isRetryableServiceError, toUserFacingServiceError } from '@/lib/errors';
+import { enqueueScoreOperation, getScoreQueueOperations, removeScoreOperationsForScorecard, syncScoreQueue, type QueuedScoreHole, type ScoreQueueOperation } from '@/lib/scoreQueue';
+import { computeScorecardSummary, holeScoreToPar } from '@/lib/scoring';
 import { formatToPar } from '@/utils/golf';
 import { validateScorecardHoles } from '@/lib/validation';
-import type { Tournament, Round, Player } from '@/types/database';
-import { useToast } from '@/context/ToastContext';
+import type { Player, Round, Tournament } from '@/types/database';
+
+function isOnline(): boolean {
+  return typeof navigator === 'undefined' || navigator.onLine !== false;
+}
 
 export function ScoringPage() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { user, profile } = useAuth();
   const [searchParams] = useSearchParams();
+  const isManager = canManageLeague(profile?.role);
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [rounds, setRounds] = useState<Round[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
-
-  const [selectedTournamentId, setSelectedTournamentId] = useState(searchParams.get('tournament_id') || '');
-  const [selectedRoundId, setSelectedRoundId] = useState(searchParams.get('round_id') || '');
-  const [selectedPlayerId, setSelectedPlayerId] = useState(searchParams.get('player_id') || '');
+  const [ownPlayerId, setOwnPlayerId] = useState<string | null>(null);
+  const [selectedTournamentId, setSelectedTournamentId] = useState(searchParams.get('tournament_id') ?? '');
+  const [selectedRoundId, setSelectedRoundId] = useState(searchParams.get('round_id') ?? '');
+  const [selectedPlayerId, setSelectedPlayerId] = useState(searchParams.get('player_id') ?? '');
   const [scorecardId, setScorecardId] = useState<string | null>(null);
-
   const [holeScores, setHoleScores] = useState<Record<number, string>>({});
   const [holePars, setHolePars] = useState<Record<number, number>>({});
-
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-
-  useEffect(() => { getTournaments().then((r) => { if (r.data) setTournaments(r.data); }); }, []);
-  useEffect(() => { getPlayers().then((r) => { if (r.data) setPlayers(r.data); }); }, []);
+  const [queueState, setQueueState] = useState<'idle' | 'queued' | 'syncing' | 'synced' | 'error'>('idle');
+  const [queueError, setQueueError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (selectedTournamentId) {
-      getRoundsByTournament(selectedTournamentId).then((r) => { if (r.data) setRounds(r.data); });
-    } else {
+    void getTournaments().then((result) => {
+      if (result.data) setTournaments(result.data);
+      if (result.error) setError(result.error);
+    });
+    void getPlayers().then((result) => {
+      if (result.data) setPlayers(result.data);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    void getPlayerByAuthUserId(user.id).then((result) => {
+      if (result.data) {
+        setOwnPlayerId(result.data.id);
+        if (!isManager) setSelectedPlayerId(result.data.id);
+      } else if (result.error && !isManager) {
+        setError(result.error);
+      }
+    });
+  }, [user, isManager]);
+
+  useEffect(() => {
+    if (!selectedTournamentId) {
       setRounds([]);
+      setSelectedRoundId('');
+      if (!isManager) setSelectedPlayerId(ownPlayerId ?? '');
+      return;
     }
+    void getRoundsByTournament(selectedTournamentId).then((result) => {
+      if (result.data) setRounds(result.data);
+      if (result.error) setError(result.error);
+    });
     setSelectedRoundId('');
-    setSelectedPlayerId('');
-  }, [selectedTournamentId]);
+    if (!isManager) setSelectedPlayerId(ownPlayerId ?? '');
+    else setSelectedPlayerId('');
+  }, [selectedTournamentId, isManager, ownPlayerId]);
+
+  const syncQueuedScores = useCallback(async () => {
+    if (!isOnline()) {
+      setQueueState('queued');
+      return;
+    }
+    setQueueState('syncing');
+    setQueueError(null);
+    try {
+      const result = await syncScoreQueue(async (operation: ScoreQueueOperation) => {
+        const holesResult = await upsertScorecardHoles(operation.holes);
+        if (holesResult.error) throw new Error(holesResult.error);
+        const scorecardResult = await updateScorecard(operation.scorecardId, {
+          status: operation.status,
+          total_strokes: operation.totalStrokes,
+          total_score_to_par: operation.totalScoreToPar,
+        });
+         if (scorecardResult.error) throw new Error(scorecardResult.error);
+       }, user?.id);
+      if (result.failed > 0) {
+        setQueueState('error');
+        setQueueError('Some queued scores could not sync. Check your connection and permissions.');
+      } else if (result.synced > 0) {
+        setQueueState('synced');
+        toast.success('Queued scores synced successfully.');
+      } else {
+        setQueueState('idle');
+      }
+    } catch (caught) {
+      setQueueState('error');
+      setQueueError(toUserFacingServiceError(caught, 'Queued scores could not sync.'));
+    }
+  }, [toast, user?.id]);
+
+  useEffect(() => {
+    void getScoreQueueOperations(user?.id).then((operations) => {
+      if (operations.length > 0) setQueueState('queued');
+    }).catch(() => setQueueState('error'));
+    const handleOnline = () => { void syncQueuedScores(); };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [syncQueuedScores]);
 
   const loadScorecard = useCallback(async () => {
     if (!selectedRoundId || !selectedPlayerId) return;
+    if (!isManager && selectedPlayerId !== ownPlayerId) {
+      setError('You can only edit your own scorecard.');
+      return;
+    }
     setIsLoading(true);
     setError(null);
     setSuccess(null);
+    setValidationErrors([]);
 
-    try {
-      const { data: existingSc } = await supabase
-        .from('scorecards')
-        .select('id, course_id')
-        .eq('round_id', selectedRoundId)
-        .eq('player_id', selectedPlayerId)
-        .single();
-
-      let scId: string;
-      let courseId: string | null = null;
-
-      if (existingSc) {
-        scId = existingSc.id;
-        courseId = existingSc.course_id;
-      } else {
-        const roundRes = await supabase.from('rounds').select('tournament_id').eq('id', selectedRoundId).single();
-        courseId = roundRes.data ? (await supabase.from('tournaments').select('course_id').eq('id', roundRes.data.tournament_id).single()).data?.course_id : null;
-
-        const { data: newSc, error: createErr } = await supabase
-          .from('scorecards')
-          .insert({ round_id: selectedRoundId, player_id: selectedPlayerId, course_id: courseId })
-          .select('id')
-          .single();
-        if (createErr) { setError(createErr.message); toast.error(createErr.message); setIsLoading(false); return; }
-        scId = newSc.id;
+    if (!isManager) {
+      const assignment = await isPlayerAssignedToRound(selectedRoundId, selectedPlayerId);
+      if (assignment.error) {
+        setError(assignment.error);
+        setIsLoading(false);
+        return;
       }
-
-      setScorecardId(scId);
-
-      if (courseId) {
-        const { data: holes } = await supabase.from('course_holes').select('hole_number, par').eq('course_id', courseId).order('hole_number');
-        if (holes && holes.length > 0) {
-          const pars: Record<number, number> = {};
-          holes.forEach((h) => { pars[h.hole_number] = h.par; });
-          setHolePars(pars);
-        }
+      if (!assignment.data) {
+        setError('You are not assigned to this round.');
+        setIsLoading(false);
+        return;
       }
+    }
 
-      const { data: existingHoles } = await getScorecardHoles(scId);
-      if (existingHoles && existingHoles.length > 0) {
-        const scores: Record<number, string> = {};
-        const pars2: Record<number, number> = {};
-        existingHoles.forEach((h) => {
-          scores[h.hole_number] = String(h.strokes);
-          pars2[h.hole_number] = h.par;
-        });
-        setHoleScores(scores);
-        setHolePars((prev) => ({ ...prev, ...pars2 }));
-      } else {
-        setHoleScores({});
+    const existingResult = await getScorecardByRoundPlayer(selectedRoundId, selectedPlayerId);
+    let currentScorecardId: string;
+    let courseId: string | null;
+    if (existingResult.data) {
+      currentScorecardId = existingResult.data.id;
+      courseId = existingResult.data.course_id;
+    } else if (existingResult.error === 'Scorecard not found.') {
+      const courseResult = await getCourseIdForRound(selectedRoundId);
+      if (courseResult.error) {
+        setError(courseResult.error);
+        setIsLoading(false);
+        return;
       }
-    } catch {
-      setError('Failed to load scorecard');
-      toast.error('Failed to load scorecard');
+      courseId = courseResult.data;
+      if (!courseId) {
+        setError('This round does not have an assigned course yet.');
+        setIsLoading(false);
+        return;
+      }
+      const createResult = await createScorecard({
+        round_id: selectedRoundId,
+        player_id: selectedPlayerId,
+        match_id: null,
+        course_id: courseId,
+      });
+      if (createResult.error || !createResult.data) {
+        const message = createResult.error ?? 'Unable to create your scorecard.';
+        setError(message);
+        toast.error(message);
+        setIsLoading(false);
+        return;
+      }
+      currentScorecardId = createResult.data.id;
+    } else {
+      setError(existingResult.error ?? 'Unable to load your scorecard.');
+      setIsLoading(false);
+      return;
+    }
+
+    setScorecardId(currentScorecardId);
+    if (courseId) {
+      const courseHolesResult = await getCourseHoles(courseId);
+      if (courseHolesResult.error) {
+        setError(courseHolesResult.error);
+      } else if (courseHolesResult.data) {
+        setHolePars(Object.fromEntries(courseHolesResult.data.map((hole) => [hole.hole_number, hole.par])));
+      }
+    }
+    const holesResult = await getScorecardHoles(currentScorecardId);
+    if (holesResult.error) {
+      setError(holesResult.error);
+    } else {
+      const existingHoles = holesResult.data ?? [];
+      setHoleScores(Object.fromEntries(existingHoles.map((hole) => [hole.hole_number, String(hole.strokes)])));
+      setHolePars((previous) => ({
+        ...previous,
+        ...Object.fromEntries(existingHoles.map((hole) => [hole.hole_number, hole.par])),
+      }));
     }
     setIsLoading(false);
-  }, [selectedRoundId, selectedPlayerId]);
+  }, [selectedRoundId, selectedPlayerId, isManager, ownPlayerId, toast]);
 
-  useEffect(() => { if (selectedRoundId && selectedPlayerId) loadScorecard(); }, [loadScorecard]);
+  useEffect(() => {
+    if (selectedRoundId && selectedPlayerId) void loadScorecard();
+  }, [loadScorecard]);
 
-  const handleScoreChange = (holeNum: number, value: string) => {
-    setHoleScores((prev) => ({ ...prev, [holeNum]: value }));
+  const handleScoreChange = (holeNumber: number, value: string) => {
+    setHoleScores((previous) => ({ ...previous, [holeNumber]: value }));
     setSuccess(null);
     setValidationErrors([]);
   };
 
-  const adjustScore = (holeNum: number, delta: number) => {
-    const current = parseInt(holeScores[holeNum] || '0', 10);
-    const newValue = current + delta;
-    if (newValue >= 1 && newValue <= 20) {
-      handleScoreChange(holeNum, String(newValue));
-    }
+  const adjustScore = (holeNumber: number, delta: number) => {
+    const current = Number.parseInt(holeScores[holeNumber] ?? '0', 10);
+    const next = current + delta;
+    if (next >= 1 && next <= 20) handleScoreChange(holeNumber, String(next));
   };
 
-  const summary = (() => {
-    const entries: HoleEntry[] = [];
-    for (const [num, strokes] of Object.entries(holeScores)) {
-      const holeNum = Number(num);
-      const par = holePars[holeNum] || 4;
-      const s = parseInt(strokes, 10);
-      if (!isNaN(s) && s > 0) {
-        entries.push({ holeNumber: holeNum, par, strokes: s });
-      }
-    }
-    return computeScorecardSummary(entries.map((e) => ({
-      id: '', scorecard_id: '', hole_number: e.holeNumber, par: e.par, strokes: e.strokes, score_to_par: holeScoreToPar(e.strokes, e.par), created_at: '', updated_at: '',
-    })));
-  })();
-
+  const entries = useMemo(() => Object.entries(holeScores).flatMap(([number, value]) => {
+    const strokes = Number.parseInt(value, 10);
+    const holeNumber = Number(number);
+    const par = holePars[holeNumber] ?? 4;
+    return Number.isInteger(strokes) && strokes > 0 ? [{ holeNumber, par, strokes }] : [];
+  }), [holeScores, holePars]);
+  const summary = computeScorecardSummary(entries.map((entry) => ({
+    id: '',
+    scorecard_id: '',
+    hole_number: entry.holeNumber,
+    par: entry.par,
+    strokes: entry.strokes,
+    score_to_par: holeScoreToPar(entry.strokes, entry.par),
+    created_at: '',
+    updated_at: '',
+  })));
   const holeCount = Object.keys(holePars).length || 18;
 
-  const handleSave = async (submit: boolean) => {
+  const saveOperation = async (submit: boolean) => {
     if (!scorecardId) return;
     setIsSaving(true);
     setError(null);
     setValidationErrors([]);
     setSuccess(null);
-
-    const holesToSave: Array<{ scorecard_id: string; hole_number: number; par: number; strokes: number; score_to_par: number }> = [];
-    for (const [num, strokes] of Object.entries(holeScores)) {
-      const holeNum = Number(num);
-      const par = holePars[holeNum] || 4;
-      const s = parseInt(strokes, 10);
-      if (!isNaN(s) && s > 0) {
-        holesToSave.push({ scorecard_id: scorecardId, hole_number: holeNum, par, strokes: s, score_to_par: holeScoreToPar(s, par) });
+    const holes: QueuedScoreHole[] = entries.map((entry) => ({
+      scorecard_id: scorecardId,
+      hole_number: entry.holeNumber,
+      par: entry.par,
+      strokes: entry.strokes,
+      score_to_par: holeScoreToPar(entry.strokes, entry.par),
+    }));
+    const validation = validateScorecardHoles(holes.map((hole) => ({ hole_number: hole.hole_number, par: hole.par, strokes: hole.strokes })), holeCount);
+    if (!validation.isValid) {
+      setValidationErrors(validation.errors);
+      setIsSaving(false);
+      return;
+    }
+    const operation = {
+      scorecardId,
+      ownerId: user?.id ?? '',
+      holes,
+      status: submit ? 'submitted' as const : 'in_progress' as const,
+      totalStrokes: summary.totalStrokes,
+      totalScoreToPar: summary.totalToPar,
+    };
+    if (!isOnline()) {
+      try {
+        await enqueueScoreOperation(operation);
+        setQueueState('queued');
+        setSuccess('Saved on this device. It will sync when you are online.');
+        toast.info('Score queued for sync.');
+      } catch (caught) {
+        setError(toUserFacingServiceError(caught, 'This browser cannot store offline scores.'));
       }
+      setIsSaving(false);
+      return;
     }
-
-    const validation = validateScorecardHoles(holesToSave.map((h) => ({ hole_number: h.hole_number, par: h.par, strokes: h.strokes })), holeCount);
-    if (!validation.isValid) { setValidationErrors(validation.errors); setIsSaving(false); return; }
-
-    const result = await upsertScorecardHoles(holesToSave);
-    if (result.error) { setError(result.error); toast.error(result.error); setIsSaving(false); return; }
-
-    if (submit) {
-      const scResult = await updateScorecard(scorecardId, {
-        status: 'submitted',
-        total_strokes: summary.totalStrokes,
-        total_score_to_par: summary.totalToPar,
-      });
-      if (scResult.error) { setError(scResult.error); toast.error(scResult.error); setIsSaving(false); return; }
-      setSuccess('Scorecard submitted!');
-      toast.success('Scorecard submitted successfully');
-    } else {
-      const scResult = await updateScorecard(scorecardId, {
-        status: 'in_progress',
-        total_strokes: summary.totalStrokes,
-        total_score_to_par: summary.totalToPar,
-      });
-      if (scResult.error) { setError(scResult.error); toast.error(scResult.error); setIsSaving(false); return; }
-      setSuccess('Scorecard saved!');
-      toast.success('Scorecard saved successfully');
+    try {
+      const holesResult = await upsertScorecardHoles(holes);
+      if (holesResult.error) throw new Error(holesResult.error);
+      const scorecardResult = await updateScorecard(scorecardId, operation.status === 'submitted'
+        ? { status: 'submitted', total_strokes: operation.totalStrokes, total_score_to_par: operation.totalScoreToPar }
+        : { status: 'in_progress', total_strokes: operation.totalStrokes, total_score_to_par: operation.totalScoreToPar });
+      if (scorecardResult.error) throw new Error(scorecardResult.error);
+      if (user?.id) {
+        try {
+          await removeScoreOperationsForScorecard(scorecardId, user.id);
+        } catch {
+          setQueueError('The score synced, but an older offline copy could not be cleaned up.');
+        }
+      }
+      setSuccess(submit ? 'Scorecard submitted.' : 'Scorecard saved.');
+      toast.success(submit ? 'Scorecard submitted successfully.' : 'Scorecard saved successfully.');
+    } catch (caught) {
+      if (isRetryableServiceError(caught)) {
+        try {
+          await enqueueScoreOperation(operation);
+          setQueueState('queued');
+          setSuccess('Connection lost. Score queued for sync.');
+          toast.warning('Score queued for sync.');
+        } catch (queueError) {
+          setError(toUserFacingServiceError(queueError, 'Score could not be saved offline.'));
+        }
+      } else {
+        setError(toUserFacingServiceError(caught, 'Unable to save the scorecard.'));
+        toast.error(toUserFacingServiceError(caught, 'Unable to save the scorecard.'));
+      }
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
   };
 
   return (
     <Container size="lg" className="space-y-4 py-4">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-sm text-tmgl-charcoal-500 hover:text-tmgl-green-800">
-        <ArrowLeft className="w-4 h-4" /> Back
+      <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-sm text-tmgl-charcoal-500 hover:text-tmgl-gold-600">
+        <ArrowLeft className="h-4 w-4" /> Back
       </button>
-      <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
-        <Edit3 className="w-5 h-5 text-tmgl-green-800" /> Score Entry
+      <h1 className="flex items-center gap-2 text-xl font-bold text-tmgl-charcoal-950">
+        <Edit3 className="h-5 w-5 text-tmgl-gold-600" /> Score Entry
       </h1>
 
       <Card className="space-y-3">
         <div>
-          <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Tournament</label>
-          <select value={selectedTournamentId} onChange={(e) => setSelectedTournamentId(e.target.value)}
-            className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700">
+          <label htmlFor="scoring-tournament" className="mb-1 block text-sm font-medium text-tmgl-charcoal-700">Tournament</label>
+          <select id="scoring-tournament" value={selectedTournamentId} onChange={(event) => setSelectedTournamentId(event.target.value)} className="min-h-[44px] w-full rounded-lg border border-tmgl-charcoal-300 bg-white px-3 py-2.5 text-sm focus:border-tmgl-gold-500 focus:outline-none focus:ring-2 focus:ring-tmgl-gold-500">
             <option value="">Select tournament</option>
-            {tournaments.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            {tournaments.map((tournament) => <option key={tournament.id} value={tournament.id}>{tournament.name}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Round</label>
-          <select value={selectedRoundId} onChange={(e) => setSelectedRoundId(e.target.value)} disabled={!selectedTournamentId}
-            className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700 disabled:opacity-50">
+          <label htmlFor="scoring-round" className="mb-1 block text-sm font-medium text-tmgl-charcoal-700">Round</label>
+          <select id="scoring-round" value={selectedRoundId} onChange={(event) => setSelectedRoundId(event.target.value)} disabled={!selectedTournamentId} className="min-h-[44px] w-full rounded-lg border border-tmgl-charcoal-300 bg-white px-3 py-2.5 text-sm disabled:opacity-50 focus:border-tmgl-gold-500 focus:outline-none focus:ring-2 focus:ring-tmgl-gold-500">
             <option value="">Select round</option>
-            {rounds.map((r) => <option key={r.id} value={r.id}>Round {r.round_number}: {r.name}</option>)}
+            {rounds.map((round) => <option key={round.id} value={round.id}>Round {round.round_number}: {round.name}</option>)}
           </select>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Player</label>
-          <select value={selectedPlayerId} onChange={(e) => setSelectedPlayerId(e.target.value)} disabled={!selectedRoundId}
-            className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700 disabled:opacity-50">
-            <option value="">Select player</option>
-            {players.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-          </select>
-        </div>
+        {isManager ? (
+          <div>
+            <label htmlFor="scoring-player" className="mb-1 block text-sm font-medium text-tmgl-charcoal-700">Player</label>
+            <select id="scoring-player" value={selectedPlayerId} onChange={(event) => setSelectedPlayerId(event.target.value)} disabled={!selectedRoundId} className="min-h-[44px] w-full rounded-lg border border-tmgl-charcoal-300 bg-white px-3 py-2.5 text-sm disabled:opacity-50 focus:border-tmgl-gold-500 focus:outline-none focus:ring-2 focus:ring-tmgl-gold-500">
+              <option value="">Select player</option>
+              {players.map((player) => <option key={player.id} value={player.id}>{player.full_name}</option>)}
+            </select>
+          </div>
+        ) : (
+          <p className="text-sm text-tmgl-charcoal-500">You are editing your assigned scorecard only.</p>
+        )}
       </Card>
 
-      {isLoading && <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 text-tmgl-green-800 animate-spin" /></div>}
-
-      {error && <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /><p>{error}</p></div>}
-      {validationErrors.length > 0 && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
-          {validationErrors.map((e, i) => <p key={i}>{e}</p>)}
+      {isLoading && <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-tmgl-gold-600" /></div>}
+      {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><p>{error}</p></div>}
+      {queueError && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">{queueError}</div>}
+      {validationErrors.length > 0 && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{validationErrors.map((message) => <p key={message}>{message}</p>)}</div>}
+      {success && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"><CheckCircle className="h-4 w-4" /><p>{success}</p></div>}
+      {queueState !== 'idle' && (
+        <div className="flex items-center justify-between rounded-xl border border-tmgl-gold-300 bg-tmgl-gold-50 px-3 py-2 text-sm text-tmgl-charcoal-800" role="status">
+          <span>{queueState === 'queued' ? 'Queued for sync' : queueState === 'syncing' ? 'Syncing saved scores' : queueState === 'synced' ? 'Scores synced' : 'Score sync needs attention'}</span>
+          {queueState === 'queued' && <Button size="sm" variant="outline" onClick={() => void syncQueuedScores()} disabled={!isOnline()}>Sync now</Button>}
         </div>
       )}
-      {success && <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800"><CheckCircle className="w-4 h-4" /><p>{success}</p></div>}
 
       {!isLoading && scorecardId && selectedPlayerId && (
         <>
           <Card>
             <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <p className="text-2xl font-bold text-tmgl-charcoal-900">{summary.totalStrokes || '-'}</p>
-                <p className="text-xs text-tmgl-charcoal-500">Total</p>
-              </div>
-              <div>
-                <p className={`text-2xl font-bold ${summary.totalToPar <= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                  {summary.totalStrokes > 0 ? formatToPar(summary.totalToPar) : '-'}
-                </p>
-                <p className="text-xs text-tmgl-charcoal-500">To Par</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-tmgl-charcoal-900">{summary.holesCompleted}/{holeCount}</p>
-                <p className="text-xs text-tmgl-charcoal-500">Holes</p>
-              </div>
+              <div><p className="text-2xl font-bold text-tmgl-charcoal-950">{summary.totalStrokes || '-'}</p><p className="text-xs text-tmgl-charcoal-500">Total</p></div>
+              <div><p className={`text-2xl font-bold ${summary.totalToPar <= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{summary.totalStrokes > 0 ? formatToPar(summary.totalToPar) : '-'}</p><p className="text-xs text-tmgl-charcoal-500">To Par</p></div>
+              <div><p className="text-2xl font-bold text-tmgl-charcoal-950">{summary.holesCompleted}/{holeCount}</p><p className="text-xs text-tmgl-charcoal-500">Holes</p></div>
             </div>
           </Card>
 
           <div className="space-y-2">
-            {Array.from({ length: holeCount }, (_, i) => i + 1).map((holeNum) => {
-              const par = holePars[holeNum] || 4;
-              const strokes = parseInt(holeScores[holeNum] || '', 10);
-              const toPar = !isNaN(strokes) ? holeScoreToPar(strokes, par) : null;
-
+            {Array.from({ length: holeCount }, (_, index) => index + 1).map((holeNumber) => {
+              const par = holePars[holeNumber] ?? 4;
+              const strokes = Number.parseInt(holeScores[holeNumber] ?? '', 10);
+              const toPar = Number.isInteger(strokes) ? holeScoreToPar(strokes, par) : null;
               return (
-                <Card key={holeNum} className="flex items-center gap-3 p-3 bg-white hover:bg-tmgl-charcoal-50 transition-colors">
-                  <div className="w-10 text-center shrink-0">
-                    <p className="text-sm font-bold text-tmgl-charcoal-900">{holeNum}</p>
-                    <p className="text-[10px] text-tmgl-charcoal-500">Par {par}</p>
+                <Card key={holeNumber} className="flex items-center gap-3 bg-white p-3 transition-colors hover:bg-tmgl-charcoal-50">
+                  <div className="w-10 shrink-0 text-center"><p className="text-sm font-bold text-tmgl-charcoal-950">{holeNumber}</p><p className="text-[10px] text-tmgl-charcoal-500">Par {par}</p></div>
+                  <div className="flex flex-1 items-center justify-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => adjustScore(holeNumber, -1)} className="h-8 w-8 rounded-full p-0" aria-label={`Decrease hole ${holeNumber} score`}><Minus className="h-4 w-4" /></Button>
+                    <input type="number" min={1} max={20} value={holeScores[holeNumber] ?? ''} onChange={(event) => handleScoreChange(holeNumber, event.target.value)} placeholder="0" aria-label={`Strokes for hole ${holeNumber}`} className="w-12 rounded-lg border border-tmgl-charcoal-300 bg-white py-2 text-center text-sm font-bold focus:border-tmgl-gold-500 focus:outline-none focus:ring-2 focus:ring-tmgl-gold-500" />
+                    <Button variant="outline" size="sm" onClick={() => adjustScore(holeNumber, 1)} className="h-8 w-8 rounded-full p-0" aria-label={`Increase hole ${holeNumber} score`}><Plus className="h-4 w-4" /></Button>
                   </div>
-                  <div className="flex items-center gap-2 flex-1 justify-center">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => adjustScore(holeNum, -1)}
-                      className="w-8 h-8 p-0 rounded-full border-tmgl-charcoal-200 hover:bg-red-50 hover:text-red-600"
-                    >
-                      <Minus className="w-4 h-4" />
-                    </Button>
-                    <input 
-                      type="number" 
-                      min={1} 
-                      max={20} 
-                      value={holeScores[holeNum] || ''}
-                      onChange={(e) => handleScoreChange(holeNum, e.target.value)}
-                      placeholder="0"
-                      className="w-12 text-center py-2 rounded-lg border border-tmgl-charcoal-200 bg-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-tmgl-green-700" 
-                    />
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => adjustScore(holeNum, 1)}
-                      className="w-8 h-8 p-0 rounded-full border-tmgl-charcoal-200 hover:bg-green-50 hover:text-green-600"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <div className="w-14 text-right">
-                    {toPar !== null && (
-                      <span className={`text-sm font-bold ${toPar <= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                        {formatToPar(toPar)}
-                      </span>
-                    )}
-                  </div>
+                  <div className="w-14 text-right">{toPar !== null && <span className={`text-sm font-bold ${toPar <= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{formatToPar(toPar)}</span>}</div>
                 </Card>
               );
             })}
           </div>
 
-          <div className="flex gap-3">
-            <Button variant="outline" fullWidth onClick={() => handleSave(false)} disabled={isSaving}>
-              {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />} Save
-            </Button>
-            <Button variant="primary" fullWidth onClick={() => handleSave(true)} disabled={isSaving} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
-              {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-2" />} Submit
-            </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button variant="outline" fullWidth onClick={() => void saveOperation(false)} disabled={isSaving}><Save className="mr-2 h-4 w-4" />{isSaving ? 'Saving...' : 'Save'}</Button>
+            <Button variant="gold" fullWidth onClick={() => void saveOperation(true)} disabled={isSaving}><CheckCircle className="mr-2 h-4 w-4" />{isSaving ? 'Submitting...' : 'Submit'}</Button>
           </div>
         </>
       )}

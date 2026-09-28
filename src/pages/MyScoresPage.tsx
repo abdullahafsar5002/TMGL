@@ -7,9 +7,33 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { Badge } from '@/components/common/Badge';
 import { Pagination } from '@/components/common/Pagination';
-import { getPlayerByProfileId } from '@/lib/league';
+import { getPlayerByAuthUserId } from '@/lib/league';
 import { supabase } from '@/lib/supabase';
 import { formatToPar } from '@/utils/golf';
+
+interface PracticeRoundWithCourse {
+  id: string;
+  created_at: string;
+  gross_score: number | null;
+  total_to_par: number | null;
+  status: string;
+  round_type: number;
+  courses: { name: string } | { name: string }[] | null;
+}
+
+interface ScorecardWithRelations {
+  id: string;
+  created_at: string;
+  total_strokes: number | null;
+  total_score_to_par: number | null;
+  status: string;
+  rounds: { tournaments: { courses: { holes_count: number } | { holes_count: number }[] | null } | { courses: { holes_count: number } | { holes_count: number }[] | null }[] | null } | null;
+  courses: { name: string } | { name: string }[] | null;
+}
+
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  return Array.isArray(value) ? value[0] ?? null : value ?? null;
+}
 
 const PAGE_SIZE = 10;
 
@@ -37,7 +61,7 @@ export default function MyScoresPage() {
     setLoading(true);
 
     try {
-      const playerResult = await getPlayerByProfileId(user.id);
+      const playerResult = await getPlayerByAuthUserId(user.id);
       if (playerResult.error || !playerResult.data) {
         setError('Player profile not found.');
         return;
@@ -53,14 +77,13 @@ export default function MyScoresPage() {
         .eq('status', 'completed')
         .order('created_at', { ascending: false });
 
-      for (const pr of (practiceRounds ?? [])) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const course = Array.isArray((pr as any).courses) ? (pr as any).courses[0] : (pr as any).courses;
+      for (const pr of (practiceRounds ?? []) as unknown as PracticeRoundWithCourse[]) {
+        const course = firstRelation(pr.courses);
         rows.push({
           id: pr.id,
           type: 'practice',
           date: pr.created_at,
-          courseName: (course as { name: string } | null)?.name ?? 'Unknown Course',
+          courseName: course?.name ?? 'Unknown Course',
           score: pr.gross_score,
           toPar: pr.total_to_par,
           status: pr.status,
@@ -74,24 +97,20 @@ export default function MyScoresPage() {
         .eq('player_id', playerId)
         .order('created_at', { ascending: false });
 
-      for (const sc of (tournamentScorecards ?? [])) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const scAny = sc as any;
-        const courseArr = Array.isArray(scAny.courses) ? scAny.courses[0] : scAny.courses;
-        const courseName = (courseArr as { name: string } | null)?.name ?? 'Unknown Course';
-        const roundsArr = Array.isArray(scAny.rounds) ? scAny.rounds[0] : scAny.rounds;
-        const tournamentsArr = Array.isArray(roundsArr?.tournaments) ? roundsArr.tournaments[0] : roundsArr?.tournaments;
-        const coursesArr = Array.isArray(tournamentsArr?.courses) ? tournamentsArr.courses[0] : tournamentsArr?.courses;
-        const holes = (coursesArr as { holes_count: number } | null)?.holes_count ?? 18;
+      for (const sc of (tournamentScorecards ?? []) as unknown as ScorecardWithRelations[]) {
+        const course = firstRelation(sc.courses);
+        const round = firstRelation(sc.rounds);
+        const tournament = firstRelation(round?.tournaments ?? null);
+        const tournamentCourse = firstRelation(tournament?.courses ?? null);
         rows.push({
           id: sc.id,
           type: 'tournament',
           date: sc.created_at,
-          courseName,
+          courseName: course?.name ?? 'Unknown Course',
           score: sc.total_strokes,
           toPar: sc.total_score_to_par,
           status: sc.status,
-          holes,
+          holes: tournamentCourse?.holes_count ?? 18,
         });
       }
 

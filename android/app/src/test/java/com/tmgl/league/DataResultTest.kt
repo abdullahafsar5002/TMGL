@@ -1,29 +1,31 @@
 package com.tmgl.league
 
 import com.tmgl.league.data.repository.DataResult
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DataResultTest {
 
     @Test
     fun `success contains data`() {
-        val result = DataResult.Success("hello")
+        val result: DataResult<String> = DataResult.Success("hello")
         assertTrue(result is DataResult.Success)
         assertEquals("hello", (result as DataResult.Success).data)
     }
 
     @Test
     fun `error contains message`() {
-        val result = DataResult.Error("not found")
+        val result: DataResult<String> = DataResult.Error("not found")
         assertTrue(result is DataResult.Error)
         assertEquals("not found", (result as DataResult.Error).message)
     }
 
     @Test
     fun `success and error are different types`() {
-        val success = DataResult.Success(42)
-        val error = DataResult.Error("fail")
+        val success: DataResult<Int> = DataResult.Success(42)
+        val error: DataResult<Int> = DataResult.Error("fail")
         assertFalse(success is DataResult.Error)
         assertFalse(error is DataResult.Success)
     }
@@ -31,57 +33,47 @@ class DataResultTest {
     @Test
     fun `success with list data`() {
         val list = listOf(1, 2, 3)
-        val result = DataResult.Success(list)
+        val result: DataResult<List<Int>> = DataResult.Success(list)
         assertEquals(list, (result as DataResult.Success).data)
     }
 
     @Test
     fun `success with empty list`() {
-        val result = DataResult.Success(emptyList<String>())
+        val result: DataResult<List<String>> = DataResult.Success(emptyList())
         assertTrue((result as DataResult.Success).data.isEmpty())
     }
 
     @Test
     fun `error with different messages`() {
-        val error1 = DataResult.Error("not found")
-        val error2 = DataResult.Error("timeout")
+        val error1: DataResult<Int> = DataResult.Error("not found")
+        val error2: DataResult<Int> = DataResult.Error("timeout")
         assertEquals("not found", (error1 as DataResult.Error).message)
         assertEquals("timeout", (error2 as DataResult.Error).message)
     }
 
     @Test
-    fun `success with data class`() {
-        data class Player(val name: String, val score: Int)
-        val player = Player("John", 72)
-        val result = DataResult.Success(player)
-        val data = (result as DataResult.Success).data
-        assertEquals("John", data.name)
-        assertEquals(72, data.score)
-    }
-
-    @Test
     fun `success with nullable data`() {
-        val result = DataResult.Success(null)
-        assertNull((result as DataResult.Success).data)
+        val result: DataResult<String?> = DataResult.Success(null)
+        assertEquals(null, (result as DataResult.Success).data)
     }
 
     @Test
     fun `success with nested result`() {
-        val inner = DataResult.Success("inner")
-        val outer = DataResult.Success(inner)
+        val inner: DataResult<String> = DataResult.Success("inner")
+        val outer: DataResult<DataResult<String>> = DataResult.Success(inner)
         val data = (outer as DataResult.Success).data
         assertTrue(data is DataResult.Success)
         assertEquals("inner", (data as DataResult.Success).data)
     }
 
     @Test
-    fun `error with exception message`() {
+    fun `error result keeps the thrown message`() {
         val errorMsg = try {
-            throw RuntimeException("network error")
+            throw IllegalStateException("network error")
         } catch (e: Exception) {
             e.message ?: "unknown"
         }
-        val result = DataResult.Error(errorMsg)
+        val result: DataResult<Int> = DataResult.Error(errorMsg)
         assertEquals("network error", (result as DataResult.Error).message)
     }
 

@@ -6,7 +6,7 @@ import { Container } from '@/components/common/Container';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { LoadingState } from '@/components/common/LoadingState';
-import { getPlayerByProfileId, getCourses } from '@/lib/league';
+import { getPlayerByAuthUserId, getCourses } from '@/lib/league';
 import { createPracticeRound } from '@/lib/practice';
 import { validatePracticeRound } from '@/lib/validation';
 import type { Course } from '@/types/database';
@@ -60,7 +60,7 @@ export default function PracticeCreatePage() {
       return;
     }
 
-    const playerResult = await getPlayerByProfileId(user.id);
+    const playerResult = await getPlayerByAuthUserId(user.id);
     if (playerResult.error || !playerResult.data) {
       setError('Player profile not found.');
       return;

@@ -6,18 +6,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.tmgl.league.auth.EncryptedAuthStorage
+import com.tmgl.league.data.auth.SessionSync
 import com.tmgl.league.data.model.Course
 import com.tmgl.league.data.model.PracticeRound
-import com.tmgl.league.data.repository.AuthRepository
-import com.tmgl.league.data.repository.AuthState
 import com.tmgl.league.data.repository.DataResult
 import com.tmgl.league.data.repository.PracticeRepository
 import com.tmgl.league.ui.components.LoadingIndicator
 import com.tmgl.league.ui.components.TmglTopBar
-import com.tmgl.league.ui.theme.TmglGreen
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,8 +29,6 @@ fun PracticeCreateScreen(
     var isSaving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val repository = remember { PracticeRepository() }
-    val context = LocalContext.current
-    val authRepository = remember { AuthRepository(EncryptedAuthStorage(context)) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
@@ -105,9 +99,9 @@ fun PracticeCreateScreen(
                         if (selectedCourseId != null) {
                             isSaving = true
                             scope.launch {
-                                val authState = authRepository.getCurrentUser()
-                                if (authState is AuthState.Authenticated && authState.profile != null) {
-                                    val playerResult = repository.getPlayerByProfileId(authState.profile.id)
+                                val authUserId = SessionSync.authUserId()
+                                if (!authUserId.isNullOrBlank()) {
+                                    val playerResult = repository.getPlayerByAuthUserId(authUserId)
                                     if (playerResult is DataResult.Success) {
                                         val round = PracticeRound(
                                             playerId = playerResult.data.id,
@@ -118,13 +112,19 @@ fun PracticeCreateScreen(
                                             is DataResult.Success -> { isSaving = false; onCreated(result.data.id) }
                                             is DataResult.Error -> { error = result.message; isSaving = false }
                                         }
+                                    } else if (playerResult is DataResult.Error) {
+                                        error = playerResult.message
+                                        isSaving = false
                                     }
+                                } else {
+                                    error = "Sign in to start a practice round"
+                                    isSaving = false
                                 }
                             }
                         }
                     },
                     enabled = selectedCourseId != null && !isSaving,
-                    colors = ButtonDefaults.buttonColors(containerColor = TmglGreen),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(if (isSaving) "Creating..." else "Start Practice Round")

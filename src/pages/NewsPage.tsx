@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { BackLink } from '@/components/common/BackLink';
 import { Link } from 'react-router-dom';
 import { Newspaper, ArrowRight } from 'lucide-react';
 import { Container } from '@/components/common/Container';
@@ -23,6 +24,7 @@ export function NewsPage() {
 
   return (
     <Container className="py-12">
+      <BackLink fallbackTo="/" label="Back" />
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-tmgl-charcoal-900 mb-2">News & Announcements</h1>
         <p className="text-tmgl-charcoal-600 mb-8">Stay updated with the latest from TMGL</p>
