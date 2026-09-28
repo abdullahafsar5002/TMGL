@@ -24,6 +24,7 @@ import { enqueueScoreOperation, getScoreQueueOperations, removeScoreOperationsFo
 import { computeScorecardSummary, holeScoreToPar } from '@/lib/scoring';
 import { formatToPar } from '@/utils/golf';
 import { validateScorecardHoles } from '@/lib/validation';
+import { isSubmissionComplete } from '@/lib/standingsRules';
 import type { Player, Round, Tournament } from '@/types/database';
 
 function isOnline(): boolean {
@@ -274,6 +275,16 @@ export function ScoringPage() {
     const validation = validateScorecardHoles(holes.map((hole) => ({ hole_number: hole.hole_number, par: hole.par, strokes: hole.strokes })), holeCount);
     if (!validation.isValid) {
       setValidationErrors(validation.errors);
+      setIsSaving(false);
+      return;
+    }
+    if (submit && !isSubmissionComplete(
+      entries.map((entry) => ({ hole_number: entry.holeNumber, strokes: entry.strokes })),
+      holeCount
+    )) {
+      setValidationErrors([
+        `Enter a score for all ${holeCount} holes before submitting. ${entries.length} of ${holeCount} entered so far.`,
+      ]);
       setIsSaving(false);
       return;
     }

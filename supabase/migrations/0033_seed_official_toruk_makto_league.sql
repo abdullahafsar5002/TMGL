@@ -1,4 +1,4 @@
-BEGIN;
+﻿BEGIN;
 
 ALTER TABLE public.teams
 ADD COLUMN IF NOT EXISTS sponsor_name TEXT,

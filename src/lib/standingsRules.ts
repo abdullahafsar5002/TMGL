@@ -63,6 +63,19 @@ export function stablefordPoints(
   return total;
 }
 
+export function isSubmissionComplete(
+  holes: ReadonlyArray<{ hole_number: number | null; strokes: number | null }>,
+  expectedHoleCount: number
+): boolean {
+  if (expectedHoleCount <= 0) return false;
+  const played = new Set(
+    holes
+      .filter((hole) => Number.isInteger(hole.hole_number) && hole.strokes != null && hole.strokes > 0)
+      .map((hole) => hole.hole_number)
+  );
+  return played.size >= expectedHoleCount;
+}
+
 export function matchPlayRecord(
   aScores: ReadonlyArray<number | null | undefined>,
   bScores: ReadonlyArray<number | null | undefined>

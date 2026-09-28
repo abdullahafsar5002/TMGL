@@ -319,10 +319,20 @@ fun MainScreen(
                 Screen.ScoreVerification.route,
                 arguments = listOf(navArgument("roundId") { type = NavType.StringType })
             ) { backStackEntry ->
-                ScoreVerificationScreen(
-                    roundId = backStackEntry.arguments?.getString("roundId") ?: "",
-                    onBack = { navController.popBackStack() }
-                )
+                val role = (authState as? AuthState.Authenticated)?.profile?.role
+                val canVerifyScorecards = role == com.tmgl.league.data.model.UserRole.SUPER_ADMIN
+                    || role == com.tmgl.league.data.model.UserRole.LEAGUE_MANAGER
+                if (canVerifyScorecards) {
+                    ScoreVerificationScreen(
+                        roundId = backStackEntry.arguments?.getString("roundId") ?: "",
+                        onBack = { navController.popBackStack() }
+                    )
+                } else {
+                    com.tmgl.league.ui.screens.tournaments.ForbiddenScreen(
+                        message = "Only league managers can verify scorecards.",
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
 
             // ── Practice detail / create ───────────────────────────────

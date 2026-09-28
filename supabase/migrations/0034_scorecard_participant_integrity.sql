@@ -1,4 +1,4 @@
-BEGIN;
+﻿BEGIN;
 
 CREATE OR REPLACE FUNCTION public.current_player_id()
 RETURNS UUID

@@ -3,6 +3,7 @@ import {
   evaluateCut,
   cutLabel,
   compareLastDifferingHole,
+  isSubmissionComplete,
   stablefordPoints,
   stablefordPointsForHole,
   matchPlayRecord
@@ -102,6 +103,41 @@ describe('stablefordPoints', () => {
 
   it('returns zero for an empty card', () => {
     expect(stablefordPoints([])).toBe(0);
+  });
+});
+
+describe('isSubmissionComplete', () => {
+  const full = Array.from({ length: 18 }, (_, i) => ({ hole_number: i + 1, strokes: 4 }));
+
+  it('accepts a card with every expected hole scored', () => {
+    expect(isSubmissionComplete(full, 18)).toBe(true);
+  });
+
+  it('rejects a partial card', () => {
+    expect(isSubmissionComplete(full.slice(0, 10), 18)).toBe(false);
+  });
+
+  it('rejects a card with a blank stroke value', () => {
+    const withBlank = full.map((hole, i) => (i === 5 ? { ...hole, strokes: null } : hole));
+    expect(isSubmissionComplete(withBlank, 18)).toBe(false);
+  });
+
+  it('rejects a card with a zero stroke value', () => {
+    const withZero = full.map((hole, i) => (i === 3 ? { ...hole, strokes: 0 } : hole));
+    expect(isSubmissionComplete(withZero, 18)).toBe(false);
+  });
+
+  it('respects a nine hole course', () => {
+    expect(isSubmissionComplete(full.slice(0, 9), 9)).toBe(true);
+    expect(isSubmissionComplete(full, 9)).toBe(true);
+  });
+
+  it('rejects an empty card', () => {
+    expect(isSubmissionComplete([], 18)).toBe(false);
+  });
+
+  it('rejects a non-positive expected count', () => {
+    expect(isSubmissionComplete(full, 0)).toBe(false);
   });
 });
 
