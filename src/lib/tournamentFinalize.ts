@@ -6,6 +6,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
+import { evaluateCut } from '@/lib/standingsRules';
 import type { ServiceResult } from '@/types/service';
 
 export interface FinalizeResult {
@@ -14,6 +15,7 @@ export interface FinalizeResult {
   trophy_winner_name: string | null;
   total_scorecards: number;
   withdrawn_players: number;
+  cut_players: number;
   handicaps_updated: number;
   message: string;
 }
@@ -31,7 +33,7 @@ export interface FinalizeResult {
 export async function finalizeTournament(tournamentId: string): Promise<ServiceResult<FinalizeResult>> {
   const { data: rounds, error: roundError } = await supabase
     .from('rounds')
-    .select('id')
+    .select('id, cut_after_hole, cut_line_score')
     .eq('tournament_id', tournamentId);
 
   if (roundError) return { data: null, error: roundError.message };
@@ -42,7 +44,7 @@ export async function finalizeTournament(tournamentId: string): Promise<ServiceR
 
   const { data: scorecards, error: scError } = await supabase
     .from('scorecards')
-    .select('id, player_id, total_strokes, total_score_to_par, status, dnf, players(id, full_name, handicap_index)')
+    .select('id, round_id, player_id, total_strokes, total_score_to_par, status, dnf, players(id, full_name, handicap_index)')
     .in('round_id', roundIds);
 
   if (scError) return { data: null, error: scError.message };
@@ -60,7 +62,54 @@ export async function finalizeTournament(tournamentId: string): Promise<ServiceR
 
   const withdrawn = scorecards.filter(card => card.dnf === true);
   const ranked = scorecards.filter(card => card.status === 'verified' || card.status === 'amended');
-  const played = ranked.filter(card => card.total_strokes != null && card.dnf !== true);
+  const scored = ranked.filter(card => card.total_strokes != null && card.dnf !== true);
+
+  const cutLines = new Map(
+    (rounds ?? []).map((round) => [
+      round.id as string,
+      {
+        cutAfterHole: (round.cut_after_hole as number | null) ?? null,
+        cutLineScore: (round.cut_line_score as number | null) ?? null
+      }
+    ])
+  );
+
+  const cardRounds = new Map((scorecards ?? []).map((card) => [card.id as string, card.round_id as string]));
+
+  let cutCount = 0;
+  const cutCardIds = new Set<string>();
+  const roundsWithCut = [...cutLines.values()].filter(
+    (line) => line.cutAfterHole != null && line.cutLineScore != null
+  );
+
+  if (roundsWithCut.length > 0) {
+    const { data: cutHoles } = await supabase
+      .from('scorecard_holes')
+      .select('scorecard_id, hole_number, strokes')
+      .in('scorecard_id', scored.map((card) => card.id as string));
+
+    const frontSums = new Map<string, number>();
+    for (const hole of (cutHoles ?? []) as Array<{ scorecard_id: string; hole_number: number; strokes: number | null }>) {
+      if (hole.strokes == null) continue;
+      const line = cutLines.get(cardRounds.get(hole.scorecard_id) ?? '');
+      if (!line || line.cutAfterHole == null) continue;
+      if (hole.hole_number > line.cutAfterHole) continue;
+      frontSums.set(hole.scorecard_id, (frontSums.get(hole.scorecard_id) ?? 0) + hole.strokes);
+    }
+
+    for (const card of scored) {
+      const line = cutLines.get(cardRounds.get(card.id as string) ?? '');
+      if (!line || line.cutAfterHole == null || line.cutLineScore == null) continue;
+      const front = frontSums.get(card.id as string) ?? null;
+      const evaluation = evaluateCut(front, false, line);
+      if (evaluation.isCut) {
+        cutCardIds.add(card.id as string);
+      }
+    }
+    cutCount = cutCardIds.size;
+  }
+
+  const played = scored.filter(card => !cutCardIds.has(card.id as string));
 
   if (played.length === 0) {
     return { data: null, error: 'No verified scorecards with scores to finalize.' };
@@ -160,6 +209,7 @@ export async function finalizeTournament(tournamentId: string): Promise<ServiceR
       trophy_winner_name: winner?.name ?? null,
       total_scorecards: scorecards.length,
       withdrawn_players: withdrawn.length,
+      cut_players: cutCount,
       handicaps_updated: handicapsUpdated,
       message: winner
         ? `Tournament finalized. ${winner.name} wins with ${winner.gross} strokes (net ${winner.net}).${withdrawn.length > 0 ? ` ${withdrawn.length} withdrawn scorecard${withdrawn.length === 1 ? '' : 's'} excluded.` : ''} ${handicapsUpdated} handicaps updated.${tieNote}`

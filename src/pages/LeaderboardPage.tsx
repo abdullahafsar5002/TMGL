@@ -214,14 +214,16 @@ export function LeaderboardPage() {
                     <>
                       <p className="text-lg font-bold text-tmgl-charcoal-900">{strokes}</p>
                       <p className={`text-xs font-semibold ${toPar <= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                        {formatToPar(toPar)}
+                        {useHandicap ? 'net ' : 'gross '}{formatToPar(toPar)}
                       </p>
                     </>
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
                   {entry.cut && (
-                    <Badge variant="outline" className="text-tmgl-charcoal-600">{entry.cut}</Badge>
+                    <Badge variant="outline" className="border-amber-400 bg-amber-50 font-semibold text-amber-800">
+                      {entry.cut === 'DNF' ? 'DNF' : 'Cut'}
+                    </Badge>
                   )}
                   {entry.scorecard_status && (
                     <Badge variant={STATUS_VARIANTS[entry.scorecard_status] ?? 'outline'}>
