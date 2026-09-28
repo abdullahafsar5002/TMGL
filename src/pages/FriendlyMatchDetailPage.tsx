@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { ROUTES } from '@/router/routes';
 import { ArrowLeft, Play, Trash2, UserPlus, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Container } from '@/components/common/Container';
@@ -135,7 +136,7 @@ export default function FriendlyMatchDetailPage() {
       setError(result.error);
     } else {
       toast.success('Match deleted.');
-      navigate('/friendly-matches');
+      navigate(ROUTES.friendlyMatches);
     }
   }
 
@@ -355,7 +356,7 @@ export default function FriendlyMatchDetailPage() {
             )}
 
             {(match.status === 'active' || match.status === 'completed') && isParticipant && myInvitation && (
-              <Link to={`/friendly-matches/${match.id}/score`}>
+              <Link to={ROUTES.friendlyMatchScore(match.id)}>
                 <Button variant="primary" fullWidth>
                   {match.status === 'active' ? 'Enter Scores' : 'View Scorecard'}
                 </Button>

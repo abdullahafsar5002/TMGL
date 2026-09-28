@@ -35,7 +35,7 @@ export async function finalizeTournament(tournamentId: string): Promise<ServiceR
     .eq('tournament_id', tournamentId);
 
   if (roundError) return { data: null, error: roundError.message };
-  const roundIds = (rounds ?? []).map(r => r.id);
+  const roundIds = (rounds ?? []).map((r) => r.id as string);
   if (roundIds.length === 0) {
     return { data: null, error: 'No rounds found for this tournament.' };
   }

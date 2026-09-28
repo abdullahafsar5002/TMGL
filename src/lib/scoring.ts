@@ -74,6 +74,44 @@ export function holeScoreToPar(strokes: number, par: number): number {
   return strokes - par;
 }
 
+export function parseStrokeInput(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  const parsed = typeof value === 'number' ? value : parseInt(String(value).trim(), 10);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 20) return null;
+  return parsed;
+}
+
+export function buildHoleEntries(
+  holeScores: Record<string, string>,
+  pars: Record<number, number>,
+  expectedHoleNumbers: number[]
+): HoleEntry[] {
+  const entries: HoleEntry[] = [];
+  for (const holeNumber of expectedHoleNumbers) {
+    const raw = holeScores[String(holeNumber)] ?? holeScores[holeNumber];
+    const strokes = parseStrokeInput(raw ?? null);
+    if (strokes === null) continue;
+    entries.push({ holeNumber, par: pars[holeNumber] ?? 4, strokes });
+  }
+  return entries;
+}
+
+export function computeTotalsFromHoles(holes: Array<{ par: number; strokes: number }>): {
+  totalStrokes: number;
+  totalPar: number;
+  totalToPar: number;
+  holesCompleted: number;
+} {
+  const totalStrokes = holes.reduce((sum, h) => sum + h.strokes, 0);
+  const totalPar = holes.reduce((sum, h) => sum + h.par, 0);
+  return {
+    totalStrokes,
+    totalPar,
+    totalToPar: totalStrokes - totalPar,
+    holesCompleted: holes.length,
+  };
+}
+
 /**
  * Default points calculation — isolated behind this function for future configurability.
  * Currently returns a simple mapping: lower score_to_par = more points.

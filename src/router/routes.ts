@@ -1,0 +1,33 @@
+export const ROUTE_PATTERNS = {
+  practiceScore: '/practice/:id/score',
+  practiceScorecard: '/practice/:id/scorecard',
+  tournamentRoundCreate: '/tournaments/:id/rounds/new',
+  roundMatchCreate: '/rounds/:roundId/matches/new',
+  friendlyMatches: '/friendly-matches',
+  friendlyMatchCreate: '/friendly-matches/new',
+  friendlyMatch: '/friendly-matches/:id',
+  friendlyMatchScore: '/friendly-matches/:id/score',
+  legacyFriendlyMatches: '/friendly',
+  legacyFriendlyMatchCreate: '/friendly/new',
+  legacyFriendlyMatch: '/friendly/:id',
+  legacyFriendlyMatchScore: '/friendly/:id/score',
+  authenticatedEvents: '/dashboard/tournaments',
+  authenticatedLeaderboard: '/dashboard/leaderboard',
+} as const;
+
+export const ROUTES = {
+  practiceScore: (id: string) => `/practice/${id}/score`,
+  practiceScorecard: (id: string) => `/practice/${id}/scorecard`,
+  tournamentRoundCreate: (id: string) => `/tournaments/${id}/rounds/new`,
+  roundMatchCreate: (roundId: string) => `/rounds/${roundId}/matches/new`,
+  friendlyMatches: ROUTE_PATTERNS.friendlyMatches,
+  friendlyMatchCreate: ROUTE_PATTERNS.friendlyMatchCreate,
+  friendlyMatch: (id: string) => `/friendly-matches/${id}`,
+  friendlyMatchScore: (id: string) => `/friendly-matches/${id}/score`,
+  legacyFriendlyMatches: ROUTE_PATTERNS.legacyFriendlyMatches,
+  legacyFriendlyMatchCreate: ROUTE_PATTERNS.legacyFriendlyMatchCreate,
+  legacyFriendlyMatch: (id: string) => `/friendly/${id}`,
+  legacyFriendlyMatchScore: (id: string) => `/friendly/${id}/score`,
+  authenticatedEvents: ROUTE_PATTERNS.authenticatedEvents,
+  authenticatedLeaderboard: ROUTE_PATTERNS.authenticatedLeaderboard,
+} as const;

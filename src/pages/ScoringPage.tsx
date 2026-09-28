@@ -30,6 +30,8 @@ function isOnline(): boolean {
   return typeof navigator === 'undefined' || navigator.onLine !== false;
 }
 
+const NO_COURSE_MESSAGE = 'This round has no course assigned. Assign a course to the tournament before entering scores.';
+
 export function ScoringPage() {
   const navigate = useNavigate();
   const toast = useToast();
@@ -175,7 +177,7 @@ export function ScoringPage() {
       }
       courseId = courseResult.data;
       if (!courseId) {
-        setError('This round does not have an assigned course yet.');
+        setError(NO_COURSE_MESSAGE);
         setIsLoading(false);
         return;
       }

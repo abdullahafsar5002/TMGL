@@ -15,7 +15,22 @@ const files = walk(SRC).filter((file) => /\.tsx?$/.test(file));
 
 function collectRoutes(): string[] {
   const router = readFileSync(join(SRC, 'router', 'AppRouter.tsx'), 'utf8');
-  return [...router.matchAll(/path="([^"]+)"/g)].map((match) => match[1]).filter((path) => path !== '*');
+  const literal = [...router.matchAll(/path="([^"]+)"/g)].map((match) => match[1]);
+  const shared = readRoutePatterns();
+  const referenced = [...router.matchAll(/path=\{ROUTE_PATTERNS\.([A-Za-z0-9_]+)\}/g)].map(
+    (match) => shared[match[1]]
+  );
+  return [...new Set([...literal, ...referenced.filter(Boolean)])].filter((path) => path !== '*');
+}
+
+function readRoutePatterns(): Record<string, string> {
+  const source = readFileSync(join(SRC, 'router', 'routes.ts'), 'utf8');
+  const body = source.slice(source.indexOf('ROUTE_PATTERNS = {'));
+  const patterns: Record<string, string> = {};
+  for (const match of body.matchAll(/([A-Za-z0-9_]+)\s*:\s*'([^']+)'/g)) {
+    patterns[match[1]] = match[2];
+  }
+  return patterns;
 }
 
 function toMatcher(path: string): RegExp {

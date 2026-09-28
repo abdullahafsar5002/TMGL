@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { ROUTES } from '@/router/routes';
 import { Users, Plus, Search } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Container } from '@/components/common/Container';
@@ -72,7 +73,7 @@ export default function FriendlyMatchesPage() {
           <h1 className="text-3xl font-bold text-gray-900">Friendly Matches</h1>
           <p className="text-gray-500 mt-1">{matches.length} total matches</p>
         </div>
-        <Link to="/friendly-matches/new">
+        <Link to={ROUTES.friendlyMatchCreate}>
           <Button variant="primary">
             <Plus className="h-4 w-4 mr-2" />
             New Match
@@ -104,7 +105,7 @@ export default function FriendlyMatchesPage() {
           description={search ? 'Try a different search.' : 'Create a friendly match to play with other members.'}
           action={
             !search ? (
-              <Link to="/friendly-matches/new">
+              <Link to={ROUTES.friendlyMatchCreate}>
                 <Button variant="primary">
                   <Plus className="h-4 w-4 mr-2" />
                   Create Match
@@ -117,7 +118,7 @@ export default function FriendlyMatchesPage() {
         <>
           <div className="space-y-3">
             {paginated.map(match => (
-              <Link key={match.id} to={`/friendly-matches/${match.id}`}>
+              <Link key={match.id} to={ROUTES.friendlyMatch(match.id)}>
                 <Card variant="bordered" className="hover:shadow-md transition-shadow cursor-pointer">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">

@@ -97,6 +97,15 @@ export function TournamentCreatePage() {
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Course</label>
+            <select value={courseId} onChange={(e) => setCourseId(e.target.value)}
+              className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700">
+              <option value="">Select a course</option>
+              {courses.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.holes_count} holes)</option>)}
+            </select>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Tournament Name *</label>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. TMGL Championship 2026"
               className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700" />

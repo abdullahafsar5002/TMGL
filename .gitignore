@@ -46,6 +46,7 @@ local.properties
 *.aab
 build/
 .gradle/
+supabase/.temp/
 
 # Supabase local state
 supabase/.temp

@@ -23,10 +23,10 @@ interface AdvancedAnalyticsProps {
 
 const RATING_COLORS = {
   excellent: 'text-emerald-400',
-  good: 'text-green-400',
+  good: 'text-green-700',
   average: 'text-yellow-400',
   weak: 'text-orange-400',
-  struggle: 'text-red-400',
+  struggle: 'text-red-700',
 };
 
 const RATING_BG = {
@@ -96,25 +96,25 @@ export function AdvancedAnalytics({ playerId }: AdvancedAnalyticsProps) {
           </CardHeader>
           <CardContent>
             <div className="text-center mb-4">
-              <p className="text-3xl font-bold text-tmgl-silver">{consistency.stabilityLabel}</p>
-              <p className="text-sm text-tmgl-silver/60 mt-1">{consistency.stabilityDescription}</p>
+              <p className="text-3xl font-bold text-tmgl-charcoal-900">{consistency.stabilityLabel}</p>
+              <p className="text-sm text-tmgl-charcoal-600 mt-1">{consistency.stabilityDescription}</p>
             </div>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <p className="text-2xl font-bold text-tmgl-silver">{consistency.standardDeviation}</p>
-                <p className="text-xs text-tmgl-silver/50">Std Deviation</p>
+                <p className="text-2xl font-bold text-tmgl-charcoal-900">{consistency.standardDeviation}</p>
+                <p className="text-xs text-tmgl-charcoal-500">Std Deviation</p>
               </div>
               <div>
-                <p className="text-2xl font-bold text-tmgl-silver">{consistency.coefficientOfVariation}%</p>
-                <p className="text-xs text-tmgl-silver/50">CV%</p>
+                <p className="text-2xl font-bold text-tmgl-charcoal-900">{consistency.coefficientOfVariation}%</p>
+                <p className="text-xs text-tmgl-charcoal-500">CV%</p>
               </div>
               <div>
-                <p className="text-2xl font-bold text-tmgl-silver">{consistency.roundsAnalyzed}</p>
-                <p className="text-xs text-tmgl-silver/50">Rounds</p>
+                <p className="text-2xl font-bold text-tmgl-charcoal-900">{consistency.roundsAnalyzed}</p>
+                <p className="text-xs text-tmgl-charcoal-500">Rounds</p>
               </div>
             </div>
             <div className="mt-4 text-center">
-              <p className="text-sm text-tmgl-silver/40">
+              <p className="text-sm text-tmgl-charcoal-600">
                 Score Range: {consistency.scoreRange.min} – {consistency.scoreRange.max}
               </p>
             </div>
@@ -140,16 +140,16 @@ export function AdvancedAnalytics({ playerId }: AdvancedAnalyticsProps) {
                   <div key={key} className="flex items-center justify-between p-3 rounded-lg bg-tmgl-charcoal-800/50">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-tmgl-silver">{label}</span>
+                        <span className="font-medium text-tmgl-charcoal-900">{label}</span>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${RATING_COLORS[data.rating]} ${RATING_BG[data.rating]}`}>
                           {data.rating}
                         </span>
                       </div>
-                      <p className="text-xs text-tmgl-silver/50 mt-0.5">{data.count} holes analyzed</p>
+                      <p className="text-xs text-tmgl-charcoal-500 mt-0.5">{data.count} holes analyzed</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-bold text-tmgl-silver">{data.avgScore.toFixed(1)}</p>
-                      <p className={`text-xs font-medium ${data.toPar > 0 ? 'text-red-400' : data.toPar < 0 ? 'text-green-400' : 'text-tmgl-silver/50'}`}>
+                      <p className="text-lg font-bold text-tmgl-charcoal-900">{data.avgScore.toFixed(1)}</p>
+                      <p className={`text-xs font-medium ${data.toPar > 0 ? 'text-red-700' : data.toPar < 0 ? 'text-green-700' : 'text-tmgl-charcoal-500'}`}>
                         {data.toPar === 0 ? 'E' : data.toPar > 0 ? `+${data.toPar.toFixed(1)}` : data.toPar.toFixed(1)} avg
                       </p>
                     </div>
@@ -158,7 +158,7 @@ export function AdvancedAnalytics({ playerId }: AdvancedAnalyticsProps) {
               })}
             </div>
             <div className="mt-4 p-3 rounded-lg bg-tmgl-green/5 border border-tmgl-green/20">
-              <p className="text-sm text-tmgl-silver/80">
+              <p className="text-sm text-tmgl-charcoal-700">
                 <AlertTriangle className="w-4 h-4 inline mr-1 text-tmgl-green" />
                 {parAnalysis.insight}
               </p>
@@ -183,7 +183,7 @@ export function AdvancedAnalytics({ playerId }: AdvancedAnalyticsProps) {
                 const barWidth = Math.abs(hole.avgToPar) / maxToPar * 100;
                 return (
                   <div key={hole.holeNumber} className="flex items-center gap-3">
-                    <span className="text-xs text-tmgl-silver/50 w-8 text-right">#{hole.holeNumber}</span>
+                    <span className="text-xs text-tmgl-charcoal-500 w-8 text-right">#{hole.holeNumber}</span>
                     <div className="flex-1 h-5 bg-tmgl-charcoal-800 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full ${
@@ -195,8 +195,8 @@ export function AdvancedAnalytics({ playerId }: AdvancedAnalyticsProps) {
                       />
                     </div>
                     <span className={`text-xs w-12 text-right font-mono ${
-                      hole.avgToPar < 0 ? 'text-green-400' :
-                      hole.avgToPar > 0.5 ? 'text-red-400' :
+                      hole.avgToPar < 0 ? 'text-green-700' :
+                      hole.avgToPar > 0.5 ? 'text-red-700' :
                       'text-yellow-400'
                     }`}>
                       {hole.avgToPar === 0 ? 'E' : hole.avgToPar > 0 ? `+${hole.avgToPar.toFixed(1)}` : hole.avgToPar.toFixed(1)}

@@ -9,6 +9,9 @@ import {
   validateRound,
   validateMatch,
   validateScorecardHoles,
+  validateScorecardCompletion,
+  resolveExpectedHoleNumbers,
+  getMissingHoleNumbers,
 } from './validation';
 
 describe('TMGL Validation Helpers', () => {
@@ -321,6 +324,108 @@ describe('TMGL Validation Helpers', () => {
       const holes = Array.from({ length: 9 }, (_, i) => ({ hole_number: i + 1, par: 4, strokes: 4 }));
       const result = validateScorecardHoles(holes, 9);
       expect(result.isValid).toBe(true);
+    });
+
+    it('does not require every hole', () => {
+      const result = validateScorecardHoles([{ hole_number: 1, par: 4, strokes: 4 }], 18);
+      expect(result.isValid).toBe(true);
+    });
+  });
+
+  describe('resolveExpectedHoleNumbers', () => {
+    it('uses the course hole count when available', () => {
+      const result = resolveExpectedHoleNumbers({ holesCount: 9, courseHoleNumbers: [1, 2, 3, 4, 5, 6, 7, 8, 9] });
+      expect(result).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    });
+
+    it('falls back to course hole numbers when the count is unknown', () => {
+      const result = resolveExpectedHoleNumbers({ holesCount: null, courseHoleNumbers: [10, 9, 10, 8] });
+      expect(result).toEqual([8, 9, 10]);
+    });
+
+    it('sorts and dedupes course hole numbers', () => {
+      const result = resolveExpectedHoleNumbers({ holesCount: undefined, courseHoleNumbers: [3, 1, 3, 2] });
+      expect(result).toEqual([1, 2, 3]);
+    });
+
+    it('falls back to the course hole count when no hole rows exist', () => {
+      const result = resolveExpectedHoleNumbers({ holesCount: 9, courseHoleNumbers: [] });
+      expect(result).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    });
+
+    it('defaults to 18 holes when the course is unknown', () => {
+      const result = resolveExpectedHoleNumbers({ holesCount: null, courseHoleNumbers: null });
+      expect(result).toHaveLength(18);
+      expect(result[0]).toBe(1);
+      expect(result[17]).toBe(18);
+    });
+
+    it('ignores invalid hole numbers', () => {
+      const result = resolveExpectedHoleNumbers({ holesCount: null, courseHoleNumbers: [0, -2, null, 2.5, 4] });
+      expect(result).toEqual([4]);
+    });
+
+    it('ignores a non-positive or non-integer hole count', () => {
+      expect(resolveExpectedHoleNumbers({ holesCount: 0, courseHoleNumbers: [1, 2] })).toEqual([1, 2]);
+      expect(resolveExpectedHoleNumbers({ holesCount: 12.5, courseHoleNumbers: [1, 2] })).toEqual([1, 2]);
+    });
+  });
+
+  describe('getMissingHoleNumbers', () => {
+    it('returns holes without a score', () => {
+      expect(getMissingHoleNumbers([1, 2, 3], [1, 2, 3, 4])).toEqual([4]);
+    });
+
+    it('returns every expected hole when nothing is scored', () => {
+      expect(getMissingHoleNumbers([], [1, 2, 3])).toEqual([1, 2, 3]);
+    });
+
+    it('ignores duplicate and invalid scores', () => {
+      expect(getMissingHoleNumbers([1, 1, 0, null], [1, 2])).toEqual([2]);
+    });
+  });
+
+  describe('validateScorecardCompletion', () => {
+    it('rejects a partially scored card', () => {
+      const holes = Array.from({ length: 17 }, (_, i) => ({ hole_number: i + 1, strokes: 4 }));
+      const result = validateScorecardCompletion(holes, Array.from({ length: 18 }, (_, i) => i + 1));
+      expect(result.isValid).toBe(false);
+      expect(result.errors[0]).toContain('18 holes must be scored');
+      expect(result.errors[0]).toContain('Missing: 18');
+    });
+
+    it('rejects an empty card', () => {
+      const result = validateScorecardCompletion([], [1, 2, 3]);
+      expect(result.isValid).toBe(false);
+      expect(result.errors[0]).toContain('Missing: 1, 2, 3');
+    });
+
+    it('accepts a complete 18-hole card', () => {
+      const holes = Array.from({ length: 18 }, (_, i) => ({ hole_number: i + 1, strokes: 4 }));
+      const result = validateScorecardCompletion(holes, Array.from({ length: 18 }, (_, i) => i + 1));
+      expect(result.isValid).toBe(true);
+    });
+
+    it('accepts a complete 9-hole card', () => {
+      const expected = Array.from({ length: 9 }, (_, i) => i + 1);
+      const holes = expected.map((hole_number) => ({ hole_number, strokes: 3 }));
+      const result = validateScorecardCompletion(holes, expected);
+      expect(result.isValid).toBe(true);
+    });
+
+    it('rejects holes that are not part of the course', () => {
+      const result = validateScorecardCompletion(
+        [{ hole_number: 1, strokes: 4 }, { hole_number: 2, strokes: 4 }, { hole_number: 10, strokes: 4 }],
+        [1, 2]
+      );
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some((e) => e.includes('Holes not part of this course: 10'))).toBe(true);
+    });
+
+    it('fails when the course layout cannot be resolved', () => {
+      const result = validateScorecardCompletion([], []);
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Course hole layout could not be resolved.');
     });
   });
 });
