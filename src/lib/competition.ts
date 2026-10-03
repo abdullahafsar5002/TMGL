@@ -221,12 +221,29 @@ export async function createRound(
 
 export async function updateRound(
   id: string,
-  updates: Partial<Pick<Round, 'name' | 'date' | 'status'>>
+  updates: Partial<Pick<Round, 'name' | 'date' | 'status'>> &
+    Partial<Pick<Round, 'scoring_format' | 'cut_after_hole' | 'cut_line_score' | 'tee_interval_minutes' | 'first_tee_time'>>
 ): Promise<ServiceResult<Round>> {
   const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (updates.name !== undefined) payload.name = updates.name.trim();
   if (updates.date !== undefined) payload.date = updates.date || null;
   if (updates.status !== undefined) payload.status = updates.status;
+  if (updates.scoring_format !== undefined) payload.scoring_format = updates.scoring_format;
+  if (updates.cut_after_hole !== undefined) payload.cut_after_hole = updates.cut_after_hole;
+  if (updates.cut_line_score !== undefined) payload.cut_line_score = updates.cut_line_score;
+  if (updates.tee_interval_minutes !== undefined) payload.tee_interval_minutes = updates.tee_interval_minutes;
+  if (updates.first_tee_time !== undefined) payload.first_tee_time = updates.first_tee_time || null;
+
+  if (
+    payload.cut_after_hole == null && payload.cut_line_score != null
+  ) {
+    return { data: null, error: 'Choose the hole the cut applies after before setting a cut score.' };
+  }
+  if (
+    payload.cut_after_hole != null && Number(payload.cut_line_score ?? 0) < 1
+  ) {
+    return { data: null, error: 'Enter the cumulative stroke total that the cut line sits on.' };
+  }
 
   const { data, error } = await supabase
     .from('rounds')
@@ -237,6 +254,19 @@ export async function updateRound(
 
   if (error) return { data: null, error: error.message };
   return { data: data as Round, error: null };
+}
+
+export async function setScorecardDnf(
+  scorecardId: string,
+  isDnf: boolean
+): Promise<ServiceResult<null>> {
+  if (!scorecardId.trim()) return { data: null, error: 'A scorecard is required.' };
+  const { error } = await supabase
+    .from('scorecards')
+    .update({ dnf: isDnf })
+    .eq('id', scorecardId.trim());
+  if (error) return { data: null, error: error.message };
+  return { data: null, error: null };
 }
 
 export async function deleteRound(id: string): Promise<ServiceResult<null>> {

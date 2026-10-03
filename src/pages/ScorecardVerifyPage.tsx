@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ClipboardCheck, ArrowLeft, AlertCircle, CheckCircle, XCircle, Loader2, ChevronRight } from 'lucide-react';
+import { ClipboardCheck, ArrowLeft, AlertCircle, CheckCircle, XCircle, Loader2, ChevronRight, UserMinus } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card, CardHeader, CardTitle } from '@/components/common/Card';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
@@ -10,7 +10,7 @@ import { LoadingState } from '@/components/common/LoadingState';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { canManageLeague } from '@/lib/roleGuards';
-import { getScorecardsByRound, getRound, getTournament, verifyScorecard, rejectScorecard, getScorecardsCompletionByRound, type ScorecardCompletion } from '@/lib/competition';
+import { getScorecardsByRound, getRound, getTournament, verifyScorecard, rejectScorecard, setScorecardDnf, getScorecardsCompletionByRound, type ScorecardCompletion } from '@/lib/competition';
 import { supabase } from '@/lib/supabase';
 import { formatToPar } from '@/utils/golf';
 import type { Scorecard, ScorecardStatus } from '@/types/database';
@@ -119,6 +119,19 @@ export function ScorecardVerifyPage() {
     setScorecards((prev) =>
       prev.map((sc) => (sc.id === scId ? { ...sc, status: 'verified' as ScorecardStatus } : sc))
     );
+  };
+
+  const handleToggleDnf = async (sc: Scorecard) => {
+    setActionLoading(sc.id);
+    setError(null);
+    const next = !sc.dnf;
+    const result = await setScorecardDnf(sc.id, next);
+    setActionLoading(null);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    setScorecards((prev) => prev.map((row) => (row.id === sc.id ? { ...row, dnf: next } : row)));
   };
 
   const handleReject = async () => {
@@ -280,6 +293,22 @@ export function ScorecardVerifyPage() {
                       <XCircle className="w-4 h-4 mr-1.5" /> Reject
                     </Button>
                   )}
+                  <Button
+                    variant={sc.dnf ? 'gold' : 'outline'}
+                    size="sm"
+                    onClick={() => void handleToggleDnf(sc)}
+                    disabled={actionLoading === sc.id}
+                    title={sc.dnf
+                      ? 'Clear withdrawal so this card counts towards the final standings'
+                      : 'Mark withdrawn so this card is excluded from the final standings'}
+                  >
+                    {actionLoading === sc.id ? (
+                      <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                    ) : (
+                      <UserMinus className="w-4 h-4 mr-1.5" />
+                    )}
+                    {sc.dnf ? 'Reinstate' : 'Withdraw'}
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"

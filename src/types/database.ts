@@ -176,6 +176,7 @@ export interface Scorecard {
   player_id: string;
   course_id: string | null;
   status: ScorecardStatus;
+  dnf: boolean;
   total_strokes: number | null;
   total_score_to_par: number | null;
   differential?: number | null;

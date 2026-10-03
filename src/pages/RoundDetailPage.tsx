@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Flag, Plus, Loader2, AlertCircle, ArrowLeft, Edit3, Trash2, ChevronRight, Swords, ShieldCheck, Trophy, Users } from 'lucide-react';
 import { Container } from '@/components/common/Container';
+import { SCORING_FORMATS } from '@/lib/scoringFormats';
+import type { ScoringFormat } from '@/types/database';
 import { Card, CardHeader, CardTitle } from '@/components/common/Card';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
@@ -35,6 +37,12 @@ export function RoundDetailPage() {
   const [editName, setEditName] = useState('');
   const [editDate, setEditDate] = useState('');
   const [editStatus, setEditStatus] = useState<MatchStatus>('scheduled');
+  const [editFormat, setEditFormat] = useState<ScoringFormat>('stroke_play');
+  const [editCutEnabled, setEditCutEnabled] = useState(false);
+  const [editCutAfterHole, setEditCutAfterHole] = useState(9);
+  const [editCutLineScore, setEditCutLineScore] = useState(45);
+  const [editFirstTee, setEditFirstTee] = useState('');
+  const [editTeeInterval, setEditTeeInterval] = useState(9);
   const [isSaving, setIsSaving] = useState(false);
   const [editErrors, setEditErrors] = useState<string[]>([]);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -68,6 +76,12 @@ export function RoundDetailPage() {
     setEditName(round.name);
     setEditDate(round.date || '');
     setEditStatus(round.status);
+    setEditFormat(round.scoring_format ?? 'stroke_play');
+    setEditCutEnabled(round.cut_after_hole != null && round.cut_line_score != null);
+    setEditCutAfterHole(round.cut_after_hole ?? 9);
+    setEditCutLineScore(round.cut_line_score ?? 45);
+    setEditFirstTee(round.first_tee_time ? round.first_tee_time.slice(0, 5) : '');
+    setEditTeeInterval(round.tee_interval_minutes ?? 9);
     setEditErrors([]);
     setServerError(null);
     setShowEdit(true);
@@ -81,7 +95,16 @@ export function RoundDetailPage() {
     if (!validation.isValid) { setEditErrors(validation.errors); return; }
 
     setIsSaving(true);
-    const result = await updateRound(id, { name: editName, date: editDate || null, status: editStatus });
+    const result = await updateRound(id, {
+      name: editName,
+      date: editDate || null,
+      status: editStatus,
+      scoring_format: editFormat,
+      cut_after_hole: editCutEnabled ? editCutAfterHole : null,
+      cut_line_score: editCutEnabled ? editCutLineScore : null,
+      tee_interval_minutes: editTeeInterval,
+      first_tee_time: editFirstTee || null
+    });
     setIsSaving(false);
 
     if (result.error) { setServerError(result.error); return; }
@@ -216,6 +239,57 @@ export function RoundDetailPage() {
                   {STATUS_OPTIONS.map((s) => <option key={s} value={s} className="capitalize">{s}</option>)}
                 </select>
               </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="round-edit-format" className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Scoring Format</label>
+                  <select id="round-edit-format" value={editFormat} onChange={(e) => setEditFormat(e.target.value as ScoringFormat)}
+                    className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700">
+                    {SCORING_FORMATS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="round-edit-first-tee" className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">First Tee</label>
+                  <input id="round-edit-first-tee" type="time" value={editFirstTee} onChange={(e) => setEditFirstTee(e.target.value)}
+                    className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700" />
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-tmgl-charcoal-200 p-3">
+                <label className="flex items-center gap-2 text-sm font-medium text-tmgl-charcoal-700">
+                  <input type="checkbox" checked={editCutEnabled} onChange={(e) => setEditCutEnabled(e.target.checked)} className="w-4 h-4" />
+                  Apply a cut
+                </label>
+                {editCutEnabled && (
+                  <div className="grid gap-3 sm:grid-cols-2 mt-3">
+                    <div>
+                      <label htmlFor="round-edit-cut-hole" className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Cut after hole</label>
+                      <select id="round-edit-cut-hole" value={editCutAfterHole} onChange={(e) => setEditCutAfterHole(parseInt(e.target.value, 10) || 9)}
+                        className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700">
+                        {[6, 9, 12, 15].map((h) => <option key={h} value={h}>After {h}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="round-edit-cut-score" className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Cut at cumulative strokes</label>
+                      <input id="round-edit-cut-score" type="number" min={1} value={editCutLineScore}
+                        onChange={(e) => setEditCutLineScore(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                        className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700" />
+                    </div>
+                  </div>
+                )}
+                <p className="mt-2 text-xs text-tmgl-charcoal-500">
+                  {editCutEnabled
+                    ? 'Players above this total through the cut hole are excluded from the final standings.'
+                    : 'No cut. Every verified card counts towards the final standings.'}
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="round-edit-interval" className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Tee interval (minutes)</label>
+                <input id="round-edit-interval" type="number" min={3} max={30} value={editTeeInterval}
+                  onChange={(e) => setEditTeeInterval(Math.min(30, Math.max(3, parseInt(e.target.value, 10) || 9)))}
+                  className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700" />
+              </div>
+
               <div className="flex gap-3 justify-end">
                 <Button variant="outline" size="sm" onClick={() => setShowEdit(false)}>Cancel</Button>
                 <Button variant="primary" size="sm" onClick={handleSaveEdit} disabled={isSaving} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
