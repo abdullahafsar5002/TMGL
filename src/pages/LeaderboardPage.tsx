@@ -7,7 +7,9 @@ import { Card } from '@/components/common/Card';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { LoadingState } from '@/components/common/LoadingState';
-import { getTournaments, getRoundsByTournament, getLeaderboard, getTournamentLeaderboard } from '@/lib/competition';
+import { getTournaments, getRoundsByTournament, getLeaderboard, getTournamentLeaderboard, getFormatStandings, type FormatStandingEntry } from '@/lib/competition';
+import { formatUsesTeams, getScoringFormat } from '@/lib/scoringFormats';
+import type { ScoringFormat } from '@/types/database';
 import { formatToPar } from '@/utils/golf';
 import { supabase } from '@/lib/supabase';
 import type { Tournament, Round, LeaderboardEntry, ScorecardStatus } from '@/types/database';
@@ -23,14 +25,17 @@ export function LeaderboardPage() {
   const [selectedTournamentId, setSelectedTournamentId] = useState('');
   const [selectedRoundId, setSelectedRoundId] = useState('');
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [formatBoard, setFormatBoard] = useState<FormatStandingEntry[]>([]);
+  const usesTeamBoard = formatBoard.length > 0;
+  const [activeFormat, setActiveFormat] = useState<ScoringFormat | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLive, setIsLive] = useState(false);
   const [useHandicap, setUseHandicap] = useState(true);
   const [showInProgress, setShowInProgress] = useState(false);
-  const scoringFormat = rounds.find((r) => r.id === selectedRoundId)?.scoring_format
+  const scoringFormat = (rounds.find((r) => r.id === selectedRoundId)?.scoring_format
     ?? tournaments.find((t) => t.id === selectedTournamentId)?.scoring_format
-    ?? 'stroke_play';
+    ?? 'stroke_play') as ScoringFormat;
 
   useEffect(() => { getTournaments().then((r) => { if (r.error) setError(r.error); else if (r.data) setTournaments(r.data); }); }, []);
 
@@ -47,16 +52,35 @@ export function LeaderboardPage() {
     setIsLoading(true);
     setError(null);
     const options = { useHandicap, includeInProgress: showInProgress };
-    let result;
-    if (selectedRoundId) {
-      result = await getLeaderboard(selectedRoundId, options);
-    } else if (selectedTournamentId) {
-      result = await getTournamentLeaderboard(selectedTournamentId, options);
-    } else {
+    if (!selectedTournamentId) {
+      setLeaderboard([]);
+      setFormatBoard([]);
+      setActiveFormat(null);
+      setIsLoading(false);
+      return;
+    }
+    const roundFormat = getScoringFormat(
+      rounds.find((r) => r.id === selectedRoundId)?.scoring_format
+        ?? tournaments.find((t) => t.id === selectedTournamentId)?.scoring_format
+    ).value;
+    const teamBoard = roundFormat === 'match_play' || roundFormat === 'nassau' || formatUsesTeams(roundFormat);
+    if (teamBoard) {
+      setActiveFormat(roundFormat);
+      const formatResult = await getFormatStandings(selectedTournamentId, roundFormat, {
+        ...options,
+        roundId: selectedRoundId || undefined
+      });
+      if (formatResult.error) setError(formatResult.error);
+      else setFormatBoard(formatResult.data ?? []);
       setLeaderboard([]);
       setIsLoading(false);
       return;
     }
+    setActiveFormat(null);
+    setFormatBoard([]);
+    const result = selectedRoundId
+      ? await getLeaderboard(selectedRoundId, options)
+      : await getTournamentLeaderboard(selectedTournamentId, options);
     if (result.error) setError(result.error);
     else if (result.data) setLeaderboard(result.data);
     setIsLoading(false);
@@ -143,7 +167,7 @@ export function LeaderboardPage() {
         </div>
       )}
 
-      {!isLoading && !error && leaderboard.length === 0 && (selectedTournamentId || selectedRoundId) && (
+      {!isLoading && !error && !usesTeamBoard && leaderboard.length === 0 && (selectedTournamentId || selectedRoundId) && (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <div className="w-14 h-14 rounded-full bg-tmgl-charcoal-100 flex items-center justify-center mb-3">
             <Inbox className="w-7 h-7 text-tmgl-charcoal-400" />
@@ -185,7 +209,37 @@ export function LeaderboardPage() {
               </Button>
             </div>
           </div>
-          {leaderboard.map((entry) => {
+          {usesTeamBoard && formatBoard.length > 0 && (
+            <div className="space-y-2">
+              <p className="rounded-lg border border-tmgl-gold-500/40 bg-tmgl-gold-500/10 p-3 text-xs text-tmgl-charcoal-700">
+                {activeFormat === 'match_play' && 'Match play standings. Each pairing plays the neighbouring pairing; ranking is on holes won, then holes lost.'}
+                {activeFormat === 'nassau' && 'Nassau standings. Each pairing plays the neighbouring pairing over the front nine, back nine and total; ranking is on strokes relative to par.'}
+                {activeFormat === 'best_ball' && 'Best ball standings. Each pairing is a team and only the lower score on each hole counts.'}
+                {activeFormat === 'scramble' && 'Scramble standings. Players are split into groups of four and only the lowest score on each hole counts for the group.'}
+              </p>
+              {formatBoard.map((row) => (
+                <Card key={row.unit_id} className="flex items-center gap-3">
+                  <div className="w-10 text-center shrink-0">
+                    <p className="text-lg font-bold text-tmgl-charcoal-900">#{row.position}</p>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-tmgl-charcoal-900 truncate">{row.label}</p>
+                    <p className="text-xs text-tmgl-charcoal-500">
+                      {row.member_count} player{row.member_count === 1 ? '' : 's'} &middot; thru {row.holes_played}
+                      {row.holes_won + row.holes_lost > 0 ? ` � ${row.holes_won}W ${row.holes_lost}L` : ''}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-bold text-tmgl-charcoal-900">{row.display_value}</p>
+                    {row.net_to_par !== null && (
+                      <p className="text-xs text-tmgl-charcoal-500">net {row.net_to_par > 0 ? '+' + row.net_to_par : row.net_to_par}</p>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+          {!usesTeamBoard && leaderboard.map((entry) => {
             const isPoints = scoringFormat === 'stableford';
             const strokes = useHandicap ? entry.net_strokes : entry.total_strokes;
             const toPar = useHandicap ? entry.net_to_par : entry.total_score_to_par;

@@ -11,6 +11,18 @@
 import { supabase } from '@/lib/supabase';
 import { toUserFacingServiceError } from '@/lib/errors';
 import { resolveScoringTarget } from '@/lib/scoringTarget';
+import {
+  computeBestBall,
+  computeMatchPlay,
+  computeNassau,
+  rankBestBall,
+  rankMatchPlay,
+  rankNassau,
+  resolveFormatUnits,
+  type FormatPlayerScore,
+  type RankedFormatStanding
+} from '@/lib/tournamentFormats';
+import type { ScoringFormat } from '@/types/database';
 import { DEFAULT_HOLES_COUNT, resolveExpectedHoleNumbers } from '@/lib/validation';
 import {
   countCompletedHoles,
@@ -1178,13 +1190,203 @@ export async function getTournamentLeaderboard(
 
   const rows = Array.from(playerMap.values());
   const totalHoles = rows.reduce((max, row) => Math.max(max, row.holes_completed), 0) || 18 * rounds.length;
-  const ordered = options.includeInProgress === true ? rows : rows.filter((row) => !row.is_cut);
-  const entries = buildStandings(ordered, totalHoles, options);
   const cutPlayers = new Map(
     rows.filter((row) => row.is_cut).map((row) => [row.player_id, cutLabel({ isCut: true, reason: row.cut_reason })])
   );
+
+  const format = (rounds[0]?.scoring_format as ScoringFormat | undefined) ?? 'stroke_play';
+
+  if (format !== 'stroke_play' && format !== 'stableford') {
+    const teamBoard = await getFormatLeaderboard(tournamentId, format, options, null);
+    if (teamBoard) return teamBoard as unknown as ServiceResult<LeaderboardEntry[]>;
+  }
+
+  const ordered = options.includeInProgress === true ? rows : rows.filter((row) => !row.is_cut);
+  const entries = buildStandings(ordered, totalHoles, options);
   return {
     data: entries.map((entry) => ({ ...entry, cut: cutPlayers.get(entry.player_id) ?? null })),
+    error: null
+  };
+}
+
+export interface FormatStandingEntry {
+  position: number;
+  unit_id: string;
+  label: string;
+  player_ids: string[];
+  player_names: string[];
+  display_value: string;
+  metric_value: number;
+  holes_played: number;
+  holes_won: number;
+  holes_lost: number;
+  strokes_to_par: number | null;
+  net_to_par: number | null;
+  member_count: number;
+  scoring_format: ScoringFormat;
+  cut: string | null;
+}
+
+export async function getFormatStandings(
+  tournamentId: string,
+  format: ScoringFormat,
+  options: StandingsOptions & { roundId?: string } = {}
+): Promise<ServiceResult<FormatStandingEntry[]>> {
+  const board = await getFormatLeaderboard(tournamentId, format, options, options.roundId ?? null);
+  return board ?? { data: [], error: null };
+}
+
+async function getFormatLeaderboard(
+  tournamentId: string,
+  format: ScoringFormat,
+  options: StandingsOptions,
+  roundId: string | null
+): Promise<ServiceResult<FormatStandingEntry[]> | null> {
+  const { data: flightRows } = await supabase
+    .from('flights')
+    .select('id')
+    .eq('tournament_id', tournamentId);
+  const flightIds = (flightRows ?? []).map((row) => row.id as string);
+  if (flightIds.length === 0) return null;
+
+  const { data: flightMembers } = await supabase
+    .from('flight_players')
+    .select('flight_id, player_id, pairing_no, players!inner(id, full_name, handicap_index)')
+    .in('flight_id', flightIds);
+
+  const memberRows = ((flightMembers ?? []) as Array<{
+    flight_id: string;
+    player_id: string;
+    pairing_no: number | null;
+    players: unknown;
+  }>)
+    .map((row) => {
+      const player = (row.players as unknown as { id: string; full_name: string; handicap_index: number | null } | null)
+        ?? (Array.isArray(row.players)
+          ? (row.players as unknown as Array<{ id: string; full_name: string; handicap_index: number | null }>)[0]
+          : null);
+      return {
+        playerId: row.player_id,
+        playerName: player?.full_name ?? 'Player',
+        handicapIndex: Number(player?.handicap_index ?? 0),
+        pairingNo: Number(row.pairing_no ?? 0),
+        flightId: row.flight_id
+      };
+    })
+    .filter((member) => member.pairingNo > 0);
+
+  if (memberRows.length < 2) return null;
+
+  const units = resolveFormatUnits(format, memberRows);
+  if (units.length === 0) return null;
+
+  const { data: rounds } = await supabase
+    .from('rounds')
+    .select('id, cut_after_hole, cut_line_score')
+    .eq('tournament_id', tournamentId);
+  const roundIds = (rounds ?? []).map((r) => r.id as string);
+  const scopedRoundIds = roundId ? roundIds.filter((id) => id === roundId) : roundIds;
+  if (scopedRoundIds.length === 0) return null;
+
+  const { data: cards } = await supabase
+    .from('scorecards')
+    .select('id, round_id, player_id, status, dnf, total_score_to_par')
+    .in('round_id', scopedRoundIds);
+  const rankedCards = (cards ?? []).filter(
+    (card) => card.status === 'verified' || card.status === 'amended' || options.includeInProgress === true
+  );
+  if (rankedCards.length === 0) return null;
+
+  const { data: holeRows } = await supabase
+    .from('scorecard_holes')
+    .select('scorecard_id, hole_number, strokes, par')
+    .in('scorecard_id', rankedCards.map((card) => card.id as string));
+
+
+  const rankedCardsById = new Map(rankedCards.map((card) => [card.id as string, card]));
+  const memberByPlayer = new Map(memberRows.map((member) => [member.playerId, member]));
+  const scores: FormatPlayerScore[] = [];
+  const pars: Record<number, number> = {};
+  for (const hole of (holeRows ?? []) as Array<{
+    scorecard_id: string;
+    hole_number: number;
+    strokes: number | null;
+    par: number | null;
+  }>) {
+    if (hole.strokes == null) continue;
+    if (hole.par != null) pars[hole.hole_number] = hole.par;
+    const card = rankedCardsById.get(hole.scorecard_id);
+    if (!card) continue;
+    const playerId = card.player_id as string;
+    const member = memberByPlayer.get(playerId);
+    scores.push({
+      playerId,
+      playerName: member?.playerName ?? 'Player',
+      handicapIndex: member?.handicapIndex ?? 0,
+      holeNumber: hole.hole_number,
+      strokes: hole.strokes,
+      par: hole.par ?? pars[hole.hole_number] ?? 4,
+      dnf: card.dnf === true,
+      scorecardId: hole.scorecard_id
+    });
+  }
+
+  const cutLinesByRound = new Map(
+    (rounds ?? []).map((round) => [
+      round.id as string,
+      {
+        cutAfterHole: (round.cut_after_hole as number | null) ?? null,
+        cutLineScore: (round.cut_line_score as number | null) ?? null
+      }
+    ])
+  );
+
+  const fullRoundHoles = Math.max(18, ...Object.keys(pars).map((key) => parseInt(key, 10)));
+  const cutUnitIds = new Set<string>();
+  if (options.includeInProgress !== true) {
+    for (const [scorecardId, card] of rankedCardsById) {
+      const roundLine = cutLinesByRound.get(card.round_id as string);
+      if (!roundLine?.cutAfterHole || !roundLine?.cutLineScore) continue;
+      const cardScores = scores.filter((score) => score.scorecardId === scorecardId && score.holeNumber <= roundLine.cutAfterHole!);
+      const holesPlayed = new Set(cardScores.map((score) => score.holeNumber)).size;
+      if (holesPlayed < roundLine.cutAfterHole) continue;
+      const front = cardScores.reduce((sum, score) => sum + score.strokes, 0);
+      if (evaluateCut(front, card.dnf === true, roundLine).isCut) {
+        for (const unit of units) {
+          if (unit.playerIds.includes(card.player_id as string)) cutUnitIds.add(unit.id);
+        }
+      }
+    }
+  }
+
+  let ranked: RankedFormatStanding;
+  if (format === 'match_play') {
+    ranked = rankMatchPlay(computeMatchPlay(units, scores, pars, fullRoundHoles));
+  } else if (format === 'nassau') {
+    ranked = rankNassau(computeNassau(units, scores, pars, fullRoundHoles));
+  } else {
+    ranked = rankBestBall(computeBestBall(units, scores, pars, fullRoundHoles), cutUnitIds);
+  }
+
+
+  return {
+    data: ranked.rows.map((row) => ({
+      position: row.position,
+      unit_id: row.unitId,
+      label: row.label,
+      player_ids: row.playerIds,
+      player_names: row.playerNames,
+      display_value: row.displayValue,
+      metric_value: row.metricValue,
+      holes_played: row.holesPlayed,
+      holes_won: row.holesWon,
+      holes_lost: row.holesLost,
+      strokes_to_par: row.strokesToPar,
+      net_to_par: row.netToPar,
+      member_count: row.memberCount,
+      scoring_format: format,
+      cut: null
+    })),
     error: null
   };
 }

@@ -69,3 +69,8 @@ export function isTeamBasedFormat(format: string | null | undefined): boolean {
 export function isPointsFormat(format: string | null | undefined): boolean {
   return getScoringFormat(format).measuredInPoints;
 }
+
+export function formatUsesTeams(value: string | null | undefined): boolean {
+  const format = getScoringFormat(value).value;
+  return format === 'best_ball' || format === 'scramble';
+}
