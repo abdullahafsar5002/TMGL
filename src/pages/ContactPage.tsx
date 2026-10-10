@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, MapPin, Phone, Send, CheckCircle } from 'lucide-react';
+import { Mail, MapPin, Send, CheckCircle, Users } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card, CardContent } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
@@ -61,39 +61,49 @@ export function ContactPage() {
   return (
     <Container className="py-12">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-tmgl-charcoal-900 mb-2">Contact Us</h1>
-        <p className="text-tmgl-charcoal-600 mb-8">Get in touch with the TMGL team</p>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">Get in touch</p>
+        <h1 className="mb-3 font-display text-display-lg text-tmgl-charcoal-950">Contact us</h1>
+        <p className="mb-10 max-w-xl text-base text-tmgl-charcoal-600">
+          Send a message straight to the league team. Everything is handled inside TMGL — no
+          external inbox, nothing to get lost.
+        </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-6">
             <Card>
               <CardContent className="p-6">
-                <h2 className="text-lg font-semibold text-tmgl-charcoal-900 mb-4">League Information</h2>
+                <h2 className="mb-4 font-display text-lg font-semibold text-tmgl-charcoal-950">How delivery works</h2>
                 <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-tmgl-green-100 flex items-center justify-center">
-                      <Mail className="w-5 h-5 text-tmgl-green-700" />
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tmgl-green-100">
+                      <Mail className="h-5 w-5 text-tmgl-green-700" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-tmgl-charcoal-900">Email</p>
-                      <p className="text-sm text-tmgl-charcoal-600">info@tmgl.pk</p>
+                      <p className="text-sm font-medium text-tmgl-charcoal-900">Delivered in-app</p>
+                      <p className="text-sm text-tmgl-charcoal-600">
+                        Your message reaches league administrators directly — no public email
+                        address to share or scrape.
+                      </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-tmgl-green-100 flex items-center justify-center">
-                      <Phone className="w-5 h-5 text-tmgl-green-700" />
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tmgl-green-100">
+                      <Users className="h-5 w-5 text-tmgl-green-700" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-tmgl-charcoal-900">Phone</p>
-                      <p className="text-sm text-tmgl-charcoal-600">+92 300 1234567</p>
+                      <p className="text-sm font-medium text-tmgl-charcoal-900">Routed to the right people</p>
+                      <p className="text-sm text-tmgl-charcoal-600">
+                        Super admins and league managers are notified, so scoring, pairings, and
+                        fee questions land where they belong.
+                      </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-tmgl-green-100 flex items-center justify-center">
-                      <MapPin className="w-5 h-5 text-tmgl-green-700" />
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tmgl-green-100">
+                      <MapPin className="h-5 w-5 text-tmgl-green-700" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-tmgl-charcoal-900">Location</p>
+                      <p className="text-sm font-medium text-tmgl-charcoal-900">Coverage</p>
                       <p className="text-sm text-tmgl-charcoal-600">Pakistan</p>
                     </div>
                   </div>
@@ -117,7 +127,7 @@ export function ContactPage() {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <h2 className="text-lg font-semibold text-tmgl-charcoal-900">Send a Message</h2>
+                  <h2 className="font-display text-lg font-semibold text-tmgl-charcoal-950">Send a message</h2>
                   {error && (
                     <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
                   )}

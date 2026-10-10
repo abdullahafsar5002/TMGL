@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { BackLink } from '@/components/common/BackLink';
 import { useNavigate } from 'react-router-dom';
-import { Medal, AlertCircle, RefreshCw, FileText, Inbox, Radio } from 'lucide-react';
+import { Medal, AlertCircle, RefreshCw, FileText, Inbox } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card } from '@/components/common/Card';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
@@ -12,11 +11,36 @@ import { formatUsesTeams, getScoringFormat } from '@/lib/scoringFormats';
 import type { ScoringFormat } from '@/types/database';
 import { formatToPar } from '@/utils/golf';
 import { supabase } from '@/lib/supabase';
+import { cn } from '@/lib/utils';
 import type { Tournament, Round, LeaderboardEntry, ScorecardStatus } from '@/types/database';
 
 const STATUS_VARIANTS: Record<ScorecardStatus, BadgeVariant> = {
   draft: 'outline', in_progress: 'warning', submitted: 'info', verified: 'success', rejected: 'danger', amended: 'warning',
 };
+
+const SELECT_CLASS =
+  'w-full min-h-[44px] rounded-lg border border-tmgl-charcoal-300 bg-white px-3 py-2.5 text-sm text-tmgl-charcoal-800 focus:border-tmgl-green-500 focus:outline-none focus:ring-2 focus:ring-tmgl-green-700/25';
+
+function RankBadge({ position }: { position: number }) {
+  const tone =
+    position === 1
+      ? 'bg-tmgl-gold text-tmgl-green-950'
+      : position === 2
+        ? 'bg-tmgl-charcoal-200 text-tmgl-charcoal-800'
+        : position === 3
+          ? 'bg-tmgl-gold-100 text-tmgl-gold-800'
+          : 'bg-tmgl-charcoal-50 text-tmgl-charcoal-500';
+  return (
+    <span
+      className={cn(
+        'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular',
+        tone
+      )}
+    >
+      {position}
+    </span>
+  );
+}
 
 export function LeaderboardPage() {
   const navigate = useNavigate();
@@ -122,41 +146,63 @@ export function LeaderboardPage() {
   }, [selectedTournamentId, loadLeaderboard]);
 
   return (
-    <Container size="lg" className="space-y-4 py-4">
-      <BackLink fallbackTo="/" label="Back" />
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
-          <Medal className="w-5 h-5 text-tmgl-green-800" /> Leaderboard
-          {isLive && (
-            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider animate-pulse">
-              <Radio className="w-3 h-3" /> Live
-            </span>
-          )}
-        </h1>
-        <Button variant="outline" size="sm" onClick={loadLeaderboard} disabled={isLoading}>
-          <RefreshCw className={`w-4 h-4 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
+    <Container size="lg" className="space-y-6 py-6 sm:py-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">
+            Standings
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            <h1 className="font-display text-display-lg text-tmgl-green-950">Leaderboard</h1>
+            {isLive && (
+              <span className="inline-flex items-center gap-1.5 rounded-pill bg-tmgl-green-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-tmgl-green-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-tmgl-green-500 animate-pulse" />
+                Live
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-sm text-tmgl-charcoal-500">
+            Select an event and round to see the field.
+          </p>
+        </div>
+        <Button variant="outline" onClick={loadLeaderboard} disabled={isLoading}>
+          <RefreshCw className={`mr-1.5 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
         </Button>
       </div>
 
-      <div className="space-y-3">
-        <div>
-          <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Tournament</label>
-          <select value={selectedTournamentId} onChange={(e) => setSelectedTournamentId(e.target.value)}
-            className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700">
-            <option value="">All tournaments</option>
-            {tournaments.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-        </div>
-        {selectedTournamentId && (
+      <div className="rounded-card border border-tmgl-charcoal-200 bg-white p-4 shadow-card sm:p-5">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Round</label>
-            <select value={selectedRoundId} onChange={(e) => setSelectedRoundId(e.target.value)}
-              className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700">
-              <option value="">Tournament total</option>
-              {rounds.map((r) => <option key={r.id} value={r.id}>Round {r.round_number}: {r.name}</option>)}
+            <label htmlFor="lb-tournament" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-tmgl-charcoal-500">
+              Tournament
+            </label>
+            <select
+              id="lb-tournament"
+              value={selectedTournamentId}
+              onChange={(e) => setSelectedTournamentId(e.target.value)}
+              className={SELECT_CLASS}
+            >
+              <option value="">All tournaments</option>
+              {tournaments.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
-        )}
+          {selectedTournamentId && (
+            <div>
+              <label htmlFor="lb-round" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-tmgl-charcoal-500">
+                Round
+              </label>
+              <select
+                id="lb-round"
+                value={selectedRoundId}
+                onChange={(e) => setSelectedRoundId(e.target.value)}
+                className={SELECT_CLASS}
+              >
+                <option value="">Tournament total</option>
+                {rounds.map((r) => <option key={r.id} value={r.id}>Round {r.round_number}: {r.name}</option>)}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
 
       {isLoading && <LoadingState message="Loading leaderboard..." />}
@@ -189,24 +235,45 @@ export function LeaderboardPage() {
 
       {!isLoading && leaderboard.length > 0 && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <p className="text-xs text-tmgl-charcoal-500">
-              {useHandicap ? 'Ranked on net score (handicap applied)' : 'Ranked on gross score'}
+          <div className="flex flex-col gap-3 rounded-card border border-tmgl-charcoal-200 bg-white p-4 shadow-card sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-tmgl-charcoal-600">
+              {useHandicap ? 'Ranked on net score, handicap applied' : 'Ranked on gross score'}
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <label htmlFor="leaderboard-scope" className="sr-only">Leaderboard scope</label>
               <select
                 id="leaderboard-scope"
                 value={showInProgress ? 'all' : 'ranked'}
                 onChange={(event) => setShowInProgress(event.target.value === 'all')}
-                className="min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white px-3 py-2 text-sm text-tmgl-charcoal-800 focus:border-tmgl-gold-500 focus:outline-none focus:ring-2 focus:ring-tmgl-gold-500"
+                className="min-h-[40px] rounded-lg border border-tmgl-charcoal-300 bg-white px-3 py-2 text-sm text-tmgl-charcoal-800 focus:border-tmgl-green-500 focus:outline-none focus:ring-2 focus:ring-tmgl-green-700/25"
               >
                 <option value="ranked">Submitted cards only</option>
                 <option value="all">Include in-progress cards</option>
               </select>
-              <Button variant={useHandicap ? 'gold' : 'outline'} size="sm" onClick={() => setUseHandicap((value) => !value)} aria-pressed={useHandicap}>
-                {useHandicap ? 'Net' : 'Gross'}
-              </Button>
+              <div className="flex rounded-lg border border-tmgl-charcoal-300 bg-white p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setUseHandicap(true)}
+                  aria-pressed={useHandicap}
+                  className={cn(
+                    'min-h-[36px] rounded-md px-3 text-sm font-medium transition-colors',
+                    useHandicap ? 'bg-tmgl-green-800 text-white' : 'text-tmgl-charcoal-600 hover:text-tmgl-green-800'
+                  )}
+                >
+                  Net
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUseHandicap(false)}
+                  aria-pressed={!useHandicap}
+                  className={cn(
+                    'min-h-[36px] rounded-md px-3 text-sm font-medium transition-colors',
+                    !useHandicap ? 'bg-tmgl-green-800 text-white' : 'text-tmgl-charcoal-600 hover:text-tmgl-green-800'
+                  )}
+                >
+                  Gross
+                </button>
+              </div>
             </div>
           </div>
           {usesTeamBoard && formatBoard.length > 0 && (
@@ -218,21 +285,21 @@ export function LeaderboardPage() {
                 {activeFormat === 'scramble' && 'Scramble standings. Players are split into groups of four and only the lowest score on each hole counts for the group.'}
               </p>
               {formatBoard.map((row) => (
-                <Card key={row.unit_id} className="flex items-center gap-3">
-                  <div className="w-10 text-center shrink-0">
-                    <p className="text-lg font-bold text-tmgl-charcoal-900">#{row.position}</p>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-tmgl-charcoal-900 truncate">{row.label}</p>
-                    <p className="text-xs text-tmgl-charcoal-500">
+                <Card key={row.unit_id} className="flex items-center gap-4 p-4 sm:p-5">
+                  <RankBadge position={row.position} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-tmgl-green-950">{row.label}</p>
+                    <p className="mt-0.5 text-xs text-tmgl-charcoal-500">
                       {row.member_count} player{row.member_count === 1 ? '' : 's'} &middot; thru {row.holes_played}
-                      {row.holes_won + row.holes_lost > 0 ? ` � ${row.holes_won}W ${row.holes_lost}L` : ''}
+                      {row.holes_won + row.holes_lost > 0 ? ` \u00B7 ${row.holes_won}W ${row.holes_lost}L` : ''}
                     </p>
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-bold text-tmgl-charcoal-900">{row.display_value}</p>
+                  <div className="shrink-0 text-right">
+                    <p className="text-sm font-bold tabular text-tmgl-green-950">{row.display_value}</p>
                     {row.net_to_par !== null && (
-                      <p className="text-xs text-tmgl-charcoal-500">net {row.net_to_par > 0 ? '+' + row.net_to_par : row.net_to_par}</p>
+                      <p className="text-xs tabular text-tmgl-charcoal-500">
+                        net {row.net_to_par > 0 ? `+${row.net_to_par}` : row.net_to_par}
+                      </p>
                     )}
                   </div>
                 </Card>
@@ -245,30 +312,35 @@ export function LeaderboardPage() {
             const toPar = useHandicap ? entry.net_to_par : entry.total_score_to_par;
             const thru = entry.holes_completed > 0 ? `Thru ${entry.holes_completed}` : 'Not started';
             return (
-              <Card key={entry.player_id} className="flex items-center gap-3">
-                <div className="w-10 text-center shrink-0">
-                  <p className="text-lg font-bold text-tmgl-charcoal-900">
-                    {entry.position <= 3 ? ['\u{1F947}', '\u{1F948}', '\u{1F949}'][entry.position - 1] : `#${entry.position}`}
-                  </p>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-tmgl-charcoal-900 truncate">{entry.player_name}</p>
-                  <p className="text-xs text-tmgl-charcoal-500">
+              <Card key={entry.player_id} className="flex items-center gap-4 p-4 sm:p-5">
+                <RankBadge position={entry.position} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-tmgl-green-950">{entry.player_name}</p>
+                  <p className="mt-0.5 text-xs text-tmgl-charcoal-500">
                     {thru} &middot; Index {entry.handicap_index}
-                    {!isPoints && entry.handicap_index > 0 && useHandicap ? ` &rarr; net ${entry.net_strokes}` : ''}
+                    {!isPoints && entry.handicap_index > 0 && useHandicap
+                      ? ` \u2192 net ${entry.net_strokes}`
+                      : ''}
                   </p>
                 </div>
-                <div className="text-right shrink-0">
+                <div className="shrink-0 text-right">
                   {isPoints ? (
                     <>
-                      <p className="text-lg font-bold text-tmgl-charcoal-900">{entry.points ?? 0}</p>
+                      <p className="text-xl font-bold tabular text-tmgl-green-950">
+                        {entry.points ?? 0}
+                      </p>
                       <p className="text-xs text-tmgl-charcoal-500">pts</p>
                     </>
                   ) : (
                     <>
-                      <p className="text-lg font-bold text-tmgl-charcoal-900">{strokes}</p>
-                      <p className={`text-xs font-semibold ${toPar <= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                        {useHandicap ? 'net ' : 'gross '}{formatToPar(toPar)}
+                      <p className="text-xl font-bold tabular text-tmgl-green-950">{strokes}</p>
+                      <p
+                        className={`text-xs font-semibold ${
+                          toPar <= 0 ? 'text-tmgl-green-700' : 'text-red-600'
+                        }`}
+                      >
+                        {useHandicap ? 'net ' : 'gross '}
+                        {formatToPar(toPar)}
                       </p>
                     </>
                   )}

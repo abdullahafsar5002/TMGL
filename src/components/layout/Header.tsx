@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, Trophy, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Button } from '@/components/common/Button';
 import { useAuth } from '@/context/AuthContext';
@@ -16,8 +16,7 @@ const publicNavLinks = [
   { label: 'Contact', path: '/contact' },
 ];
 
-const linkClass = 'block min-h-[44px] w-full rounded-md px-3 py-2 text-left text-sm font-medium text-tmgl-charcoal-100 transition-colors hover:bg-tmgl-charcoal-900 hover:text-tmgl-gold-300';
-const desktopLinkClass = 'rounded-md px-2 py-2 text-tmgl-charcoal-200 transition-colors hover:bg-tmgl-charcoal-900 hover:text-tmgl-gold-300';
+const linkClass = 'flex min-h-[44px] w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-tmgl-charcoal-600 transition-colors hover:bg-tmgl-charcoal-100 hover:text-tmgl-green-800';
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -53,38 +52,127 @@ export function Header() {
     };
   }, [mobileMenuOpen, closeMenu]);
 
+  const isActive = (path: string) =>
+    path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
+
   return (
-    <header ref={headerRef} className="sticky top-0 z-40 border-b border-tmgl-gold-500/30 bg-tmgl-charcoal-950 text-white shadow-lg">
+    <header
+      ref={headerRef}
+      className="sticky top-0 z-40 border-b border-tmgl-charcoal-200 bg-[var(--surface-public)]/90 backdrop-blur"
+    >
       <Container size="lg">
-        <div className="flex h-16 items-center justify-between">
-          <Link to="/" className="touch-target flex min-w-0 items-center gap-3 text-left" aria-label="Go to TMGL home">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-tmgl-gold-500/70 bg-tmgl-charcoal-900 shadow-inner"><Trophy className="h-5 w-5 text-tmgl-gold-400" /></span>
-            <span className="min-w-0"><span className="block truncate text-base font-extrabold uppercase tracking-wider text-white sm:text-lg">TMGL</span><span className="hidden text-xs font-semibold text-tmgl-gold-300 sm:inline">Toruk Maktu Golf League</span></span>
+        <div className="flex h-16 items-center justify-between gap-4">
+          <Link
+            to="/"
+            className="touch-target flex min-w-0 items-center gap-3 text-left"
+            aria-label="Go to TMGL home"
+          >
+            <img src="/logo-mark.svg" alt="" className="h-10 w-10 shrink-0" />
+            <span className="min-w-0">
+              <span className="block truncate text-base font-bold uppercase tracking-[0.12em] text-tmgl-green-950 sm:text-lg">
+                TMGL
+              </span>
+              <span className="hidden text-xs font-medium text-tmgl-charcoal-500 sm:inline">
+                Toruk Maktu Golf League
+              </span>
+            </span>
           </Link>
 
-          <nav aria-label="Primary navigation" className="hidden items-center gap-5 text-sm font-medium lg:flex">
-            {publicNavLinks.slice(0, 5).map((link) => <Link key={link.label} to={link.path} className={desktopLinkClass}>{link.label}</Link>)}
+          <nav
+            aria-label="Primary navigation"
+            className="hidden items-center gap-1 text-sm font-medium lg:flex"
+          >
+            {publicNavLinks.slice(0, 5).map((link) => (
+              <Link
+                key={link.label}
+                to={link.path}
+                aria-current={isActive(link.path) ? 'page' : undefined}
+                className={`rounded-md px-3 py-2 transition-colors ${
+                  isActive(link.path)
+                    ? 'bg-tmgl-green-50 text-tmgl-green-800'
+                    : 'text-tmgl-charcoal-600 hover:bg-tmgl-charcoal-100 hover:text-tmgl-green-800'
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
           </nav>
 
-          <div className="hidden items-center gap-3 sm:flex">
-            {isManager && <Button variant="outline" size="sm" onClick={() => navigate('/seasons')} className="font-bold">Seasons</Button>}
-            {isManager && <Button variant="outline" size="sm" onClick={() => navigate('/admin')} className="font-bold">Admin</Button>}
-            {isAuthenticated ? <Button variant="gold" size="sm" onClick={() => navigate('/dashboard')} className="font-bold">{profile?.full_name ? 'Dashboard' : 'My dashboard'}</Button> : <Button variant="gold" size="sm" onClick={() => navigate('/login')} className="font-bold">Sign in</Button>}
+          <div className="hidden items-center gap-2 sm:flex">
+            {isManager && (
+              <Button variant="ghost" size="sm" onClick={() => navigate('/seasons')}>
+                Seasons
+              </Button>
+            )}
+            {isManager && (
+              <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
+                Admin
+              </Button>
+            )}
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => navigate(isAuthenticated ? '/dashboard' : '/login')}
+            >
+              {isAuthenticated ? 'Dashboard' : 'Sign in'}
+            </Button>
           </div>
 
           <div className="flex items-center sm:hidden">
-            <button ref={menuButtonRef} onClick={() => setMobileMenuOpen((open) => !open)} className="touch-target rounded-lg p-2 text-tmgl-charcoal-200 hover:bg-tmgl-charcoal-900 hover:text-tmgl-gold-300" aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'} aria-expanded={mobileMenuOpen} aria-controls="mobile-navigation">
+            <button
+              ref={menuButtonRef}
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              className="touch-target rounded-md p-2 text-tmgl-charcoal-600 hover:bg-tmgl-charcoal-100"
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-navigation"
+            >
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
           </div>
         </div>
 
-        {mobileMenuOpen && <nav id="mobile-navigation" aria-label="Mobile navigation" className="space-y-1 border-t border-tmgl-charcoal-800 py-4 sm:hidden">
-          {publicNavLinks.map((link) => <Link key={link.label} to={link.path} className={linkClass} onClick={() => closeMenu(false)}>{link.label}</Link>)}
-          {isManager && <Link to="/seasons" className={linkClass} onClick={() => closeMenu(false)}>Seasons</Link>}
-          {isManager && <Link to="/admin" className={linkClass} onClick={() => closeMenu(false)}>Admin</Link>}
-          <div className="border-t border-tmgl-charcoal-800 pt-3"><Button variant="gold" fullWidth onClick={() => { closeMenu(false); navigate(isAuthenticated ? '/dashboard' : '/login'); }}>{isAuthenticated ? 'Open dashboard' : 'Sign in'}</Button></div>
-        </nav>}
+        {mobileMenuOpen && (
+          <nav
+            id="mobile-navigation"
+            aria-label="Mobile navigation"
+            className="space-y-1 border-t border-tmgl-charcoal-200 py-4 sm:hidden"
+          >
+            {publicNavLinks.map((link) => (
+              <Link
+                key={link.label}
+                to={link.path}
+                className={linkClass}
+                aria-current={isActive(link.path) ? 'page' : undefined}
+                onClick={() => closeMenu(false)}
+              >
+                {link.label}
+              </Link>
+            ))}
+            {isManager && (
+              <Link to="/seasons" className={linkClass} onClick={() => closeMenu(false)}>
+                Seasons
+              </Link>
+            )}
+            {isManager && (
+              <Link to="/admin" className={linkClass} onClick={() => closeMenu(false)}>
+                Admin
+              </Link>
+            )}
+            <div className="border-t border-tmgl-charcoal-200 pt-3">
+              <Button
+                variant="primary"
+                fullWidth
+                onClick={() => {
+                  closeMenu(false);
+                  navigate(isAuthenticated ? '/dashboard' : '/login');
+                }}
+              >
+                {isAuthenticated ? 'Open dashboard' : 'Sign in'}
+              </Button>
+            </div>
+          </nav>
+        )}
       </Container>
     </header>
   );

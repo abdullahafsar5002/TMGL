@@ -182,14 +182,12 @@ export function AuthenticatedHeader() {
             className="flex items-center gap-3 touch-target shrink-0"
             aria-label="Go to dashboard"
           >
-            <div className="w-10 h-10 rounded-lg bg-tmgl-green-800 border border-tmgl-gold/60 flex items-center justify-center shadow-inner">
-              <Trophy className="w-5 h-5 text-tmgl-gold" />
-            </div>
-            <div className="hidden sm:block">
-              <span className="font-extrabold tracking-wider text-base sm:text-lg uppercase text-white">
+            <img src="/logo-mark.svg" alt="" className="h-10 w-10 shrink-0" />
+            <div className="hidden leading-tight sm:block">
+              <span className="block text-base font-bold uppercase tracking-[0.12em] text-white sm:text-lg">
                 TMGL
               </span>
-              <span className="hidden lg:inline-block ml-2 text-xs font-semibold px-2 py-0.5 rounded bg-tmgl-green-700/60 text-tmgl-gold border border-tmgl-gold/30">
+              <span className="block text-[11px] font-medium text-tmgl-gold-300 lg:text-xs">
                 Toruk Maktu Golf League
               </span>
             </div>

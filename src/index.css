@@ -6,6 +6,10 @@
   :root {
     --safe-area-inset-top: env(safe-area-inset-top, 0px);
     --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+    --surface-public: #fbfaf7;
+    --surface-raised: #ffffff;
+    --surface-app: #0a1512;
+    --hairline: rgba(15, 26, 22, 0.1);
     color-scheme: light;
   }
 
@@ -13,6 +17,7 @@
     min-width: 320px;
     overflow-x: hidden;
     -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
@@ -20,8 +25,19 @@
     overflow-x: hidden;
     padding-top: var(--safe-area-inset-top);
     padding-bottom: var(--safe-area-inset-bottom);
-    background: #0b0f17;
-    color: #111827;
+    background: var(--surface-public);
+    color: #0f1a16;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: Fraunces, Georgia, 'Times New Roman', serif;
+    text-wrap: balance;
   }
 
   button,
@@ -33,13 +49,38 @@
   }
 
   :focus-visible {
-    outline: 2px solid #d4af37;
+    outline: 2px solid #b59124;
     outline-offset: 3px;
+    border-radius: 4px;
   }
 
   ::selection {
-    background: #d4af37;
-    color: #0b0f17;
+    background: #0b3d2e;
+    color: #ffffff;
+  }
+
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  .surface-public {
+    background: var(--surface-public);
+    color: #0f1a16;
+  }
+
+  .surface-app {
+    background: var(--surface-app);
+    color: #e8efea;
+  }
+
+  .hairline {
+    border-color: var(--hairline);
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
 }
 
