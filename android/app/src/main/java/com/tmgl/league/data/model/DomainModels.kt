@@ -491,3 +491,19 @@ data class FlightPlayer(
     @SerialName("tee_time") val teeTime: String? = null,
     @SerialName("created_at") val createdAt: String = ""
 )
+
+data class FormatStandingEntry(
+    val position: Int = 0,
+    val unitId: String = "",
+    val label: String = "",
+    val playerIds: List<String> = emptyList(),
+    val playerNames: List<String> = emptyList(),
+    val displayValue: String = "",
+    val holesPlayed: Int = 0,
+    val holesWon: Int = 0,
+    val holesLost: Int = 0,
+    val strokesToPar: Int? = null,
+    val netToPar: Int? = null,
+    val memberCount: Int = 0,
+    val scoringFormat: String = "stroke_play"
+)

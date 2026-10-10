@@ -1,7 +1,9 @@
 package com.tmgl.league.data.repository
 
 import com.tmgl.league.data.SupabaseConfig
+import com.tmgl.league.data.leaderboard.FormatStandings
 import com.tmgl.league.data.leaderboard.LeaderboardStandings
+import com.tmgl.league.data.model.FormatStandingEntry
 import com.tmgl.league.data.model.CourseHole
 import com.tmgl.league.data.model.HoleScoreInput
 import com.tmgl.league.data.model.LeaderboardEntry
@@ -312,6 +314,171 @@ class CompetitionRepository @Inject constructor() {
 
     private suspend fun resolvePars(courseId: String?): Map<Int, Int> = getCoursePars(courseId)
 
+    suspend fun getFormatLeaderboard(roundId: String): DataResult<List<FormatStandingEntry>> {
+        return try {
+            val format = when (val roundResult = getRound(roundId)) {
+                is DataResult.Success -> roundResult.data.scoringFormat ?: "stroke_play"
+                else -> "stroke_play"
+            }
+            if (!FormatStandings.isUnitFormat(format)) {
+                return DataResult.Success(emptyList())
+            }
+
+            val courseId = resolveCourseIdForRound(roundId)
+            val pars = getCoursePars(courseId)
+
+            val members = loadFlightMembers(courseId, roundId)
+            if (members.size < 2) return DataResult.Success(emptyList())
+
+            val units = FormatStandings.resolveUnits(format, members)
+            if (units.isEmpty()) return DataResult.Success(emptyList())
+
+            val cards = db.from("scorecards")
+                .select(Columns.raw("id, player_id, status, dnf")) { filter { eq("round_id", roundId) } }
+                .decodeList<FormatScorecardRow>()
+                .filter { card ->
+                    card.status?.lowercase() in setOf("verified", "amended")
+                }
+            if (cards.isEmpty()) return DataResult.Success(emptyList())
+
+            val holesByCard = fetchHolesByScorecard(cards.mapNotNull { it.id })
+            val memberByPlayer = cards.associate { card -> card.player_id to card }
+            val scores = mutableListOf<FormatStandings.HoleScore>()
+            holesByCard.forEach { (cardId, rows) ->
+                val playerId = cards.firstOrNull { it.id == cardId }?.player_id ?: return@forEach
+                for (hole in rows) {
+                    val strokes = hole.score ?: continue
+                    if (!ScoreCalculations.isValidScore(strokes)) continue
+                    scores.add(FormatStandings.HoleScore(playerId, hole.hole_number, strokes))
+                }
+            }
+            if (scores.isEmpty()) return DataResult.Success(emptyList())
+
+            val fullRoundHoles = maxOf(18, pars.keys.maxOrNull() ?: 18)
+            val cutUnitIds = loadCutUnits(roundId, pars, scores, units)
+            val ranked = when (format) {
+                "match_play" -> FormatStandings.rankMatchPlay(
+                    FormatStandings.computeMatchPlay(units, scores, pars, fullRoundHoles)
+                )
+                "nassau" -> FormatStandings.rankNassau(
+                    FormatStandings.computeNassau(units, scores, pars, fullRoundHoles)
+                )
+                else -> FormatStandings.rankBestBall(
+                    FormatStandings.computeBestBall(units, scores, pars, fullRoundHoles),
+                    cutUnitIds
+                )
+            }
+
+            DataResult.Success(
+                ranked.rows.map { row ->
+                    FormatStandingEntry(
+                        position = row.position,
+                        unitId = row.unitId,
+                        label = row.label,
+                        playerIds = row.playerIds,
+                        playerNames = row.playerNames,
+                        displayValue = row.displayValue,
+                        holesPlayed = row.holesPlayed,
+                        holesWon = row.holesWon,
+                        holesLost = row.holesLost,
+                        strokesToPar = row.strokesToPar,
+                        netToPar = row.netToPar,
+                        memberCount = row.memberCount,
+                        scoringFormat = format
+                    )
+                }
+            )
+        } catch (error: Exception) {
+            DataResult.Error(error.message ?: "Unable to build the format standings.")
+        }
+    }
+
+    private suspend fun loadFlightMembers(courseId: String?, roundId: String): List<FormatStandings.PairMember> {
+        val tournamentId = try {
+            db.from("rounds")
+                .select(Columns.raw("tournament_id")) { filter { eq("id", roundId) } }
+                .decodeSingle<TournamentIdRow>().tournament_id
+        } catch (_: Exception) {
+            null
+        }
+        if (tournamentId == null) return emptyList()
+
+        val flightIds = try {
+            db.from("flights")
+                .select(Columns.raw("id")) { filter { eq("tournament_id", tournamentId) } }
+                .decodeList<FlightIdRow>().map { it.id }
+        } catch (_: Exception) {
+            emptyList()
+        }
+        if (flightIds.isEmpty()) return emptyList()
+
+        return try {
+            db.from("flight_players")
+                .select(Columns.raw("flight_id, player_id, pairing_no, players!inner(id, full_name, handicap_index)")) {
+                    filter { isIn("flight_id", flightIds) }
+                }
+                .decodeList<FormatFlightMemberRow>()
+                .mapNotNull { row ->
+                    val player = row.players ?: return@mapNotNull null
+                    if (row.player_id.isBlank()) return@mapNotNull null
+                    FormatStandings.PairMember(
+                        playerId = row.player_id,
+                        playerName = player.full_name ?: "Player",
+                        handicapIndex = player.handicap_index ?: 0.0,
+                        pairingNo = row.pairing_no ?: 0,
+                        flightId = row.flight_id
+                    )
+                }
+                .filter { it.pairingNo > 0 }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    private suspend fun loadCutUnits(
+        roundId: String,
+        pars: Map<Int, Int>,
+        scores: List<FormatStandings.HoleScore>,
+        units: List<FormatStandings.Unit>
+    ): Set<String> {
+        val cutUnitIds = mutableSetOf<String>()
+        val round = try {
+            db.from("rounds")
+                .select(Columns.raw("id, cut_after_hole, cut_line_score")) { filter { eq("id", roundId) } }
+                .decodeSingle<CutConfigRow>()
+        } catch (_: Exception) {
+            return cutUnitIds
+        }
+        val cutAfterHole = round.cut_after_hole ?: return cutUnitIds
+        val cutLineScore = round.cut_line_score ?: return cutUnitIds
+        if (cutAfterHole <= 0 || cutLineScore <= 0) return cutUnitIds
+
+        val frontTotals = scores
+            .filter { it.holeNumber <= cutAfterHole }
+            .groupBy { it.playerId }
+            .mapValues { (_, rows) -> rows.sumOf { it.strokes } }
+
+        val dnfPlayers = try {
+            db.from("scorecards")
+                .select(Columns.raw("player_id, dnf")) { filter { eq("round_id", roundId) } }
+                .decodeList<DnfRow>()
+                .filter { it.dnf == true }
+                .map { it.player_id }
+                .toSet()
+        } catch (_: Exception) {
+            emptySet()
+        }
+
+        for ((playerId, total) in frontTotals) {
+            if (total > cutLineScore || dnfPlayers.contains(playerId)) {
+                for (unit in units) {
+                    if (unit.playerIds.contains(playerId)) cutUnitIds.add(unit.id)
+                }
+            }
+        }
+        return cutUnitIds
+    }
+
     suspend fun getLeaderboard(roundId: String): DataResult<List<LeaderboardEntry>> {
         return try {
             val scorecards = db.from("scorecards")
@@ -455,6 +622,48 @@ private data class LeaderboardScorecardRow(
 )
 
 @kotlinx.serialization.Serializable
+private data class FlightIdRow(val id: String = "")
+
+@kotlinx.serialization.Serializable
+private data class TournamentIdRow(
+    @kotlinx.serialization.SerialName("tournament_id") val tournament_id: String = ""
+)
+
+@kotlinx.serialization.Serializable
+private data class CutConfigRow(
+    @kotlinx.serialization.SerialName("cut_after_hole") val cut_after_hole: Int? = null,
+    @kotlinx.serialization.SerialName("cut_line_score") val cut_line_score: Int? = null
+)
+
+@kotlinx.serialization.Serializable
+private data class DnfRow(
+    @kotlinx.serialization.SerialName("player_id") val player_id: String = "",
+    val dnf: Boolean = false
+)
+
+@kotlinx.serialization.Serializable
+private data class FormatScorecardRow(
+    val id: String = "",
+    @kotlinx.serialization.SerialName("player_id") val player_id: String = "",
+    val status: String? = null,
+    val dnf: Boolean = false
+)
+
+@kotlinx.serialization.Serializable
+private data class PlayerRef(
+    val id: String = "",
+    @kotlinx.serialization.SerialName("full_name") val full_name: String? = null,
+    @kotlinx.serialization.SerialName("handicap_index") val handicap_index: Double? = null
+)
+
+@kotlinx.serialization.Serializable
+private data class FormatFlightMemberRow(
+    @kotlinx.serialization.SerialName("flight_id") val flight_id: String = "",
+    @kotlinx.serialization.SerialName("player_id") val player_id: String = "",
+    @kotlinx.serialization.SerialName("pairing_no") val pairing_no: Int? = null,
+    val players: PlayerRef? = null
+)
+
 private data class LeaderboardHoleRow(
     @kotlinx.serialization.SerialName("scorecard_id") val scorecard_id: String = "",
     @kotlinx.serialization.SerialName("hole_number") val hole_number: Int = 0,

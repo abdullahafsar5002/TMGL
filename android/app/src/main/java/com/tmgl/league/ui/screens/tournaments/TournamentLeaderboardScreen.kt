@@ -2,6 +2,7 @@ package com.tmgl.league.ui.screens.tournaments
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -15,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tmgl.league.data.SupabaseConfig
 import com.tmgl.league.data.leaderboard.LeaderboardStandings
+import com.tmgl.league.data.model.FormatStandingEntry
 import com.tmgl.league.data.model.ScoreCalculations
 import com.tmgl.league.data.repository.DataResult
 import com.tmgl.league.ui.theme.*
@@ -44,6 +46,7 @@ fun TournamentLeaderboardScreen(
     onBack: () -> Unit
 ) {
     var entries by remember { mutableStateOf<List<TournamentLeaderboardEntry>>(emptyList()) }
+    var formatSections by remember { mutableStateOf<List<Pair<String, List<FormatStandingEntry>>>>(emptyList()) }
     var tournamentName by remember { mutableStateOf("Tournament") }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -62,8 +65,21 @@ fun TournamentLeaderboardScreen(
                 val infoById = mutableMapOf<String, LeaderboardStandings.PlayerInfo>()
                 val totalsById = mutableMapOf<String, LeaderboardStandings.GrossTotal>()
                 var roundFailure: String? = null
+                val unitSections = mutableListOf<Pair<String, List<FormatStandingEntry>>>()
 
                 for (round in roundsResult.data) {
+                    val format = round.scoringFormat ?: "stroke_play"
+                    if (com.tmgl.league.data.leaderboard.FormatStandings.isUnitFormat(format)) {
+                        when (val formatResult = repository.getFormatLeaderboard(round.id)) {
+                            is DataResult.Success -> {
+                                if (formatResult.data.isNotEmpty()) {
+                                    unitSections.add(round.name to formatResult.data)
+                                }
+                            }
+                            is DataResult.Error -> roundFailure = formatResult.message
+                        }
+                        continue
+                    }
                     when (val scResult = repository.getLeaderboard(round.id)) {
                         is DataResult.Success -> {
                             for (entry in scResult.data) {
@@ -87,7 +103,8 @@ fun TournamentLeaderboardScreen(
                     }
                 }
 
-                entries = LeaderboardStandings
+                formatSections = unitSections
+                entries = if (unitSections.isNotEmpty()) emptyList() else LeaderboardStandings
                     .build(infoById.values.toList(), totalsById.values.toList())
                     .map { standing ->
                         TournamentLeaderboardEntry(
@@ -102,7 +119,9 @@ fun TournamentLeaderboardScreen(
                             holesCompleted = standing.holesCompleted
                         )
                     }
-                if (entries.isEmpty()) errorMessage = roundFailure ?: "No scored rounds yet"
+                if (entries.isEmpty() && formatSections.isEmpty()) {
+                    errorMessage = roundFailure ?: "No scored rounds yet"
+                }
             }
             is DataResult.Error -> errorMessage = roundsResult.message
         }
@@ -126,7 +145,7 @@ fun TournamentLeaderboardScreen(
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = TmglGreen)
             }
-        } else if (entries.isEmpty()) {
+        } else if (entries.isEmpty() && formatSections.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     text = errorMessage ?: "No scores yet",
@@ -140,6 +159,72 @@ fun TournamentLeaderboardScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                formatSections.forEach { (roundName, rows) ->
+                    item(key = "header-$roundName") {
+                        Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                            Text(
+                                roundName,
+                                style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            )
+                            val format = rows.firstOrNull()?.scoringFormat ?: "stroke_play"
+                            Text(
+                                when (format) {
+                                    "match_play" -> "Match play. Ranking is on holes won, then holes lost. Each pairing plays the neighbouring pairing."
+                                    "nassau" -> "Nassau. Ranking is on strokes relative to par across front nine, back nine and total."
+                                    "best_ball" -> "Best ball. Each pairing is a team and only the lower score on each hole counts."
+                                    "scramble" -> "Scramble. Players are in groups of four and only the lowest score on each hole counts."
+                                    else -> ""
+                                },
+                                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    items(rows, key = { it.unitId }) { row ->
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "#${row.position}",
+                                    style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                    modifier = Modifier.width(44.dp)
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        row.label,
+                                        style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        "${row.memberCount} player${if (row.memberCount == 1) "" else "s"} - thru ${row.holesPlayed}" +
+                                            if (row.holesWon + row.holesLost > 0) " - ${row.holesWon}W ${row.holesLost}L" else "",
+                                        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+                                    Text(
+                                        row.displayValue,
+                                        style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                    )
+                                    row.netToPar?.let {
+                                        Text(
+                                            "net $it",
+                                            style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 itemsIndexed(entries) { index, entry ->
                     val bgColor = when (entry.position) {
                         1 -> MedalGold.copy(alpha = 0.15f)
