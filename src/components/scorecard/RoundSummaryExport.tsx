@@ -48,38 +48,38 @@ export function RoundSummaryExport({ data, className = '' }: RoundSummaryExportP
         <button
           onClick={handleGenerate}
           disabled={generating}
-          className="w-full flex items-center justify-center gap-3 p-4 rounded-xl border-2 border-dashed border-tmgl-green/30 hover:border-tmgl-green/60 bg-tmgl-dark/50 transition-all group"
+          className="group flex w-full items-center justify-center gap-3 rounded-card border-2 border-dashed border-tmgl-green-300 bg-tmgl-green-50 p-4 transition-all hover:border-tmgl-green-600 hover:bg-tmgl-green-100"
         >
-          <Image className="w-6 h-6 text-tmgl-green group-hover:scale-110 transition-transform" />
-          <span className="text-sm font-medium text-tmgl-silver">
+          <Image className="h-6 w-6 text-tmgl-green-700 transition-transform group-hover:scale-110" />
+          <span className="text-sm font-medium text-tmgl-green-800">
             {generating ? 'Generating...' : 'Generate Round Summary Image'}
           </span>
         </button>
       ) : (
         <div className="space-y-3">
-          <div className="rounded-xl overflow-hidden border border-tmgl-charcoal-700">
+          <div className="overflow-hidden rounded-card border border-tmgl-charcoal-200 shadow-card">
             <img src={preview} alt="Round Summary" className="w-full" />
           </div>
           <div className="flex gap-2">
             <Button
               onClick={handleShare}
-              className="flex-1 flex items-center justify-center gap-2 bg-tmgl-green hover:bg-tmgl-green/90"
+              className="flex-1 items-center justify-center gap-2"
             >
-              <Share2 className="w-4 h-4" />
+              <Share2 className="h-4 w-4" />
               Share
             </Button>
             <Button
               onClick={handleDownload}
-              variant="secondary"
-              className="flex-1 flex items-center justify-center gap-2"
+              variant="outline"
+              className="flex-1 items-center justify-center gap-2"
             >
-              <Download className="w-4 h-4" />
+              <Download className="h-4 w-4" />
               Download
             </Button>
           </div>
           <button
             onClick={() => { setPreview(null); setBlob(null); }}
-            className="text-xs text-tmgl-silver/60 hover:text-tmgl-silver transition-colors"
+            className="text-xs text-tmgl-charcoal-500 transition-colors hover:text-tmgl-green-800"
           >
             Regenerate
           </button>

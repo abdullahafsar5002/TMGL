@@ -23,6 +23,16 @@ interface HoleEntry {
   penalty_strokes: string;
 }
 
+const INPUT_CLASS = 'min-h-[44px] w-full rounded-lg border border-tmgl-charcoal-300 bg-white px-3 py-2 text-sm text-tmgl-charcoal-800 placeholder-tmgl-charcoal-400 focus:border-tmgl-green-500 focus:outline-none focus:ring-2 focus:ring-tmgl-green-700/25 disabled:bg-tmgl-charcoal-50';
+
+const LABEL_CLASS = 'mb-1 block text-sm font-medium text-tmgl-charcoal-700';
+
+function toParClassName(toPar: number): string {
+  if (toPar < 0) return 'text-tmgl-green-700';
+  if (toPar > 0) return 'text-red-600';
+  return 'text-tmgl-charcoal-600';
+}
+
 export default function PracticeScorecardPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -216,27 +226,33 @@ export default function PracticeScorecardPage() {
     }
   }
 
-  if (loading) return <LoadingState message="Loading scorecard..." />;
+  if (loading) return <Container size="lg" className="py-6"><LoadingState message="Loading scorecard..." /></Container>;
 
   if (!round) {
     return (
       <Container className="py-8">
-        <div className="text-center text-gray-500">Practice round not found.</div>
+        <div className="rounded-card border border-tmgl-charcoal-200 bg-white p-6 text-center text-sm text-tmgl-charcoal-500 shadow-card">Practice round not found.</div>
       </Container>
     );
   }
 
   return (
-    <Container className="py-8">
-      <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => navigate(-1)} className="text-gray-500 hover:text-gray-700">
+    <Container className="space-y-6 py-6 sm:py-8">
+      <div className="flex items-start gap-3">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          aria-label="Back"
+          className="mt-1 text-tmgl-charcoal-500 transition-colors hover:text-tmgl-green-800"
+        >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">Practice round</p>
+          <h1 className="mt-1 font-display text-display-md text-tmgl-green-950">
             Practice Scorecard — {round.round_type} Holes
           </h1>
-          <p className="text-gray-500 text-sm">
+          <p className="mt-1 text-sm text-tmgl-charcoal-500">
             {round.tee_box ? `${round.tee_box} tees` : ''}
           </p>
         </div>
@@ -246,31 +262,34 @@ export default function PracticeScorecardPage() {
       </div>
 
       {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
+        <div role="alert" className="rounded-card border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</div>
       )}
       {success && (
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">{success}</div>
+        <div role="status" className="rounded-card border border-tmgl-green-200 bg-tmgl-green-50 p-4 text-sm text-tmgl-green-800">{success}</div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <Card variant="bordered">
+          <Card className="border-tmgl-charcoal-200">
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Scorecard</CardTitle>
-                <div className="flex gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <CardTitle className="font-display text-tmgl-green-950">Scorecard</CardTitle>
+                <div className="flex flex-wrap gap-2">
                   {Array.from({ length: round.round_type }, (_, i) => i + 1)
                     .filter(h => round.round_type === 18 ? true : h <= 9)
                     .map(h => (
                       <button
                         key={h}
+                        type="button"
+                        aria-label={`Hole ${h}`}
+                        aria-pressed={activeHole === h}
                         onClick={() => setActiveHole(h)}
-                        className={`w-8 h-8 rounded-full text-sm font-medium transition-colors ${
+                        className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold tabular transition-colors ${
                           activeHole === h
-                            ? 'bg-green-600 text-white'
+                            ? 'bg-tmgl-green-800 text-white'
                             : entries.find(e => e.hole_number === h)?.score
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                              ? 'bg-tmgl-green-100 text-tmgl-green-700 hover:bg-tmgl-green-200'
+                              : 'bg-tmgl-charcoal-100 text-tmgl-charcoal-500 hover:bg-tmgl-charcoal-200'
                         }`}
                       >
                         {h}
@@ -282,11 +301,11 @@ export default function PracticeScorecardPage() {
             <CardContent>
               {entries.filter(e => e.hole_number === activeHole).map(entry => (
                 <div key={entry.hole_number} className="space-y-4">
-                  <div className="flex items-center gap-4 mb-4">
-                    <span className="text-2xl font-bold text-gray-900">Hole {entry.hole_number}</span>
-                    <span className="text-gray-500">Par {entry.par}</span>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="font-display text-display-md text-tmgl-green-950">Hole {entry.hole_number}</span>
+                    <span className="text-sm text-tmgl-charcoal-500">Par {entry.par}</span>
                     {entry.stroke_index && (
-                      <span className="text-gray-400 text-sm">SI {entry.stroke_index}</span>
+                      <span className="text-sm text-tmgl-charcoal-400">SI {entry.stroke_index}</span>
                     )}
                     {entry.score && (
                       <Badge variant={
@@ -298,9 +317,9 @@ export default function PracticeScorecardPage() {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Score *</label>
+                      <label className={LABEL_CLASS}>Score *</label>
                       <input
                         type="number"
                         min="1"
@@ -308,12 +327,12 @@ export default function PracticeScorecardPage() {
                         value={entry.score}
                         onChange={e => updateEntry(entry.hole_number, 'score', e.target.value)}
                         disabled={!isEditable}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 disabled:bg-gray-50"
+                        className={INPUT_CLASS}
                         placeholder="Strokes"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Putts</label>
+                      <label className={LABEL_CLASS}>Putts</label>
                       <input
                         type="number"
                         min="0"
@@ -321,12 +340,12 @@ export default function PracticeScorecardPage() {
                         value={entry.putts}
                         onChange={e => updateEntry(entry.hole_number, 'putts', e.target.value)}
                         disabled={!isEditable}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 disabled:bg-gray-50"
+                        className={INPUT_CLASS}
                         placeholder="Putts"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Penalties</label>
+                      <label className={LABEL_CLASS}>Penalties</label>
                       <input
                         type="number"
                         min="0"
@@ -334,18 +353,18 @@ export default function PracticeScorecardPage() {
                         value={entry.penalty_strokes}
                         onChange={e => updateEntry(entry.hole_number, 'penalty_strokes', e.target.value)}
                         disabled={!isEditable}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 disabled:bg-gray-50"
+                        className={INPUT_CLASS}
                       />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <label className="text-sm font-medium text-gray-700">Fairway</label>
+                      <span className="text-sm font-medium text-tmgl-charcoal-700">Fairway</span>
                       <div className="flex gap-2">
                         <button
                           type="button"
                           onClick={() => updateEntry(entry.hole_number, 'fairway_hit', entry.fairway_hit === true ? null : true)}
                           disabled={!isEditable}
-                          className={`flex-1 py-2 rounded text-sm font-medium ${
-                            entry.fairway_hit === true ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-gray-100 text-gray-500'
+                          className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
+                            entry.fairway_hit === true ? 'border border-tmgl-green-300 bg-tmgl-green-100 text-tmgl-green-800' : 'border border-tmgl-charcoal-200 bg-tmgl-charcoal-100 text-tmgl-charcoal-600 hover:bg-tmgl-charcoal-200'
                           }`}
                         >
                           Hit
@@ -354,8 +373,8 @@ export default function PracticeScorecardPage() {
                           type="button"
                           onClick={() => updateEntry(entry.hole_number, 'fairway_hit', entry.fairway_hit === false ? null : false)}
                           disabled={!isEditable}
-                          className={`flex-1 py-2 rounded text-sm font-medium ${
-                            entry.fairway_hit === false ? 'bg-red-100 text-red-700 border border-red-300' : 'bg-gray-100 text-gray-500'
+                          className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
+                            entry.fairway_hit === false ? 'border border-red-300 bg-red-100 text-red-800' : 'border border-tmgl-charcoal-200 bg-tmgl-charcoal-100 text-tmgl-charcoal-600 hover:bg-tmgl-charcoal-200'
                           }`}
                         >
                           Miss
@@ -365,13 +384,13 @@ export default function PracticeScorecardPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <label className="text-sm font-medium text-gray-700">GIR:</label>
+                    <span className="text-sm font-medium text-tmgl-charcoal-700">GIR:</span>
                     <button
                       type="button"
                       onClick={() => updateEntry(entry.hole_number, 'green_in_regulation', entry.green_in_regulation === true ? null : true)}
                       disabled={!isEditable}
-                      className={`px-3 py-1 rounded text-sm ${
-                        entry.green_in_regulation === true ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-gray-100 text-gray-500'
+                      className={`rounded-lg px-3 py-1.5 text-sm transition-colors disabled:opacity-50 ${
+                        entry.green_in_regulation === true ? 'border border-tmgl-green-300 bg-tmgl-green-100 text-tmgl-green-800' : 'border border-tmgl-charcoal-200 bg-tmgl-charcoal-100 text-tmgl-charcoal-600 hover:bg-tmgl-charcoal-200'
                       }`}
                     >
                       Yes
@@ -380,8 +399,8 @@ export default function PracticeScorecardPage() {
                       type="button"
                       onClick={() => updateEntry(entry.hole_number, 'green_in_regulation', entry.green_in_regulation === false ? null : false)}
                       disabled={!isEditable}
-                      className={`px-3 py-1 rounded text-sm ${
-                        entry.green_in_regulation === false ? 'bg-red-100 text-red-700 border border-red-300' : 'bg-gray-100 text-gray-500'
+                      className={`rounded-lg px-3 py-1.5 text-sm transition-colors disabled:opacity-50 ${
+                        entry.green_in_regulation === false ? 'border border-red-300 bg-red-100 text-red-800' : 'border border-tmgl-charcoal-200 bg-tmgl-charcoal-100 text-tmgl-charcoal-600 hover:bg-tmgl-charcoal-200'
                       }`}
                     >
                       No
@@ -394,87 +413,87 @@ export default function PracticeScorecardPage() {
         </div>
 
         <div className="space-y-4">
-          <Card variant="bordered">
+          <Card className="border-tmgl-charcoal-200">
             <CardHeader>
-              <CardTitle className="text-lg">Summary</CardTitle>
+              <CardTitle className="font-display text-tmgl-green-950">Summary</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Holes Played</span>
-                <span className="font-medium">{summary.holesCompleted} / {round.round_type}</span>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-tmgl-charcoal-600">Holes Played</span>
+                <span className="font-semibold tabular text-tmgl-charcoal-900">{summary.holesCompleted} / {round.round_type}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Gross Score</span>
-                <span className="font-bold text-xl">{summary.grossScore ?? '—'}</span>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-tmgl-charcoal-600">Gross Score</span>
+                <span className="font-display text-display-md tabular text-tmgl-green-950">{summary.grossScore ?? '—'}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">To Par</span>
-                <span className={`font-bold text-xl ${
-                  summary.toPar < 0 ? 'text-green-600' : summary.toPar > 0 ? 'text-red-600' : ''
-                }`}>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-tmgl-charcoal-600">To Par</span>
+                <span className={`font-display text-display-md tabular ${toParClassName(summary.toPar)}`}>
                   {summary.holesCompleted > 0 ? formatToPar(summary.toPar) : '—'}
                 </span>
               </div>
-              <hr />
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Front 9</span>
-                <span>{summary.front9Gross || '—'} ({summary.front9Par} par)</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Back 9</span>
-                <span>{summary.back9Gross || '—'} ({summary.back9Par} par)</span>
-              </div>
-              <hr />
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Birdies</span>
-                <span className="text-green-600">{summary.birdies}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Pars</span>
-                <span>{summary.pars}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Bogeys</span>
-                <span className="text-amber-600">{summary.bogeys}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Double+ Bogeys</span>
-                <span className="text-red-600">{summary.doubleBogeys}</span>
-              </div>
-              {summary.averagePutts !== null && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Avg Putts</span>
-                  <span>{summary.averagePutts}</span>
+              <div className="hairline border-t pt-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-tmgl-charcoal-600">Front 9</span>
+                  <span className="tabular text-tmgl-charcoal-800">{summary.front9Gross || '—'} ({summary.front9Par} par)</span>
                 </div>
-              )}
-              {summary.fairwayPercentage !== null && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Fairways</span>
-                  <span>{summary.fairwayPercentage}%</span>
+                <div className="mt-2 flex items-center justify-between text-sm">
+                  <span className="text-tmgl-charcoal-600">Back 9</span>
+                  <span className="tabular text-tmgl-charcoal-800">{summary.back9Gross || '—'} ({summary.back9Par} par)</span>
                 </div>
-              )}
-              {summary.girPercentage !== null && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">GIR</span>
-                  <span>{summary.girPercentage}%</span>
+              </div>
+              <div className="hairline border-t pt-3 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-tmgl-charcoal-600">Birdies</span>
+                  <span className="font-semibold tabular text-tmgl-green-700">{summary.birdies}</span>
                 </div>
-              )}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-tmgl-charcoal-600">Pars</span>
+                  <span className="tabular text-tmgl-charcoal-800">{summary.pars}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-tmgl-charcoal-600">Bogeys</span>
+                  <span className="font-semibold tabular text-tmgl-gold-600">{summary.bogeys}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-tmgl-charcoal-600">Double+ Bogeys</span>
+                  <span className="font-semibold tabular text-red-600">{summary.doubleBogeys}</span>
+                </div>
+                {summary.averagePutts !== null && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-tmgl-charcoal-600">Avg Putts</span>
+                    <span className="tabular text-tmgl-charcoal-800">{summary.averagePutts}</span>
+                  </div>
+                )}
+                {summary.fairwayPercentage !== null && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-tmgl-charcoal-600">Fairways</span>
+                    <span className="tabular text-tmgl-charcoal-800">{summary.fairwayPercentage}%</span>
+                  </div>
+                )}
+                {summary.girPercentage !== null && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-tmgl-charcoal-600">GIR</span>
+                    <span className="tabular text-tmgl-charcoal-800">{summary.girPercentage}%</span>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 
           {isEditable && (
             <div className="space-y-2">
               <Button variant="primary" fullWidth onClick={handleSave} disabled={saving}>
-                <Save className="h-4 w-4 mr-2" />
+                <Save className="mr-2 h-4 w-4" />
                 {saving ? 'Saving...' : 'Save Draft'}
               </Button>
               <Button variant="gold" fullWidth onClick={handleComplete} disabled={submitting}>
-                <CheckCircle className="h-4 w-4 mr-2" />
+                <CheckCircle className="mr-2 h-4 w-4" />
                 {submitting ? 'Completing...' : 'Complete Round'}
               </Button>
               {round.status === 'draft' && (
                 <Button variant="danger" fullWidth onClick={() => setShowDeleteConfirm(true)}>
-                  <Trash2 className="h-4 w-4 mr-2" />
+                  <Trash2 className="mr-2 h-4 w-4" />
                   Delete Round
                 </Button>
               )}

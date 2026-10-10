@@ -24,6 +24,12 @@ const STATUS_VARIANTS: Record<ScorecardStatus, BadgeVariant> = {
   amended: 'warning',
 };
 
+function toParClassName(toPar: number): string {
+  if (toPar < 0) return 'text-tmgl-green-700';
+  if (toPar > 0) return 'text-red-600';
+  return 'text-tmgl-charcoal-600';
+}
+
 export function ScorecardVerifyPage() {
   const { id } = useParams<{ id: string }>();
   const { profile } = useAuth();
@@ -157,7 +163,7 @@ export function ScorecardVerifyPage() {
 
   if (isLoading) {
     return (
-      <Container size="lg" className="py-4">
+      <Container size="lg" className="py-6">
         <LoadingState />
       </Container>
     );
@@ -165,15 +171,16 @@ export function ScorecardVerifyPage() {
 
   if (error) {
     return (
-      <Container size="lg" className="py-4">
+      <Container size="lg" className="space-y-6 py-6 sm:py-8">
         <button
+          type="button"
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1 text-sm text-tmgl-charcoal-500 hover:text-tmgl-green-800 mb-4"
+          className="inline-flex items-center gap-1.5 text-sm text-tmgl-charcoal-500 transition-colors hover:text-tmgl-green-800"
         >
-          <ArrowLeft className="w-4 h-4" /> Back
+          <ArrowLeft className="h-4 w-4" /> Back
         </button>
-        <div className="flex items-start gap-2 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
-          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+        <div role="alert" className="flex items-start gap-2 rounded-card border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
           <p>{error}</p>
         </div>
       </Container>
@@ -185,40 +192,42 @@ export function ScorecardVerifyPage() {
   const rejectedCount = scorecards.filter((sc) => sc.status === 'rejected').length;
 
   return (
-    <Container size="lg" className="space-y-4 py-4">
+    <Container size="lg" className="space-y-6 py-6 sm:py-8">
       <button
+        type="button"
         onClick={() => { if (round) navigate(`/rounds/${id}`); else navigate(-1); }}
-        className="flex items-center gap-1 text-sm text-tmgl-charcoal-500 hover:text-tmgl-green-800"
+        className="inline-flex items-center gap-1.5 text-sm text-tmgl-charcoal-500 transition-colors hover:text-tmgl-green-800"
       >
-        <ArrowLeft className="w-4 h-4" /> {tournamentName || 'Back to Round'}
+        <ArrowLeft className="h-4 w-4" /> {tournamentName || 'Back to Round'}
       </button>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <header className="animate-fade-up flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
-            <ClipboardCheck className="w-5 h-5 text-tmgl-green-800" /> Verify Scorecards
-          </h1>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">
+            Verification
+          </p>
+          <h1 className="mt-1 font-display text-display-lg text-tmgl-green-950">Verify Scorecards</h1>
           {round && (
-            <p className="text-sm text-tmgl-charcoal-500 mt-1">
+            <p className="mt-1 text-sm text-tmgl-charcoal-500">
               Round {round.round_number}: {round.name}
             </p>
           )}
         </div>
-      </div>
+      </header>
 
       {scorecards.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
-          <Card className="text-center">
-            <p className="text-2xl font-bold text-amber-700">{submittedCount}</p>
-            <p className="text-xs text-tmgl-charcoal-500">Submitted</p>
+          <Card className="border-tmgl-charcoal-200 text-center">
+            <p className="font-display text-display-md tabular text-tmgl-gold-700">{submittedCount}</p>
+            <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-tmgl-charcoal-500">Submitted</p>
           </Card>
-          <Card className="text-center">
-            <p className="text-2xl font-bold text-green-700">{verifiedCount}</p>
-            <p className="text-xs text-tmgl-charcoal-500">Verified</p>
+          <Card className="border-tmgl-charcoal-200 text-center">
+            <p className="font-display text-display-md tabular text-tmgl-green-700">{verifiedCount}</p>
+            <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-tmgl-charcoal-500">Verified</p>
           </Card>
-          <Card className="text-center">
-            <p className="text-2xl font-bold text-red-700">{rejectedCount}</p>
-            <p className="text-xs text-tmgl-charcoal-500">Rejected</p>
+          <Card className="border-tmgl-charcoal-200 text-center">
+            <p className="font-display text-display-md tabular text-red-600">{rejectedCount}</p>
+            <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-tmgl-charcoal-500">Rejected</p>
           </Card>
         </div>
       )}
@@ -230,27 +239,27 @@ export function ScorecardVerifyPage() {
           description="No scorecards have been submitted for this round yet."
         />
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {scorecards.map((sc) => {
             const card = completion[sc.id];
             const isComplete = card ? card.is_complete : true;
 
             return (
-            <Card key={sc.id}>
-              <CardHeader>
+            <Card key={sc.id} className="border-tmgl-charcoal-200 transition-shadow hover:shadow-card-hover">
+              <CardHeader className="flex-wrap gap-2">
                 <div className="min-w-0 flex-1">
-                  <CardTitle className="text-base">
+                  <CardTitle className="font-display text-tmgl-green-950">
                     {playerNames[sc.player_id] ?? 'Unknown Player'}
                   </CardTitle>
-                  <div className="flex items-center gap-3 mt-1 text-sm text-tmgl-charcoal-500">
-                    {sc.total_strokes != null && <span>{sc.total_strokes} strokes</span>}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-tmgl-charcoal-500">
+                    {sc.total_strokes != null && <span className="tabular">{sc.total_strokes} strokes</span>}
                     {sc.total_score_to_par != null && (
-                      <span className={sc.total_score_to_par <= 0 ? 'text-green-700' : 'text-red-700'}>
+                      <span className={`font-bold tabular ${toParClassName(sc.total_score_to_par)}`}>
                         {formatToPar(sc.total_score_to_par)}
                       </span>
                     )}
                     {card && (
-                      <span className={isComplete ? 'text-tmgl-charcoal-500' : 'text-amber-700 font-semibold'}>
+                      <span className={isComplete ? 'tabular' : 'font-semibold tabular text-tmgl-gold-700'}>
                         {card.holes_completed}/{card.total_holes} holes
                       </span>
                     )}
@@ -265,7 +274,7 @@ export function ScorecardVerifyPage() {
               </CardHeader>
 
               {canManage && (
-                <div className="flex gap-2 mt-2 pt-2 border-t border-tmgl-charcoal-100">
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-tmgl-charcoal-100 pt-3">
                   {sc.status !== 'verified' && (
                     <Button
                       variant="primary"
@@ -273,12 +282,11 @@ export function ScorecardVerifyPage() {
                       onClick={() => handleVerify(sc.id)}
                       disabled={actionLoading === sc.id || !isComplete}
                       title={isComplete ? undefined : 'Scorecard is incomplete and cannot be verified'}
-                      className="bg-tmgl-green-800 hover:bg-tmgl-green-700"
                     >
                       {actionLoading === sc.id ? (
-                        <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                        <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
                       ) : (
-                        <CheckCircle className="w-4 h-4 mr-1.5" />
+                        <CheckCircle className="mr-1.5 h-4 w-4" />
                       )}
                       Verify
                     </Button>
@@ -327,41 +335,39 @@ export function ScorecardVerifyPage() {
 
       {rejectTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
-            <div className="p-5 space-y-4">
-              <h2 className="text-lg font-bold text-tmgl-charcoal-900">Reject Scorecard</h2>
+          <div role="dialog" aria-modal="true" aria-label="Reject Scorecard" className="w-full max-w-md rounded-panel border border-tmgl-charcoal-200 bg-white shadow-panel">
+            <div className="p-5 space-y-4 sm:p-6">
+              <h2 className="font-display text-xl text-tmgl-green-950">Reject Scorecard</h2>
               <p className="text-sm text-tmgl-charcoal-600">
                 Are you sure you want to reject the scorecard for{' '}
-                <strong>{playerNames[rejectTarget.player_id] ?? 'Unknown Player'}</strong>?
+                <strong className="text-tmgl-charcoal-900">{playerNames[rejectTarget.player_id] ?? 'Unknown Player'}</strong>?
               </p>
               <div>
-                <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Reason (optional)</label>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-tmgl-charcoal-500">Reason (optional)</label>
                 <input
                   type="text"
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
                   placeholder="Enter rejection reason"
-                  className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700"
+                  className="min-h-[44px] w-full rounded-lg border border-tmgl-charcoal-300 bg-white px-3 py-2.5 text-sm text-tmgl-charcoal-800 placeholder-tmgl-charcoal-400 focus:border-tmgl-green-500 focus:outline-none focus:ring-2 focus:ring-tmgl-green-700/25"
                 />
               </div>
-              <div className="flex gap-3 justify-end">
+              <div className="flex flex-wrap justify-end gap-3">
                 <Button
                   variant="outline"
-                  size="sm"
                   onClick={() => { setRejectTarget(null); setRejectReason(''); }}
                 >
                   Cancel
                 </Button>
                 <Button
                   variant="danger"
-                  size="sm"
                   onClick={handleReject}
                   disabled={actionLoading === rejectTarget.id}
                 >
                   {actionLoading === rejectTarget.id ? (
-                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Rejecting...</>
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Rejecting...</>
                   ) : (
-                    <><XCircle className="w-4 h-4 mr-1.5" /> Reject</>
+                    <><XCircle className="mr-1.5 h-4 w-4" /> Reject</>
                   )}
                 </Button>
               </div>
