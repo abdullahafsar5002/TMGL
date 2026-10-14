@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Trophy, Calendar } from 'lucide-react';
+import { Trophy, Calendar, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Container } from '@/components/common/Container';
+import { PageHeader } from '@/components/common/PageHeader';
 import { Card, CardContent } from '@/components/common/Card';
-import { Button } from '@/components/common/Button';
 import { EmptyState } from '@/components/common/EmptyState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { Badge } from '@/components/common/Badge';
@@ -126,22 +126,26 @@ export default function MyTournamentsPage() {
 
   return (
     <Container className="py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">My Tournaments</h1>
-        <p className="text-gray-500 mt-1">Tournaments you are registered for or have played in</p>
-      </div>
+      <PageHeader
+        eyebrow="Your league"
+        title="My tournaments"
+        description="Everything you are registered for, plus anything you have already played."
+      />
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
       )}
 
-      <div className="flex gap-2 mb-6 overflow-x-auto">
+      <div className="mb-6 flex flex-wrap gap-2">
         {FILTERS.map(f => (
           <button
             key={f.value}
             onClick={() => { setFilter(f.value); setPage(1); }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
-              filter === f.value ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            aria-pressed={filter === f.value}
+            className={`rounded-pill border px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
+              filter === f.value
+                ? 'border-tmgl-green-800 bg-tmgl-green-800 text-white'
+                : 'border-tmgl-charcoal-200 bg-white text-tmgl-charcoal-600 hover:border-tmgl-green-300 hover:text-tmgl-charcoal-900'
             }`}
           >
             {f.label}
@@ -159,17 +163,19 @@ export default function MyTournamentsPage() {
         <>
           <div className="space-y-3">
             {paginated.map(t => (
-              <Link key={t.id} to={`/tournaments/${t.id}`}>
-                <Card variant="hover" className="mb-3">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="flex items-center gap-3">
-                          <h3 className="font-semibold text-gray-900">{t.name}</h3>
+              <Link key={t.id} to={`/tournaments/${t.id}`} className="block">
+                <Card variant="hover" className="transition-all hover:shadow-card-hover">
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-display text-base font-semibold text-tmgl-charcoal-950">
+                            {t.name}
+                          </h3>
                           {registered.has(t.id) && <Badge variant="success">Registered</Badge>}
                           <Badge variant={STATUS_VARIANTS[t.status] ?? 'default'}>{t.status}</Badge>
                         </div>
-                        <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
+                        <div className="mt-1.5 flex items-center gap-4 text-sm text-tmgl-charcoal-500">
                           {t.event_date && (
                             <span className="flex items-center gap-1">
                               <Calendar className="h-3.5 w-3.5" />
@@ -178,7 +184,7 @@ export default function MyTournamentsPage() {
                           )}
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm">View</Button>
+                      <ArrowRight className="h-4 w-4 shrink-0 text-tmgl-charcoal-300" />
                     </div>
                   </CardContent>
                 </Card>

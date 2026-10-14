@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Swords, ArrowLeft, Loader2, AlertCircle, Edit3, Trash2, FileText, CheckCircle, Wallet, Plus, X } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle, Edit3, Trash2, FileText, CheckCircle, Wallet, Plus, X } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
@@ -165,10 +165,13 @@ export function MatchDetailPage() {
         <ArrowLeft className="w-4 h-4" /> {roundName || 'Back to Round'}
       </button>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
-          <Swords className="w-5 h-5 text-tmgl-green-800" /> {match.match_type.charAt(0).toUpperCase() + match.match_type.slice(1)} Match
-        </h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">Match</p>
+          <h1 className="mt-1 font-display text-display-lg text-tmgl-charcoal-950">
+            {match.match_type.charAt(0).toUpperCase() + match.match_type.slice(1)} match
+          </h1>
+        </div>
         <Badge variant={STATUS_VARIANTS[match.status]}>{match.status}</Badge>
       </div>
 
@@ -283,7 +286,7 @@ export function MatchDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
             <div className="p-5 space-y-4">
-              <h2 className="text-lg font-bold text-tmgl-charcoal-900">Set Match Result</h2>
+              <h2 className="font-display text-lg font-semibold text-tmgl-charcoal-950">Set match result</h2>
               <div>
                 <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Result</label>
                 <input type="text" value={resultText} onChange={(e) => setResultText(e.target.value)} placeholder="e.g. Player A won 3&2"

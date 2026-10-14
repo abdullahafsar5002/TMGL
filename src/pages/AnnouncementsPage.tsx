@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Megaphone, Plus } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Container } from '@/components/common/Container';
+import { PageHeader } from '@/components/common/PageHeader';
 import { Card, CardContent } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -51,20 +52,21 @@ export default function AnnouncementsPage() {
 
   return (
     <Container className="py-8 max-w-3xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Announcements</h1>
-          <p className="text-gray-500 mt-1">{announcements.length} announcement{announcements.length !== 1 ? 's' : ''}</p>
-        </div>
-        {isManager && (
-          <Link to="/announcements/manage">
-            <Button variant="primary">
-              <Plus className="h-4 w-4 mr-2" />
-              Manage Announcements
-            </Button>
-          </Link>
-        )}
-      </div>
+      <PageHeader
+        eyebrow="News"
+        title="Announcements"
+        description={`${announcements.length} announcement${announcements.length !== 1 ? 's' : ''} from the league.`}
+        actions={
+          isManager ? (
+            <Link to="/announcements/manage">
+              <Button variant="primary">
+                <Plus className="mr-2 h-4 w-4" />
+                Manage
+              </Button>
+            </Link>
+          ) : undefined
+        }
+      />
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
@@ -79,27 +81,25 @@ export default function AnnouncementsPage() {
       ) : (
         <div className="space-y-4">
           {announcements.map(announcement => (
-            <Link key={announcement.id} to={`/announcements/${announcement.id}`}>
-              <Card variant="bordered" className="hover:shadow-md transition-shadow cursor-pointer">
+            <Link key={announcement.id} to={`/announcements/${announcement.id}`} className="block">
+              <Card className="cursor-pointer transition-all hover:-translate-y-0.5 hover:border-tmgl-green-300 hover:shadow-card-hover">
                 <CardContent className="p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-bold text-gray-900">{announcement.title}</h3>
-                        {!announcement.is_published && (
-                          <Badge variant="warning">Draft</Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-600 line-clamp-2">
-                        {announcement.content.substring(0, 150)}
-                        {announcement.content.length > 150 ? '...' : ''}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-2">
-                        {new Date(announcement.created_at).toLocaleDateString('en-US', {
-                          year: 'numeric', month: 'long', day: 'numeric',
-                        })}
-                      </p>
+                  <div className="min-w-0">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      <h3 className="font-display text-base font-semibold text-tmgl-charcoal-950">
+                        {announcement.title}
+                      </h3>
+                      {!announcement.is_published && <Badge variant="warning">Draft</Badge>}
                     </div>
+                    <p className="line-clamp-2 text-sm text-tmgl-charcoal-600">
+                      {announcement.content.substring(0, 150)}
+                      {announcement.content.length > 150 ? '...' : ''}
+                    </p>
+                    <p className="mt-2 text-xs font-medium uppercase tracking-wider text-tmgl-charcoal-400">
+                      {new Date(announcement.created_at).toLocaleDateString('en-US', {
+                        year: 'numeric', month: 'long', day: 'numeric',
+                      })}
+                    </p>
                   </div>
                 </CardContent>
               </Card>

@@ -15,36 +15,34 @@ export function UnauthorizedPage() {
   const requiredRole = (location.state as { requiredRole?: UserRole })?.requiredRole;
 
   return (
-    <Container size="sm" className="min-h-[70vh] flex flex-col items-center justify-center py-12 text-center space-y-6">
-      <div className="w-16 h-16 rounded-full bg-red-50 border-2 border-red-200 flex items-center justify-center mx-auto">
-        <ShieldX className="w-8 h-8 text-red-500" />
+    <Container size="sm" className="flex min-h-[70vh] flex-col items-center justify-center py-12 text-center">
+      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-2 border-red-200 bg-red-50">
+        <ShieldX className="h-8 w-8 text-red-500" />
       </div>
 
-      <div className="space-y-2">
-        <h1 className="text-2xl font-bold text-tmgl-charcoal-900">Access denied</h1>
-        <p className="text-tmgl-charcoal-600 text-sm max-w-xs mx-auto">
-          You don't have the required permissions to view this page.
-        </p>
-      </div>
+      <h1 className="mt-6 font-display text-display-md text-tmgl-charcoal-950">Access denied</h1>
+      <p className="mx-auto mt-2 max-w-sm text-sm text-tmgl-charcoal-600">
+        You do not have the permissions needed to view this page.
+      </p>
 
-      <div className="space-y-2 text-sm">
+      <div className="mt-6 space-y-2 text-sm">
         <div className="flex items-center justify-center gap-2 text-tmgl-charcoal-500">
           <span>Your role:</span>
           <RoleBadge role={profile?.role} />
         </div>
         {requiredRole && (
-          <p className="text-tmgl-charcoal-400 text-xs">
+          <p className="text-xs text-tmgl-charcoal-400">
             Required: <strong>{getRoleLabel(requiredRole)}</strong> or higher
           </p>
         )}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="mt-8 flex flex-col gap-3 sm:flex-row">
         <Button variant="outline" onClick={() => navigate(-1)} className="gap-2">
           <ArrowLeft className="w-4 h-4" />
           Go back
         </Button>
-        <Button variant="primary" onClick={() => navigate('/dashboard')} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
+        <Button variant="primary" onClick={() => navigate('/dashboard')}>
           Go to dashboard
         </Button>
       </div>

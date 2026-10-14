@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { BackLink } from '@/components/common/BackLink';
 import { Link } from 'react-router-dom';
 import { Newspaper, ArrowRight } from 'lucide-react';
 import { Container } from '@/components/common/Container';
+import { PageHeader } from '@/components/common/PageHeader';
 import { Card, CardContent } from '@/components/common/Card';
 import { EmptyState } from '@/components/common/EmptyState';
 import { LoadingState } from '@/components/common/LoadingState';
@@ -24,10 +24,12 @@ export function NewsPage() {
 
   return (
     <Container className="py-12">
-      <BackLink fallbackTo="/" label="Back" />
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-tmgl-charcoal-900 mb-2">News & Announcements</h1>
-        <p className="text-tmgl-charcoal-600 mb-8">Stay updated with the latest from TMGL</p>
+      <div className="mx-auto max-w-4xl">
+        <PageHeader
+          eyebrow="News"
+          title="Announcements"
+          description="Fixtures, results and updates from around the league."
+        />
 
         {announcements.length === 0 ? (
           <EmptyState
@@ -38,18 +40,18 @@ export function NewsPage() {
         ) : (
           <div className="space-y-4">
             {announcements.map((a) => (
-              <Link key={a.id} to={`/announcements/${a.id}`}>
-                <Card className="hover:border-tmgl-green-300 transition-colors cursor-pointer">
+              <Link key={a.id} to={`/announcements/${a.id}`} className="block">
+                <Card className="cursor-pointer transition-all hover:-translate-y-0.5 hover:border-tmgl-green-300 hover:shadow-card-hover">
                   <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h2 className="text-lg font-semibold text-tmgl-charcoal-900">{a.title}</h2>
-                        <p className="text-sm text-tmgl-charcoal-500 mt-1">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <h2 className="font-display text-lg font-semibold text-tmgl-charcoal-950">{a.title}</h2>
+                        <p className="mt-1 text-xs font-medium uppercase tracking-wider text-tmgl-charcoal-400">
                           {new Date(a.created_at).toLocaleDateString()}
                         </p>
-                        <p className="text-tmgl-charcoal-600 mt-2 line-clamp-2">{a.content}</p>
+                        <p className="mt-2 line-clamp-2 text-sm text-tmgl-charcoal-600">{a.content}</p>
                       </div>
-                      <ArrowRight className="w-5 h-5 text-tmgl-charcoal-400 mt-1 ml-4 shrink-0" />
+                      <ArrowRight className="mt-1 ml-4 h-5 w-5 shrink-0 text-tmgl-charcoal-300" />
                     </div>
                   </CardContent>
                 </Card>

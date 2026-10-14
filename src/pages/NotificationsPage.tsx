@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Bell, CheckCheck } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Container } from '@/components/common/Container';
+import { PageHeader } from '@/components/common/PageHeader';
 import { Card, CardContent } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -101,20 +102,23 @@ export default function NotificationsPage() {
 
   return (
     <Container className="py-8 max-w-3xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Notifications</h1>
-          <p className="text-gray-500 mt-1">
-            {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}` : 'All caught up!'}
-          </p>
-        </div>
-        {unreadCount > 0 && (
-          <Button variant="outline" size="sm" onClick={handleMarkAllAsRead}>
-            <CheckCheck className="h-4 w-4 mr-1" />
-            Mark all read
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        eyebrow="Inbox"
+        title="Notifications"
+        description={
+          unreadCount > 0
+            ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}`
+            : 'All caught up.'
+        }
+        actions={
+          unreadCount > 0 ? (
+            <Button variant="outline" size="sm" onClick={handleMarkAllAsRead}>
+              <CheckCheck className="mr-1 h-4 w-4" />
+              Mark all read
+            </Button>
+          ) : undefined
+        }
+      />
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
@@ -131,23 +135,24 @@ export default function NotificationsPage() {
           {notifications.map(notification => (
             <Card
               key={notification.id}
-              variant={notification.is_read ? 'default' : 'bordered'}
-              className={!notification.is_read ? 'border-blue-200 bg-blue-50/30' : ''}
+              className={!notification.is_read ? 'border-tmgl-green-300 bg-tmgl-green-50/40' : ''}
             >
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                  <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${notification.is_read ? 'bg-gray-300' : 'bg-blue-500'}`} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className={`font-medium ${notification.is_read ? 'text-gray-700' : 'text-gray-900'}`}>
+                  <div className={`mt-2 h-2 w-2 shrink-0 rounded-full ${notification.is_read ? 'bg-tmgl-charcoal-300' : 'bg-tmgl-green-600'}`} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className={`font-display text-sm font-semibold ${notification.is_read ? 'text-tmgl-charcoal-600' : 'text-tmgl-charcoal-950'}`}>
                         {notification.title}
                       </p>
                       {!notification.is_read && (
-                        <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">New</span>
+                        <span className="rounded-pill bg-tmgl-green-100 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-tmgl-green-700">
+                          New
+                        </span>
                       )}
                     </div>
-                    <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
-                    <p className="text-xs text-gray-400 mt-2">{timeAgo(notification.created_at)}</p>
+                    <p className="mt-1 text-sm text-tmgl-charcoal-600">{notification.message}</p>
+                    <p className="mt-2 text-xs text-tmgl-charcoal-400">{timeAgo(notification.created_at)}</p>
                   </div>
                   {!notification.is_read && (
                     <Button variant="ghost" size="sm" onClick={() => handleMarkAsRead(notification.id)}>

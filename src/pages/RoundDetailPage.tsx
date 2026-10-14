@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Flag, Plus, Loader2, AlertCircle, ArrowLeft, Edit3, Trash2, ChevronRight, Swords, ShieldCheck, Trophy, Users } from 'lucide-react';
+import { Plus, Loader2, AlertCircle, ArrowLeft, Edit3, Trash2, ChevronRight, Swords, ShieldCheck, Trophy, Users } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { SCORING_FORMATS } from '@/lib/scoringFormats';
 import type { ScoringFormat } from '@/types/database';
@@ -148,12 +148,17 @@ export function RoundDetailPage() {
         <ArrowLeft className="w-4 h-4" /> {tournamentName || 'Back to Tournament'}
       </button>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
-            <Flag className="w-5 h-5 text-tmgl-green-800" /> Round {round.round_number}: {round.name}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">
+            {tournamentName ? 'Round' : 'Competition'}
+          </p>
+          <h1 className="mt-1 font-display text-display-lg text-tmgl-charcoal-950">
+            Round {round.round_number}: {round.name}
           </h1>
-          {round.date && <p className="text-sm text-tmgl-charcoal-500 mt-1">{new Date(round.date).toLocaleDateString()}</p>}
+          {round.date && (
+            <p className="mt-2 text-sm text-tmgl-charcoal-500">{new Date(round.date).toLocaleDateString()}</p>
+          )}
         </div>
         <Badge variant={STATUS_VARIANTS[round.status]}>{round.status}</Badge>
       </div>
@@ -173,7 +178,9 @@ export function RoundDetailPage() {
       )}
 
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-tmgl-charcoal-900">Matches ({matches.length})</h2>
+          <h2 className="font-display text-lg font-semibold text-tmgl-charcoal-950">
+            Matches ({matches.length})
+          </h2>
       </div>
 
       {canManage && (
@@ -219,7 +226,7 @@ export function RoundDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
             <div className="p-5 space-y-4">
-              <h2 className="text-lg font-bold text-tmgl-charcoal-900">Edit Round</h2>
+              <h2 className="font-display text-lg font-semibold text-tmgl-charcoal-950">Edit round</h2>
               {editErrors.length > 0 && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">{editErrors.map((e, i) => <p key={i}>{e}</p>)}</div>}
               {serverError && <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /><p>{serverError}</p></div>}
               <div>

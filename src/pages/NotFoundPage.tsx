@@ -1,24 +1,20 @@
 import { Link } from 'react-router-dom';
-import { Trophy, Home } from 'lucide-react';
+import { Home } from 'lucide-react';
 import { Button } from '@/components/common/Button';
 import { Container } from '@/components/common/Container';
 
 export function NotFoundPage() {
   return (
-    <Container size="sm" className="min-h-[70vh] flex flex-col items-center justify-center py-12 text-center space-y-6">
-      <div className="w-16 h-16 rounded-2xl bg-tmgl-green-900 flex items-center justify-center mx-auto">
-        <Trophy className="w-8 h-8 text-tmgl-gold opacity-50" />
-      </div>
-      <div className="space-y-2">
-        <h1 className="text-5xl font-extrabold text-tmgl-charcoal-800">404</h1>
-        <p className="text-lg font-semibold text-tmgl-charcoal-700">Page not found</p>
-        <p className="text-sm text-tmgl-charcoal-500">
-          The page you're looking for doesn't exist or has been moved.
-        </p>
-      </div>
-      <Link to="/">
-        <Button variant="primary" className="gap-2 bg-tmgl-green-800 hover:bg-tmgl-green-700">
-          <Home className="w-4 h-4" />
+    <Container size="sm" className="flex min-h-[70vh] flex-col items-center justify-center py-12 text-center">
+      <img src="/logo-mark.svg" alt="" className="mb-6 h-14 w-14 opacity-60" />
+      <p className="font-display text-display-2xl text-tmgl-green-800">404</p>
+      <h1 className="mt-2 font-display text-display-md text-tmgl-charcoal-950">Page not found</h1>
+      <p className="mx-auto mt-3 max-w-sm text-sm text-tmgl-charcoal-600">
+        The page you are looking for does not exist, or it has moved.
+      </p>
+      <Link to="/" className="mt-7">
+        <Button variant="primary" className="gap-2">
+          <Home className="h-4 w-4" />
           Back to home
         </Button>
       </Link>
