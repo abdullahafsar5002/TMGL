@@ -235,6 +235,7 @@ export async function getPlayerByAuthUserId(authUserId: string): Promise<Service
     .from('players')
     .insert({
       auth_user_id: authUserId,
+      profile_id: authUserId,
       full_name: profileRecord.full_name || 'TMGL Player',
       status: 'active',
       join_date: new Date().toISOString().split('T')[0],

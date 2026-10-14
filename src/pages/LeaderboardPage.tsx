@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Medal, AlertCircle, RefreshCw, FileText, Inbox } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card } from '@/components/common/Card';
@@ -46,7 +46,9 @@ export function LeaderboardPage() {
   const navigate = useNavigate();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [rounds, setRounds] = useState<Round[]>([]);
-  const [selectedTournamentId, setSelectedTournamentId] = useState('');
+  const [searchParams] = useSearchParams();
+  const deepLinkedTournamentId = searchParams.get('tournament_id') ?? '';
+  const [selectedTournamentId, setSelectedTournamentId] = useState(deepLinkedTournamentId);
   const [selectedRoundId, setSelectedRoundId] = useState('');
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [formatBoard, setFormatBoard] = useState<FormatStandingEntry[]>([]);
@@ -62,6 +64,12 @@ export function LeaderboardPage() {
     ?? 'stroke_play') as ScoringFormat;
 
   useEffect(() => { getTournaments().then((r) => { if (r.error) setError(r.error); else if (r.data) setTournaments(r.data); }); }, []);
+
+  // Arriving from a tournament or match page deep-links straight into that
+  // tournament, including when the component is already mounted.
+  useEffect(() => {
+    if (deepLinkedTournamentId) setSelectedTournamentId(deepLinkedTournamentId);
+  }, [deepLinkedTournamentId]);
 
   useEffect(() => {
     if (selectedTournamentId) {

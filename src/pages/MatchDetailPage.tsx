@@ -26,6 +26,7 @@ export function MatchDetailPage() {
   const navigate = useNavigate();
   const [match, setMatch] = useState<Match | null>(null);
   const [roundName, setRoundName] = useState('');
+  const [tournamentId, setTournamentId] = useState('');
   const [players, setPlayers] = useState<Player[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -64,6 +65,7 @@ export function MatchDetailPage() {
     ]);
     if (rRes.data) {
       setRoundName(`Round ${rRes.data.round_number}: ${rRes.data.name}`);
+      setTournamentId(rRes.data.tournament_id);
     }
     if (pRes.data) setPlayers(pRes.data);
     if (tRes.data) setTeams(tRes.data);
@@ -216,7 +218,7 @@ export function MatchDetailPage() {
             </div>
           )}
 
-          <Button variant="outline" fullWidth onClick={() => navigate('/leaderboard')}>
+          <Button variant="outline" fullWidth onClick={() => navigate(tournamentId ? `/leaderboard?tournament_id=${tournamentId}` : '/leaderboard')}>
             <FileText className="w-4 h-4 mr-2" /> View Leaderboard
           </Button>
         </div>

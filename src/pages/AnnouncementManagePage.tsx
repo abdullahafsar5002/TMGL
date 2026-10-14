@@ -17,7 +17,7 @@ export default function AnnouncementManagePage() {
   const { user } = useAuth();
   const toast = useToast();
 
-  const [loading, setLoading] = useState(!!id);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isManager, setIsManager] = useState(false);
@@ -25,13 +25,18 @@ export default function AnnouncementManagePage() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [isPublished, setIsPublished] = useState(false);
+  const [wasPublished, setWasPublished] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   const isEditing = !!id;
 
   useEffect(() => {
     async function load() {
-      if (!user) return;
+      if (!user) {
+        setError('You must be logged in.');
+        setLoading(false);
+        return;
+      }
 
       const { data: profile } = await supabase
         .from('profiles')
@@ -56,12 +61,35 @@ export default function AnnouncementManagePage() {
           setTitle(result.data.title);
           setContent(result.data.content);
           setIsPublished(result.data.is_published);
+          setWasPublished(result.data.is_published);
         }
       }
       setLoading(false);
     }
     load();
   }, [id, user]);
+
+  function buildExcerpt(value: string, limit = 240): string {
+    const collapsed = value.replace(/\s+/g, ' ').trim();
+    if (collapsed.length <= limit) return collapsed;
+    return `${collapsed.slice(0, limit).trimEnd()}…`;
+  }
+
+  async function notifyMembers(
+    titleText: string,
+    contentText: string,
+    announcementId: string | null
+  ): Promise<{ notified: number; failure: string | null }> {
+    const { data, error: rpcError } = await supabase.rpc('notify_all_members', {
+      p_title: titleText,
+      p_message: buildExcerpt(contentText),
+      p_announcement_id: announcementId,
+    });
+    if (rpcError) {
+      return { notified: 0, failure: rpcError.message };
+    }
+    return { notified: typeof data === 'number' ? data : 0, failure: null };
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -96,7 +124,23 @@ export default function AnnouncementManagePage() {
           setError(result.error);
           return;
         }
-        toast.success('Announcement updated!');
+        const nowPublished = result.data?.is_published ?? isPublished;
+        if (nowPublished && !wasPublished) {
+          const { notified, failure } = await notifyMembers(
+            result.data?.title ?? title.trim(),
+            result.data?.content ?? content.trim(),
+            id
+          );
+          if (failure) {
+            toast.warning(`Announcement published, but members could not be notified. ${failure}`);
+          } else {
+            toast.success(
+              `Announcement published! ${notified} member${notified === 1 ? '' : 's'} notified.`
+            );
+          }
+        } else {
+          toast.success('Announcement updated!');
+        }
       } else {
         const result = await createAnnouncement({
           author_id: user.id,
@@ -108,7 +152,25 @@ export default function AnnouncementManagePage() {
           setError(result.error);
           return;
         }
-        toast.success('Announcement created!');
+        // Only published announcements are visible to members, so only those
+        // may generate a notification.
+        const createdPublished = result.data?.is_published ?? isPublished;
+        if (!createdPublished) {
+          toast.success('Announcement saved as a draft.');
+        } else {
+          const { notified, failure } = await notifyMembers(
+            result.data?.title ?? title.trim(),
+            result.data?.content ?? content.trim(),
+            result.data?.id ?? null
+          );
+          if (failure) {
+            toast.warning(`Announcement created, but members could not be notified. ${failure}`);
+          } else {
+            toast.success(
+              `Announcement created! ${notified} member${notified === 1 ? '' : 's'} notified.`
+            );
+          }
+        }
       }
       navigate('/announcements');
     } catch {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Bell, CheckCheck } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Container } from '@/components/common/Container';
@@ -30,25 +30,50 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const mountedRef = useRef(true);
 
-  const loadData = useCallback(async () => {
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  const loadData = useCallback(async (options?: { background?: boolean }) => {
     if (!user) return;
     const profileId = profile?.id ?? user.id;
-    setLoading(true);
-    setError(null);
+    const background = options?.background ?? false;
+    if (!background) {
+      setLoading(true);
+      setError(null);
+    }
 
     try {
       const result = await getNotifications(profileId);
+      if (!mountedRef.current) return;
       if (result.error) setError(result.error);
       else setNotifications(result.data ?? []);
     } catch {
-      setError('Failed to load notifications.');
+      if (mountedRef.current) setError('Failed to load notifications.');
     } finally {
-      setLoading(false);
+      if (!background && mountedRef.current) setLoading(false);
     }
   }, [user, profile]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { void loadData(); }, [loadData]);
+
+  // The header badge refetches on navigation and via realtime; keep the list in
+  // step when the tab regains focus so a reload is never needed.
+  useEffect(() => {
+    const refresh = () => { void loadData({ background: true }); };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [loadData]);
 
   async function handleMarkAsRead(id: string) {
     const result = await markAsRead(id);

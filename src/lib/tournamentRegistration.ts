@@ -33,16 +33,22 @@ export async function isRegistered(
 }
 
 /**
- * Get all registrations for a tournament.
+ * Get registrations. Pass neither argument for every registration, or narrow
+ * the result to a single tournament and/or a single player.
  */
 export async function getRegistrations(
-  tournamentId: string
+  tournamentId?: string,
+  playerId?: string
 ): Promise<ServiceResult<TournamentRegistration[]>> {
-  const { data, error } = await supabase
+  let query = supabase
     .from('tournament_registrations')
     .select('*')
-    .eq('tournament_id', tournamentId)
     .order('registered_at', { ascending: true });
+
+  if (tournamentId) query = query.eq('tournament_id', tournamentId);
+  if (playerId) query = query.eq('player_id', playerId);
+
+  const { data, error } = await query;
 
   if (error) return { data: null, error: error.message };
   return { data: (data ?? []) as TournamentRegistration[], error: null };

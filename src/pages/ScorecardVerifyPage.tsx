@@ -12,6 +12,7 @@ import { useToast } from '@/context/ToastContext';
 import { canManageLeague } from '@/lib/roleGuards';
 import { getScorecardsByRound, getRound, getTournament, verifyScorecard, rejectScorecard, setScorecardDnf, getScorecardsCompletionByRound, type ScorecardCompletion } from '@/lib/competition';
 import { supabase } from '@/lib/supabase';
+import { subscribeToSkins } from '@/lib/skins';
 import { formatToPar } from '@/utils/golf';
 import type { Scorecard, ScorecardStatus } from '@/types/database';
 
@@ -104,6 +105,15 @@ export function ScorecardVerifyPage() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Verifying a card flips its status on `scorecards`, which is the trigger the
+  // skins pipeline listens for, so it runs here as well as on the scoring page.
+  useEffect(() => {
+    if (!id) return;
+    return subscribeToSkins(id, (skin) => {
+      toast.info(`Hole ${skin.holeNumber} skin won by ${skin.winnerName || 'a player'}.`);
+    });
+  }, [id, toast]);
 
   const handleVerify = async (scId: string) => {
     const card = completion[scId];

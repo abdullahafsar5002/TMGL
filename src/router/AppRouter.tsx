@@ -164,11 +164,7 @@ export function AppRouter() {
       {/* Rounds & Scoring */}
       <Route path={ROUTE_PATTERNS.roundMatchCreate} element={<AdminPage><MatchCreatePage /></AdminPage>} />
       <Route path="/rounds/:id" element={<AuthPage><RoundDetailPage /></AuthPage>} />
-      <Route path="/rounds/new" element={<AdminPage><RoundCreatePage /></AdminPage>} />
       <Route path="/rounds/:id/pairings" element={<AdminPage><PairingPage /></AdminPage>} />
-      <Route path="/rounds/:roundId/matches/new" element={<AdminPage><MatchCreatePage /></AdminPage>} />
-      <Route path="/tournaments/new" element={<AdminPage><TournamentCreatePage /></AdminPage>} />
-      <Route path="/tournaments/:id/rounds/new" element={<AdminPage><RoundCreatePage /></AdminPage>} />
       <Route path="/scorecard/:id" element={<AuthPage><ScorecardPage /></AuthPage>} />
       <Route path="/scorecard/:id/verify" element={<AdminPage><ScorecardVerifyPage /></AdminPage>} />
       <Route path="/scoring/:matchId?" element={<AuthPage><ScoringPage /></AuthPage>} />

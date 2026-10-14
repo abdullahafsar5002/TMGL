@@ -85,7 +85,9 @@ describe('updateRound competition settings', () => {
     stubChain({ data: null, error: { message: 'permission denied for table rounds' } });
     const result = await updateRound('r1', { name: 'Round 1' });
     expect(result.data).toBeNull();
-    expect(result.error).toBe('permission denied for table rounds');
+    expect(result.error).toBeTruthy();
+    // Raw Postgres text must not reach the user.
+    expect(result.error).not.toContain('permission denied for table rounds');
   });
 });
 
@@ -116,6 +118,8 @@ describe('setScorecardDnf', () => {
   it('surfaces a database failure', async () => {
     stubChain({ data: null, error: { message: 'row level security' } });
     const result = await setScorecardDnf('sc-1', true);
-    expect(result.error).toBe('row level security');
+    expect(result.error).toBeTruthy();
+    // Raw Postgres text must not reach the user.
+    expect(result.error).not.toContain('row level security');
   });
 });

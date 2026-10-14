@@ -10,6 +10,8 @@ import { LoadingState } from '@/components/common/LoadingState';
 import { Badge } from '@/components/common/Badge';
 import { Pagination } from '@/components/common/Pagination';
 import { getPlayerByAuthUserId } from '@/lib/league';
+import { getRegistrations } from '@/lib/tournamentRegistration';
+import { toUserFacingServiceError } from '@/lib/errors';
 import { supabase } from '@/lib/supabase';
 import type { Tournament } from '@/types/database';
 
@@ -24,13 +26,24 @@ const STATUS_VARIANTS: Record<string, 'default' | 'success' | 'warning' | 'info'
   cancelled: 'danger',
 };
 
+type TournamentFilter = 'all' | 'registered' | 'open' | 'live' | 'completed';
+
+const FILTERS: Array<{ value: TournamentFilter; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'registered', label: 'Registered' },
+  { value: 'open', label: 'Open' },
+  { value: 'live', label: 'Live' },
+  { value: 'completed', label: 'Completed' },
+];
+
 export default function MyTournamentsPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [registeredIds, setRegisteredIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
-  const [filter, setFilter] = useState<string>('all');
+  const [filter, setFilter] = useState<TournamentFilter>('all');
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -39,38 +52,46 @@ export default function MyTournamentsPage() {
     try {
       const playerResult = await getPlayerByAuthUserId(user.id);
       if (playerResult.error || !playerResult.data) {
-        setError('Player profile not found.');
+        setError(playerResult.error || 'Player profile not found.');
         return;
       }
+      const playerId = playerResult.data.id;
 
-      const { data: scorecards, error: scError } = await supabase
-        .from('scorecards')
-        .select('round_id')
-        .eq('player_id', playerResult.data.id);
+      // Registrations and scorecards are independent: either one failing must
+      // not hide the tournaments the other one knows about.
+      const [registrationsResult, scorecardsResult] = await Promise.all([
+        getRegistrations(undefined, playerId),
+        supabase.from('scorecards').select('round_id').eq('player_id', playerId),
+      ]);
 
-      if (scError) {
-        setError(scError.message);
-        return;
+      if (registrationsResult.data) {
+        setRegisteredIds(registrationsResult.data.map((r) => r.tournament_id));
+      } else if (registrationsResult.error) {
+        setRegisteredIds([]);
       }
 
-      const roundIds = [...new Set((scorecards ?? []).map(sc => sc.round_id))];
-      if (roundIds.length === 0) {
-        setTournaments([]);
-        return;
+      const tournamentIds = new Set<string>(
+        (registrationsResult.data ?? []).map((r) => r.tournament_id)
+      );
+
+      if (scorecardsResult.error) {
+        setError(toUserFacingServiceError(scorecardsResult.error, 'Unable to load your played rounds.'));
+      } else {
+        const roundIds = [...new Set((scorecardsResult.data ?? []).map(sc => sc.round_id as string))];
+        if (roundIds.length > 0) {
+          const { data: rounds } = await supabase
+            .from('rounds')
+            .select('tournament_id')
+            .in('id', roundIds);
+          if (!rounds) {
+            setError('Unable to load your played rounds.');
+          } else {
+            for (const round of rounds) tournamentIds.add(round.tournament_id as string);
+          }
+        }
       }
 
-      const { data: rounds, error: rError } = await supabase
-        .from('rounds')
-        .select('tournament_id')
-        .in('id', roundIds);
-
-      if (rError) {
-        setError(rError.message);
-        return;
-      }
-
-      const tournamentIds = [...new Set((rounds ?? []).map(r => r.tournament_id))];
-      if (tournamentIds.length === 0) {
+      if (tournamentIds.size === 0) {
         setTournaments([]);
         return;
       }
@@ -78,10 +99,10 @@ export default function MyTournamentsPage() {
       const { data: tData, error: tError } = await supabase
         .from('tournaments')
         .select('*')
-        .in('id', tournamentIds)
+        .in('id', [...tournamentIds])
         .order('event_date', { ascending: false });
 
-      if (tError) setError(tError.message);
+      if (tError) setError(toUserFacingServiceError(tError, 'Unable to load your tournaments.'));
       else setTournaments(tData ?? []);
     } catch {
       setError('Failed to load tournaments.');
@@ -94,7 +115,12 @@ export default function MyTournamentsPage() {
 
   if (loading) return <LoadingState message="Loading your tournaments..." />;
 
-  const filtered = filter === 'all' ? tournaments : tournaments.filter(t => t.status === filter);
+  const registered = new Set(registeredIds);
+  const filtered = tournaments.filter((t) => {
+    if (filter === 'all') return true;
+    if (filter === 'registered') return registered.has(t.id);
+    return t.status === filter;
+  });
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -102,7 +128,7 @@ export default function MyTournamentsPage() {
     <Container className="py-8">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">My Tournaments</h1>
-        <p className="text-gray-500 mt-1">Tournaments you have participated in</p>
+        <p className="text-gray-500 mt-1">Tournaments you are registered for or have played in</p>
       </div>
 
       {error && (
@@ -110,15 +136,15 @@ export default function MyTournamentsPage() {
       )}
 
       <div className="flex gap-2 mb-6 overflow-x-auto">
-        {['all', 'open', 'live', 'completed'].map(f => (
+        {FILTERS.map(f => (
           <button
-            key={f}
-            onClick={() => { setFilter(f); setPage(1); }}
+            key={f.value}
+            onClick={() => { setFilter(f.value); setPage(1); }}
             className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
-              filter === f ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              filter === f.value ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+            {f.label}
           </button>
         ))}
       </div>
@@ -140,6 +166,7 @@ export default function MyTournamentsPage() {
                       <div>
                         <div className="flex items-center gap-3">
                           <h3 className="font-semibold text-gray-900">{t.name}</h3>
+                          {registered.has(t.id) && <Badge variant="success">Registered</Badge>}
                           <Badge variant={STATUS_VARIANTS[t.status] ?? 'default'}>{t.status}</Badge>
                         </div>
                         <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">

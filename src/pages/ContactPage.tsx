@@ -3,7 +3,6 @@ import { Mail, MapPin, Send, CheckCircle, Users } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card, CardContent } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
-import { createNotification } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 
 export function ContactPage() {
@@ -28,23 +27,13 @@ export function ContactPage() {
     }
 
     try {
-      const { data: admins, error: adminsError } = await supabase
-        .from('profiles')
-        .select('id')
-        .in('role', ['super_admin', 'league_manager'])
-        .limit(5);
-
-      if (adminsError) throw new Error(adminsError.message);
-      if (!admins || admins.length === 0) throw new Error('No league contact is currently available.');
-
-      const results = await Promise.all(admins.map((admin) => createNotification({
-        recipient_id: admin.id,
-        type: 'system',
-        title: `Contact: ${subject}`,
-        message: `From: ${name} (${email})\n\n${message}`,
-      })));
-      const failed = results.find((result) => result.error);
-      if (failed?.error) throw new Error(failed.error);
+      const { error: rpcError } = await supabase.rpc('submit_contact_message', {
+        p_name: name,
+        p_email: email,
+        p_subject: subject,
+        p_message: message,
+      });
+      if (rpcError) throw new Error(rpcError.message);
       setSubmitted(true);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Failed to send message. Please try again.');

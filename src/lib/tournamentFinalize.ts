@@ -52,7 +52,7 @@ export async function finalizeTournament(tournamentId: string): Promise<ServiceR
     return { data: null, error: 'No scorecards found for this tournament.' };
   }
 
-  const pending = scorecards.filter(card => card.status === 'submitted' || card.status === 'in_progress');
+  const pending = scorecards.filter(card => card.status === 'draft' || card.status === 'submitted' || card.status === 'in_progress');
   if (pending.length > 0) {
     return {
       data: null,

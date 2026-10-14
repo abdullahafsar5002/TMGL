@@ -57,6 +57,13 @@ export {
   isScorecardComplete,
 } from '@/lib/scorecardEligibility';
 
+function serviceError(error: unknown, fallback: string, notFoundMessage?: string): string {
+  if (error && typeof error === 'object' && (error as { code?: string }).code === 'PGRST116' && notFoundMessage) {
+    return notFoundMessage;
+  }
+  return toUserFacingServiceError(error, fallback);
+}
+
 // -------------------------------------------------------------------
 // Tournaments
 // -------------------------------------------------------------------
@@ -74,7 +81,7 @@ export async function getTournamentsPaginated(
     .order('event_date', { ascending: false })
     .range(from, to);
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to load tournaments.') };
   return { data: { data: (data ?? []) as Tournament[], total: count ?? 0 }, error: null };
 }
 
@@ -89,7 +96,7 @@ export async function getTournaments(seasonId?: string): Promise<ServiceResult<T
   }
 
   const { data, error } = await query;
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to load tournaments.') };
   return { data: (data ?? []) as Tournament[], error: null };
 }
 
@@ -100,7 +107,7 @@ export async function getTournament(id: string): Promise<ServiceResult<Tournamen
     .eq('id', id)
     .single();
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: serviceError(error, 'Unable to load the tournament.', 'Tournament not found.') };
   return { data: data as Tournament, error: null };
 }
 
@@ -123,20 +130,47 @@ export async function createTournament(
     .select()
     .single();
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to create the tournament.') };
   return { data: data as Tournament, error: null };
 }
 
+const SCORING_FORMAT_VALUES: ScoringFormat[] = ['stroke_play', 'stableford', 'match_play', 'nassau', 'best_ball', 'scramble'];
+
 export async function updateTournament(
   id: string,
-  updates: Partial<Pick<Tournament, 'name' | 'description' | 'event_date' | 'course_id' | 'status'>>
+  updates: Partial<Pick<Tournament, 'name' | 'description' | 'event_date' | 'start_date' | 'end_date' | 'course_id' | 'status' | 'scoring_format' | 'flight_count' | 'max_participants'>>
 ): Promise<ServiceResult<Tournament>> {
+  if (updates.name !== undefined && !updates.name.trim()) {
+    return { data: null, error: 'Tournament name is required.' };
+  }
+  if (
+    updates.flight_count !== undefined &&
+    (!Number.isInteger(updates.flight_count) || updates.flight_count < 1 || updates.flight_count > 10)
+  ) {
+    return { data: null, error: 'Flight count must be a whole number between 1 and 10.' };
+  }
+  if (updates.scoring_format !== undefined && !SCORING_FORMAT_VALUES.includes(updates.scoring_format)) {
+    return { data: null, error: 'Choose a supported scoring format.' };
+  }
+  if (
+    updates.max_participants !== undefined &&
+    updates.max_participants !== null &&
+    (!Number.isInteger(updates.max_participants) || updates.max_participants < 1)
+  ) {
+    return { data: null, error: 'Maximum participants must be a whole number of at least 1.' };
+  }
+
   const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (updates.name !== undefined) payload.name = updates.name.trim();
   if (updates.description !== undefined) payload.description = updates.description || null;
   if (updates.event_date !== undefined) payload.event_date = updates.event_date || null;
+  if (updates.start_date !== undefined) payload.start_date = updates.start_date || null;
+  if (updates.end_date !== undefined) payload.end_date = updates.end_date || null;
   if (updates.course_id !== undefined) payload.course_id = updates.course_id || null;
   if (updates.status !== undefined) payload.status = updates.status;
+  if (updates.scoring_format !== undefined) payload.scoring_format = updates.scoring_format;
+  if (updates.flight_count !== undefined) payload.flight_count = updates.flight_count;
+  if (updates.max_participants !== undefined) payload.max_participants = updates.max_participants;
 
   const { data, error } = await supabase
     .from('tournaments')
@@ -145,13 +179,13 @@ export async function updateTournament(
     .select()
     .single();
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: serviceError(error, 'Unable to update the tournament.', 'Tournament not found.') };
   return { data: data as Tournament, error: null };
 }
 
 export async function deleteTournament(id: string): Promise<ServiceResult<null>> {
   const { error } = await supabase.from('tournaments').delete().eq('id', id);
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: serviceError(error, 'Unable to delete the tournament.', 'Tournament not found.') };
   return { data: null, error: null };
 }
 
@@ -215,7 +249,7 @@ export async function createRound(
     .select()
     .single();
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to create the round.') };
   return { data: data as Round, error: null };
 }
 
@@ -252,7 +286,7 @@ export async function updateRound(
     .select()
     .single();
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to update the round.') };
   return { data: data as Round, error: null };
 }
 
@@ -265,13 +299,13 @@ export async function setScorecardDnf(
     .from('scorecards')
     .update({ dnf: isDnf })
     .eq('id', scorecardId.trim());
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to update the scorecard.') };
   return { data: null, error: null };
 }
 
 export async function deleteRound(id: string): Promise<ServiceResult<null>> {
   const { error } = await supabase.from('rounds').delete().eq('id', id);
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to delete the round.') };
   return { data: null, error: null };
 }
 
@@ -292,7 +326,7 @@ export async function getMatchesPaginated(
     .order('created_at', { ascending: false })
     .range(from, to);
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to load matches.') };
   return { data: { data: (data ?? []) as Match[], total: count ?? 0 }, error: null };
 }
 
@@ -303,7 +337,7 @@ export async function getMatchesByRound(roundId: string): Promise<ServiceResult<
     .eq('round_id', roundId)
     .order('scheduled_at');
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to load matches.') };
   return { data: (data ?? []) as Match[], error: null };
 }
 
@@ -313,7 +347,7 @@ export async function getAllMatches(): Promise<ServiceResult<Match[]>> {
     .select('*')
     .order('created_at', { ascending: false });
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to load matches.') };
   return { data: (data ?? []) as Match[], error: null };
 }
 
@@ -324,7 +358,7 @@ export async function getMatch(id: string): Promise<ServiceResult<Match>> {
     .eq('id', id)
     .single();
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: serviceError(error, 'Unable to load the match.', 'Match not found.') };
   return { data: data as Match, error: null };
 }
 
@@ -345,7 +379,7 @@ export async function createMatch(
     .select()
     .single();
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to create the match.') };
   return { data: data as Match, error: null };
 }
 
@@ -367,13 +401,13 @@ export async function updateMatch(
     .select()
     .single();
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to update the match.') };
   return { data: data as Match, error: null };
 }
 
 export async function deleteMatch(id: string): Promise<ServiceResult<null>> {
   const { error } = await supabase.from('matches').delete().eq('id', id);
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to delete the match.') };
   return { data: null, error: null };
 }
 
@@ -388,7 +422,7 @@ export async function getScorecardsByRound(roundId: string): Promise<ServiceResu
     .eq('round_id', roundId)
     .order('created_at');
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to load scorecards.') };
   return { data: (data ?? []) as Scorecard[], error: null };
 }
 
@@ -496,7 +530,7 @@ export async function getCourseContextForRound(roundId: string): Promise<Service
     .eq('id', roundId)
     .maybeSingle();
 
-  if (roundError) return { data: null, error: roundError.message };
+  if (roundError) return { data: null, error: toUserFacingServiceError(roundError, 'Unable to load the round.') };
   if (!round?.tournament_id) return { data: null, error: 'Round not found.' };
 
   const { data: tournament, error: tournamentError } = await supabase
@@ -505,7 +539,7 @@ export async function getCourseContextForRound(roundId: string): Promise<Service
     .eq('id', round.tournament_id)
     .maybeSingle();
 
-  if (tournamentError) return { data: null, error: tournamentError.message };
+  if (tournamentError) return { data: null, error: toUserFacingServiceError(tournamentError, 'Unable to find the round course.') };
 
   const courseId = tournament?.course_id ?? null;
   if (courseId) return getCourseContextForCourse(courseId);
@@ -585,7 +619,7 @@ export async function getScorecardCompletion(
     .eq('id', scorecardId)
     .maybeSingle();
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to load the scorecard.') };
   if (!scorecard) return { data: null, error: 'Scorecard not found.' };
 
   const courseId = scorecard.course_id;
@@ -606,7 +640,7 @@ export async function getScorecardCompletion(
     .select('hole_number')
     .eq('scorecard_id', scorecardId);
 
-  if (holesError) return { data: null, error: holesError.message };
+  if (holesError) return { data: null, error: toUserFacingServiceError(holesError, 'Unable to load scorecard holes.') };
 
   return {
     data: buildCompletion(
@@ -626,7 +660,7 @@ export async function getScorecardsCompletionByRound(
     .select('id, player_id, course_id')
     .eq('round_id', roundId);
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to load scorecards.') };
   const cards = (scorecards ?? []) as Array<Pick<Scorecard, 'id' | 'player_id' | 'course_id'>>;
   if (cards.length === 0) return { data: [], error: null };
 
@@ -644,7 +678,7 @@ export async function getScorecardsCompletionByRound(
       .from('courses')
       .select('id, holes_count')
       .in('id', courseIds);
-    if (courseError) return { data: null, error: courseError.message };
+    if (courseError) return { data: null, error: toUserFacingServiceError(courseError, 'Unable to load courses.') };
     for (const course of (courseRows ?? []) as Array<{ id: string; holes_count: number | null }>) {
       holesCountByCourse.set(course.id, course.holes_count ?? null);
     }
@@ -657,7 +691,7 @@ export async function getScorecardsCompletionByRound(
       .from('course_holes')
       .select('course_id, hole_number')
       .in('course_id', unknownLayoutCourses);
-    if (courseHoleError) return { data: null, error: courseHoleError.message };
+    if (courseHoleError) return { data: null, error: toUserFacingServiceError(courseHoleError, 'Unable to load course holes.') };
     for (const row of (rows ?? []) as Array<{ course_id: string | null; hole_number: number }>) {
       const owner = row.course_id ?? unknownLayoutCourses[0];
       const list = holeNumbersByCourse.get(owner) ?? [];
@@ -682,7 +716,7 @@ export async function getScorecardsCompletionByRound(
     .select('scorecard_id, hole_number')
     .in('scorecard_id', cards.map((c) => c.id));
 
-  if (holesError) return { data: null, error: holesError.message };
+  if (holesError) return { data: null, error: toUserFacingServiceError(holesError, 'Unable to load scorecard holes.') };
 
   const holeNumbersByCard = new Map<string, number[]>();
   for (const row of (holeRows ?? []) as Array<{ scorecard_id: string; hole_number: number }>) {
@@ -786,7 +820,7 @@ export async function deleteScorecardHoles(scorecardId: string): Promise<Service
     .delete()
     .eq('scorecard_id', scorecardId);
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to delete scorecard holes.') };
   return { data: null, error: null };
 }
 
@@ -900,7 +934,7 @@ export async function getLeaderboard(
     .select('id, player_id, status, total_strokes, total_score_to_par, course_id, players!inner(id, full_name, handicap_index)')
     .eq('round_id', roundId);
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to load the leaderboard.') };
   if (!scorecards || scorecards.length === 0) {
     return { data: [], error: null };
   }
@@ -952,7 +986,7 @@ export async function getMatchesByPlayer(playerId: string): Promise<ServiceResul
     .or(`player_a_id.eq.${playerId},player_b_id.eq.${playerId}`)
     .order('created_at', { ascending: false });
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to load matches.') };
   return { data: (data ?? []) as Match[], error: null };
 }
 
@@ -963,7 +997,7 @@ export async function getMatchesByTeam(teamId: string): Promise<ServiceResult<Ma
     .or(`team_a_id.eq.${teamId},team_b_id.eq.${teamId}`)
     .order('created_at', { ascending: false });
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to load matches.') };
   return { data: (data ?? []) as Match[], error: null };
 }
 
@@ -978,7 +1012,7 @@ export async function getScorecardsByPlayer(playerId: string): Promise<ServiceRe
     .eq('player_id', playerId)
     .order('created_at', { ascending: false });
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to load scorecards.') };
   return { data: (data ?? []) as Scorecard[], error: null };
 }
 
@@ -998,7 +1032,7 @@ export async function getTournamentParticipants(tournamentId: string): Promise<S
     .select('id')
     .eq('tournament_id', tournamentId);
 
-  if (roundsError) return { data: null, error: roundsError.message };
+  if (roundsError) return { data: null, error: toUserFacingServiceError(roundsError, 'Unable to load rounds.') };
   if (!rounds || rounds.length === 0) return { data: [], error: null };
 
   const roundIds = rounds.map((r) => r.id);
@@ -1008,7 +1042,7 @@ export async function getTournamentParticipants(tournamentId: string): Promise<S
     .select('player_a_id, player_b_id, team_a_id, team_b_id')
     .in('round_id', roundIds);
 
-  if (matchesError) return { data: null, error: matchesError.message };
+  if (matchesError) return { data: null, error: toUserFacingServiceError(matchesError, 'Unable to load matches.') };
   if (!matches || matches.length === 0) return { data: [], error: null };
 
   const participantMap = new Map<string, TournamentParticipant>();
@@ -1067,7 +1101,7 @@ export async function getTournamentLeaderboard(
     .select('id, scoring_format, cut_after_hole, cut_line_score')
     .eq('tournament_id', tournamentId);
 
-  if (roundsError) return { data: null, error: roundsError.message };
+  if (roundsError) return { data: null, error: toUserFacingServiceError(roundsError, 'Unable to load rounds.') };
   if (!rounds || rounds.length === 0) return { data: [], error: null };
 
   const roundIds = rounds.map((r) => r.id);
@@ -1104,7 +1138,7 @@ export async function getTournamentLeaderboard(
     .select('id, round_id, player_id, status, dnf, total_strokes, total_score_to_par, players!inner(id, full_name, handicap_index)')
     .in('round_id', roundIds);
 
-  if (error) return { data: null, error: error.message };
+  if (error) return { data: null, error: toUserFacingServiceError(error, 'Unable to load the leaderboard.') };
   if (!scorecards || scorecards.length === 0) return { data: [], error: null };
 
   const ids = scorecards.map((card) => card.id as string);
@@ -1449,10 +1483,10 @@ export async function getDashboardStats(): Promise<ServiceResult<DashboardStats>
     supabase.from('scorecards').select('status'),
   ]);
 
-  if (tournamentsRes.error) return { data: null, error: tournamentsRes.error.message };
-  if (roundsRes.error) return { data: null, error: roundsRes.error.message };
-  if (matchesRes.error) return { data: null, error: matchesRes.error.message };
-  if (scorecardsRes.error) return { data: null, error: scorecardsRes.error.message };
+  if (tournamentsRes.error) return { data: null, error: toUserFacingServiceError(tournamentsRes.error, 'Unable to load tournament stats.') };
+  if (roundsRes.error) return { data: null, error: toUserFacingServiceError(roundsRes.error, 'Unable to load round stats.') };
+  if (matchesRes.error) return { data: null, error: toUserFacingServiceError(matchesRes.error, 'Unable to load match stats.') };
+  if (scorecardsRes.error) return { data: null, error: toUserFacingServiceError(scorecardsRes.error, 'Unable to load scorecard stats.') };
 
   const tournaments = (tournamentsRes.data ?? []) as { status: TournamentStatus }[];
   const matches = (matchesRes.data ?? []) as { status: MatchStatus }[];

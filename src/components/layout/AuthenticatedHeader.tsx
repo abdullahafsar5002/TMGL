@@ -23,6 +23,7 @@ import { RoleBadge } from '@/components/auth/RoleBadge';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { getUnreadCount } from '@/lib/notifications';
+import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import {
   getAuthDisplayName,
@@ -85,6 +86,38 @@ export function AuthenticatedHeader() {
     });
     return () => {
       active = false;
+    };
+  }, [profile?.id, location.pathname]);
+
+  useEffect(() => {
+    const profileId = profile?.id;
+    if (!profileId) return;
+    let active = true;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const refreshCount = () => {
+      void getUnreadCount(profileId).then((result) => {
+        if (active) setUnreadCount(result.data ?? 0);
+      });
+    };
+    const scheduleRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(refreshCount, 300);
+    };
+
+    const channel = supabase
+      .channel(`unread-count-${profileId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${profileId}` },
+        scheduleRefresh
+      )
+      .subscribe();
+
+    return () => {
+      active = false;
+      if (refreshTimer) clearTimeout(refreshTimer);
+      supabase.removeChannel(channel);
     };
   }, [profile?.id]);
 

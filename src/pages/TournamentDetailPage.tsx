@@ -21,9 +21,10 @@ import type {
 import { joinTournament, leaveTournament, isRegistered, getRegistrationCount } from '@/lib/tournamentRegistration';
 import { getPlayerByAuthUserId } from '@/lib/league';
 import { validateTournament } from '@/lib/validation';
-import { getSeasons, getCourses } from '@/lib/league';
+import { getSeasons, getCourses, getCourse } from '@/lib/league';
 import { supabase } from '@/lib/supabase';
-import type { Tournament, Round, TournamentStatus, Season, Match, Scorecard, Course } from '@/types/database';
+import type { Tournament, Round, TournamentStatus, Season, Match, Scorecard, Course, ScoringFormat } from '@/types/database';
+import { getScoringFormat } from '@/lib/scoringFormats';
 import { useToast } from '@/context/ToastContext';
 import { ROUTES } from '@/router/routes';
 
@@ -31,7 +32,56 @@ const STATUS_VARIANTS: Record<TournamentStatus, BadgeVariant> = {
   draft: 'warning', open: 'success', closed: 'info', live: 'danger', completed: 'info', cancelled: 'outline',
 };
 
-const STATUS_OPTIONS: TournamentStatus[] = ['draft', 'open', 'live', 'completed', 'cancelled'];
+/**
+ * Legal next states for each tournament status, mirroring the
+ * `tournament_status` database enum ('draft','open','closed','live','completed','cancelled').
+ * `completed` and `cancelled` are terminal and have no outgoing transitions.
+ *
+ * `live -> completed` exists here so the state machine stays complete, but it is
+ * never offered as a button: completion only happens through the finalize path
+ * so trophies and standings are always recalculated.
+ */
+export const TOURNAMENT_STATUS_TRANSITIONS: Record<TournamentStatus, TournamentStatus[]> = {
+  draft: ['open', 'cancelled'],
+  open: ['closed', 'live', 'cancelled'],
+  closed: ['live', 'open', 'cancelled'],
+  live: ['completed', 'cancelled'],
+  completed: [],
+  cancelled: [],
+};
+
+const TRANSITION_LABELS: Record<TournamentStatus, string> = {
+  draft: 'Back to draft',
+  open: 'Open registration',
+  closed: 'Close registration',
+  live: 'Start play',
+  completed: 'Finalize tournament',
+  cancelled: 'Cancel tournament',
+};
+
+/** Transitions that discard entered work or end play and need explicit consent. */
+function requiresStatusConfirmation(from: TournamentStatus, to: TournamentStatus): boolean {
+  return to === 'cancelled' || from === 'live';
+}
+
+function flightLabel(count: number | null | undefined): string {
+  const value = Number(count ?? 1);
+  if (!Number.isFinite(value) || value <= 1) return 'Single flight';
+  return `${value} flights`;
+}
+
+function formatDateOnly(value: string | null | undefined): string {
+  if (!value) return '';
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString();
+}
+
+function competitionDateLabel(tournament: Tournament): string {
+  const start = formatDateOnly(tournament.start_date);
+  const end = formatDateOnly(tournament.end_date);
+  if (start && end) return start === end ? start : `${start} — ${end}`;
+  return start || end || formatDateOnly(tournament.event_date);
+}
 
 type DetailTab = 'rounds' | 'participants' | 'stats' | 'official';
 
@@ -209,17 +259,23 @@ export function TournamentDetailPage() {
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [editDate, setEditDate] = useState('');
-  const [editStatus, setEditStatus] = useState<TournamentStatus>('draft');
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editEndDate, setEditEndDate] = useState('');
+  const [editScoringFormat, setEditScoringFormat] = useState<ScoringFormat>('stroke_play');
+  const [editFlightCount, setEditFlightCount] = useState(1);
+  const [editMaxParticipants, setEditMaxParticipants] = useState('');
   const [editSeasonId, setEditSeasonId] = useState('');
   const [editCourseId, setEditCourseId] = useState('');
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [course, setCourse] = useState<Course | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [editErrors, setEditErrors] = useState<string[]>([]);
   const [serverError, setServerError] = useState<string | null>(null);
 
   const [showDelete, setShowDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<TournamentStatus | null>(null);
 
   const [isPlayerRegistered, setIsPlayerRegistered] = useState(false);
   const [registrationCount, setRegistrationCount] = useState(0);
@@ -227,6 +283,8 @@ export function TournamentDetailPage() {
   const [isFinalizing, setIsFinalizing] = useState(false);
 
   const canManage = canManageLeague(profile?.role);
+
+  const leaderboardHref = id ? `/leaderboard?tournament_id=${id}` : '/leaderboard';
 
   const hasOfficialData = officialStandings.length > 0 || officialPerformances.length > 0;
 
@@ -303,28 +361,57 @@ export function TournamentDetailPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Registration totals are public, so anonymous visitors see a real count too.
+  useEffect(() => {
+    if (!id) return;
+    let active = true;
+    getRegistrationCount(id).then((countResult) => {
+      if (!active) return;
+      if (countResult.data !== null) setRegistrationCount(countResult.data);
+    });
+    return () => { active = false; };
+  }, [id]);
+
   // Check registration status for current player
   useEffect(() => {
     if (!id || !user) return;
+    let active = true;
     async function checkRegistration() {
       const playerResult = await getPlayerByAuthUserId(user!.id);
+      if (!active) return;
       if (playerResult.data) {
         setPlayerId(playerResult.data.id);
         const regResult = await isRegistered(id!, playerResult.data.id);
+        if (!active) return;
         if (regResult.data !== null) setIsPlayerRegistered(regResult.data);
       }
-      const countResult = await getRegistrationCount(id!);
-      if (countResult.data !== null) setRegistrationCount(countResult.data);
     }
     checkRegistration();
+    return () => { active = false; };
   }, [id, user]);
+
+  // The course is a real column on the tournament, not part of the free-text description.
+  useEffect(() => {
+    const courseId = tournament?.course_id;
+    if (!courseId) { setCourse(null); return; }
+    let active = true;
+    getCourse(courseId).then((result) => {
+      if (!active) return;
+      setCourse(result.data ?? null);
+    });
+    return () => { active = false; };
+  }, [tournament?.course_id]);
 
   const startEdit = () => {
     if (!tournament) return;
     setEditName(tournament.name);
     setEditDesc(tournament.description || '');
     setEditDate(tournament.event_date || '');
-    setEditStatus(tournament.status);
+    setEditStartDate(tournament.start_date || '');
+    setEditEndDate(tournament.end_date || '');
+    setEditScoringFormat(getScoringFormat(tournament.scoring_format).value);
+    setEditFlightCount(Math.min(10, Math.max(1, Number(tournament.flight_count) || 1)));
+    setEditMaxParticipants(tournament.max_participants ? String(tournament.max_participants) : '');
     setEditSeasonId(tournament.season_id);
     setEditCourseId(tournament.course_id || '');
     setEditErrors([]);
@@ -341,8 +428,20 @@ export function TournamentDetailPage() {
     const validation = validateTournament({ name: editName, season_id: editSeasonId, description: editDesc || null, event_date: editDate || null, course_id: editCourseId || null });
     if (!validation.isValid) { setEditErrors(validation.errors); return; }
 
+    const capacity = editMaxParticipants.trim() === '' ? null : Number(editMaxParticipants);
+
     setIsSaving(true);
-    const result = await updateTournament(id, { name: editName, description: editDesc || null, event_date: editDate || null, course_id: editCourseId || null, status: editStatus });
+    const result = await updateTournament(id, {
+      name: editName,
+      description: editDesc || null,
+      event_date: editDate || null,
+      start_date: editStartDate || null,
+      end_date: editEndDate || null,
+      course_id: editCourseId || null,
+      scoring_format: editScoringFormat,
+      flight_count: editFlightCount,
+      max_participants: capacity,
+    });
     setIsSaving(false);
 
     if (result.error) { setServerError(result.error); toast.error(result.error); return; }
@@ -363,7 +462,7 @@ export function TournamentDetailPage() {
     navigate('/tournaments');
   };
 
-  const handleStatusChange = async (newStatus: TournamentStatus) => {
+  const applyStatusChange = async (newStatus: TournamentStatus) => {
     if (!id || !tournament) return;
     const result = await updateTournament(id, { status: newStatus });
     if (result.error) { setError(result.error); toast.error(result.error); return; }
@@ -371,6 +470,16 @@ export function TournamentDetailPage() {
       setTournament(result.data);
       toast.success(`Tournament status changed to ${newStatus}`);
     }
+  };
+
+  const handleStatusChange = (newStatus: TournamentStatus) => {
+    if (!tournament) return;
+    if (!TOURNAMENT_STATUS_TRANSITIONS[tournament.status].includes(newStatus)) return;
+    if (requiresStatusConfirmation(tournament.status, newStatus)) {
+      setPendingStatus(newStatus);
+      return;
+    }
+    void applyStatusChange(newStatus);
   };
 
   const handleFinalize = async () => {
@@ -441,27 +550,49 @@ export function TournamentDetailPage() {
             {tournament.event_date && (
               <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {new Date(tournament.event_date).toLocaleDateString()}</span>
             )}
-            {tournament.description && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {tournament.description}</span>}
+            {course && (
+              <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {course.name}</span>
+            )}
           </div>
         </div>
         <Badge variant={STATUS_VARIANTS[tournament.status]}>{tournament.status}</Badge>
       </div>
 
+      <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Format', value: getScoringFormat(tournament.scoring_format).label },
+          { label: 'Flights', value: flightLabel(tournament.flight_count) },
+          { label: 'Dates', value: competitionDateLabel(tournament) },
+          { label: 'Capacity', value: tournament.max_participants ? `${tournament.max_participants} players` : 'Unlimited entries' },
+        ].map((fact) => (
+          <div key={fact.label} className="rounded-xl border border-tmgl-charcoal-200 bg-white px-3 py-2.5">
+            <dt className="text-[10px] font-semibold uppercase tracking-wide text-tmgl-charcoal-500">{fact.label}</dt>
+            <dd className="text-sm font-medium text-tmgl-charcoal-900 mt-0.5">{fact.value || '—'}</dd>
+          </div>
+        ))}
+      </dl>
+
+      {tournament.description && (
+        <p className="text-sm text-tmgl-charcoal-600 whitespace-pre-line">{tournament.description}</p>
+      )}
+
       {canManage && (
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={startEdit}><Edit3 className="w-3.5 h-3.5 mr-1.5" /> Edit</Button>
           <Button variant="danger" size="sm" onClick={() => setShowDelete(true)}><Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete</Button>
-          {(tournament.status === 'live' || tournament.status === 'completed') && (
+          {tournament.status === 'live' && (
             <Button variant="primary" size="sm" onClick={handleFinalize} disabled={isFinalizing}
               className="bg-yellow-600 hover:bg-yellow-500">
               {isFinalizing ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Trophy className="w-3.5 h-3.5 mr-1.5" />}
               Finalize Tournament
             </Button>
           )}
-          {STATUS_OPTIONS.filter((s) => s !== tournament.status).map((s) => (
-            <Button key={s} variant="outline" size="sm" onClick={() => handleStatusChange(s)}
-              className="capitalize">{s}</Button>
-          ))}
+          {TOURNAMENT_STATUS_TRANSITIONS[tournament.status]
+            .filter((s) => s !== 'completed')
+            .map((s) => (
+              <Button key={s} variant={s === 'cancelled' ? 'danger' : 'outline'} size="sm" onClick={() => handleStatusChange(s)}
+                className={s === 'cancelled' ? undefined : 'capitalize'}>{TRANSITION_LABELS[s]}</Button>
+            ))}
         </div>
       )}
 
@@ -522,7 +653,7 @@ export function TournamentDetailPage() {
             <Swords className="w-3 h-3" /> Matches
           </button>
         )}
-        <button onClick={() => navigate('/leaderboard')}
+        <button onClick={() => navigate(leaderboardHref)}
           className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border border-tmgl-charcoal-200 hover:border-tmgl-green-400 transition-colors">
           <Medal className="w-3 h-3" /> Leaderboard
         </button>
@@ -614,10 +745,10 @@ export function TournamentDetailPage() {
             <EmptyState icon={BarChart3} title="No data yet" description="Statistics will appear here once matches and scores are recorded." />
           )}
           <div className="flex justify-center">
-            <button onClick={() => navigate('/leaderboard')}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-tmgl-green-700 border border-tmgl-green-200 hover:bg-tmgl-green-50 transition-colors">
-              <Medal className="w-4 h-4" /> View Leaderboard
-            </button>
+        <button onClick={() => navigate(leaderboardHref)}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border border-tmgl-charcoal-200 hover:border-tmgl-green-400 transition-colors">
+          <Medal className="w-3 h-3" /> Leaderboard
+        </button>
           </div>
         </div>
       )}
@@ -705,13 +836,6 @@ export function TournamentDetailPage() {
                     <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)}
                       className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700" />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Status</label>
-                    <select value={editStatus} onChange={(e) => setEditStatus(e.target.value as TournamentStatus)}
-                      className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700">
-                      {STATUS_OPTIONS.map((s) => <option key={s} value={s} className="capitalize">{s}</option>)}
-                    </select>
-                  </div>
                   <div className="flex gap-3 justify-end">
                     <Button variant="outline" size="sm" onClick={() => setShowEdit(false)}>Cancel</Button>
                     <Button variant="primary" size="sm" onClick={handleSaveEdit} disabled={isSaving} className="bg-tmgl-green-800 hover:bg-tmgl-green-700">
@@ -722,6 +846,24 @@ export function TournamentDetailPage() {
               </div>
             </div>
           )}
+          <ConfirmDialog
+            open={pendingStatus !== null}
+            title={pendingStatus ? TRANSITION_LABELS[pendingStatus] : ''}
+            message={
+              pendingStatus === 'cancelled'
+                ? 'Cancelling keeps the tournament record but stops sign-ups and removes it from public listings. This cannot be undone.'
+                : pendingStatus === 'completed'
+                  ? 'You are about to mark this tournament complete. Use Finalize tournament instead so trophies and handicaps are recalculated.'
+                  : `Move this tournament to "${pendingStatus}"? Players registered for it will be notified.`
+            }
+            confirmLabel={pendingStatus ? TRANSITION_LABELS[pendingStatus] : 'Confirm'}
+            onConfirm={() => {
+              const next = pendingStatus;
+              setPendingStatus(null);
+              if (next) void applyStatusChange(next);
+            }}
+            onCancel={() => setPendingStatus(null)}
+          />
           <ConfirmDialog open={showDelete} title="Delete Tournament"
             message={`Are you sure you want to delete "${tournament.name}"? This will also delete all rounds, matches, and scorecards in this tournament. This action cannot be undone.`}
             confirmLabel={isDeleting ? 'Deleting...' : 'Delete'} onConfirm={handleDelete} onCancel={() => setShowDelete(false)} />

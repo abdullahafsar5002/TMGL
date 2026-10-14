@@ -23,6 +23,7 @@ import { canManageLeague } from '@/lib/roleGuards';
 import { isRetryableServiceError, toUserFacingServiceError } from '@/lib/errors';
 import { enqueueScoreOperation, getScoreQueueOperations, removeScoreOperationsForScorecard, syncScoreQueue, type QueuedScoreHole, type ScoreQueueOperation } from '@/lib/scoreQueue';
 import { computeScorecardSummary, holeScoreToPar } from '@/lib/scoring';
+import { subscribeToSkins } from '@/lib/skins';
 import { formatToPar } from '@/utils/golf';
 import { validateScorecardHoles } from '@/lib/validation';
 import { isSubmissionComplete } from '@/lib/standingsRules';
@@ -242,6 +243,17 @@ export function ScoringPage() {
   useEffect(() => {
     if (selectedRoundId && selectedPlayerId) void loadScorecard();
   }, [loadScorecard]);
+
+  // Live skin wins: watch the selected round so submitted or verified cards
+  // award "Hole N Skin Won!" notifications as scores land.
+  useEffect(() => {
+    if (!selectedRoundId) return;
+    return subscribeToSkins(selectedRoundId, (skin) => {
+      toast.info(
+        `Hole ${skin.holeNumber} skin won by ${skin.winnerName || 'a player'}.`
+      );
+    });
+  }, [selectedRoundId, toast]);
 
   const handleScoreChange = (holeNumber: number, value: string) => {
     setHoleScores((previous) => ({ ...previous, [holeNumber]: value }));
