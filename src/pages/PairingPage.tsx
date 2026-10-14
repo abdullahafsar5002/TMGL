@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { AlertCircle, CalendarClock, Layers, Loader2, RefreshCw, Save, Users } from 'lucide-react';
+import { AlertCircle, Layers, Loader2, RefreshCw, Save, Users } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { BackLink } from '@/components/common/BackLink';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card';
@@ -418,11 +418,10 @@ export function PairingPage() {
       <BackLink fallbackTo={`/rounds/${round.id}`} label="Back to round" />
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
-            <Layers className="w-5 h-5 text-tmgl-gold-600" /> Flights &amp; Tee Sheet
-          </h1>
-          <p className="text-sm text-tmgl-charcoal-500 mt-0.5">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">Pairings</p>
+          <h1 className="mt-1 font-display text-display-lg text-tmgl-charcoal-950">Flights &amp; tee sheet</h1>
+          <p className="mt-2 text-sm text-tmgl-charcoal-500">
             {tournament ? `${tournament.name} · ` : ''}Round {round.round_number}: {round.name}
           </p>
         </div>
@@ -539,9 +538,7 @@ export function PairingPage() {
       {!showEditor && (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-bold text-tmgl-charcoal-900 flex items-center gap-2">
-              <CalendarClock className="w-5 h-5 text-tmgl-gold-600" /> Tee sheet
-            </h2>
+            <h2 className="font-display text-lg font-semibold text-tmgl-charcoal-950">Tee sheet</h2>
             {canManage && (
               <Button variant="outline" size="sm" onClick={() => setEditorOpen(true)}>
                 <RefreshCw className="w-4 h-4 mr-1.5" /> Replace pairings
@@ -579,7 +576,7 @@ export function PairingPage() {
 
       {showEditor && preview.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-lg font-bold text-tmgl-charcoal-900">Preview</h2>
+          <h2 className="font-display text-lg font-semibold text-tmgl-charcoal-950">Preview</h2>
           <div className="grid gap-3 lg:grid-cols-2">
             {teeSheet.map((flight) => (
               <FlightCard key={flight.key} flight={flight} isPreview />

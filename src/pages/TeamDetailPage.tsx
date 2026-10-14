@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { Shield, ArrowLeft, Edit, Trash2, Loader2, AlertCircle, Users, Plus, X, Calendar, Swords, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Loader2, AlertCircle, Users, Plus, X, Calendar, Swords, ChevronRight } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
@@ -168,13 +168,13 @@ export function TeamDetailPage() {
   return (
     <Container size="lg" className="space-y-4 py-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <Link to={season ? `/seasons/${season.id}` : '/teams'} className="text-sm text-tmgl-green-700 hover:underline flex items-center gap-1 mb-1">
+        <div className="min-w-0">
+          <Link to={season ? `/seasons/${season.id}` : '/teams'} className="mb-1 flex items-center gap-1 text-sm text-tmgl-green-700 hover:underline">
             <ArrowLeft className="w-3.5 h-3.5" /> {season?.name ?? 'Teams'}
           </Link>
-          <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
-            <Shield className="w-5 h-5 text-tmgl-green-800" />
-            {isEditing ? 'Edit Team' : team.name}
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">Team</p>
+          <h1 className="mt-1 font-display text-display-lg text-tmgl-charcoal-950">
+            {isEditing ? 'Edit team' : team.name}
           </h1>
         </div>
         {canManage && !isEditing && (
@@ -250,15 +250,15 @@ export function TeamDetailPage() {
         <CardContent>
           <div className="grid grid-cols-3 gap-3">
             <div className="text-center p-3 rounded-lg border border-tmgl-charcoal-100">
-              <p className="text-xl font-bold text-tmgl-charcoal-900">{members.length}</p>
+                  <p className="font-display text-xl font-semibold text-tmgl-charcoal-950 tabular">{members.length}</p>
               <p className="text-xs text-tmgl-charcoal-500">Members</p>
             </div>
             <div className="text-center p-3 rounded-lg border border-tmgl-charcoal-100">
-              <p className="text-xl font-bold text-tmgl-charcoal-900">{matches.length}</p>
+                  <p className="font-display text-xl font-semibold text-tmgl-charcoal-950 tabular">{matches.length}</p>
               <p className="text-xs text-tmgl-charcoal-500">Matches</p>
             </div>
             <div className="text-center p-3 rounded-lg border border-tmgl-charcoal-100">
-              <p className="text-xl font-bold text-emerald-700">{matches.filter((m) => m.winner_team_id === id && m.status === 'completed').length}</p>
+                  <p className="font-display text-xl font-semibold text-tmgl-green-700 tabular">{matches.filter((m) => m.winner_team_id === id && m.status === 'completed').length}</p>
               <p className="text-xs text-tmgl-charcoal-500">Wins</p>
             </div>
           </div>

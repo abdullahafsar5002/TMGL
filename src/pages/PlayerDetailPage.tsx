@@ -187,13 +187,13 @@ export function PlayerDetailPage() {
   return (
     <Container size="lg" className="space-y-4 py-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <Link to="/players" className="text-sm text-tmgl-green-700 hover:underline flex items-center gap-1 mb-1">
+        <div className="min-w-0">
+          <Link to="/players" className="mb-1 flex items-center gap-1 text-sm text-tmgl-green-700 hover:underline">
             <ArrowLeft className="w-3.5 h-3.5" /> Players
           </Link>
-          <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
-            <Users className="w-5 h-5 text-tmgl-green-800" />
-            {isEditing ? 'Edit Player' : player.full_name}
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">Player</p>
+          <h1 className="mt-1 font-display text-display-lg text-tmgl-charcoal-950">
+            {isEditing ? 'Edit player' : player.full_name}
           </h1>
         </div>
         {canManage && !isEditing && (
@@ -330,26 +330,26 @@ export function PlayerDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-3 gap-3">
-                <div className="text-center p-3 rounded-lg border border-tmgl-charcoal-100">
-                  <p className="text-xl font-bold text-tmgl-charcoal-900">{matches.length}</p>
-                  <p className="text-xs text-tmgl-charcoal-500">Matches</p>
+                <div className="rounded-card border border-tmgl-charcoal-200 bg-white p-3 text-center">
+                  <p className="font-display text-xl font-semibold text-tmgl-charcoal-950 tabular">{matches.length}</p>
+                  <p className="mt-0.5 text-xs uppercase tracking-wider text-tmgl-charcoal-500">Matches</p>
                 </div>
-                <div className="text-center p-3 rounded-lg border border-tmgl-charcoal-100">
-                  <p className="text-xl font-bold text-emerald-700">{matches.filter((m) => m.winner_player_id === id && m.status === 'completed').length}</p>
-                  <p className="text-xs text-tmgl-charcoal-500">Wins</p>
+                <div className="rounded-card border border-tmgl-charcoal-200 bg-white p-3 text-center">
+                  <p className="font-display text-xl font-semibold text-tmgl-green-700 tabular">{matches.filter((m) => m.winner_player_id === id && m.status === 'completed').length}</p>
+                  <p className="mt-0.5 text-xs uppercase tracking-wider text-tmgl-charcoal-500">Wins</p>
                 </div>
-                <div className="text-center p-3 rounded-lg border border-tmgl-charcoal-100">
-                  <p className="text-xl font-bold text-red-700">{matches.filter((m) => m.status === 'completed' && m.winner_player_id && m.winner_player_id !== id).length}</p>
-                  <p className="text-xs text-tmgl-charcoal-500">Losses</p>
+                <div className="rounded-card border border-tmgl-charcoal-200 bg-white p-3 text-center">
+                  <p className="font-display text-xl font-semibold text-red-600 tabular">{matches.filter((m) => m.status === 'completed' && m.winner_player_id && m.winner_player_id !== id).length}</p>
+                  <p className="mt-0.5 text-xs uppercase tracking-wider text-tmgl-charcoal-500">Losses</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 mt-3">
-                <div className="text-center p-3 rounded-lg border border-tmgl-charcoal-100">
-                  <p className="text-xl font-bold text-tmgl-charcoal-900">{scorecards.length}</p>
-                  <p className="text-xs text-tmgl-charcoal-500">Scorecards</p>
+                <div className="rounded-card border border-tmgl-charcoal-200 bg-white p-3 text-center">
+                  <p className="font-display text-xl font-semibold text-tmgl-charcoal-950 tabular">{scorecards.length}</p>
+                  <p className="mt-0.5 text-xs uppercase tracking-wider text-tmgl-charcoal-500">Scorecards</p>
                 </div>
-                <div className="text-center p-3 rounded-lg border border-tmgl-charcoal-100">
-                  <p className="text-xl font-bold text-tmgl-charcoal-900">
+                <div className="rounded-card border border-tmgl-charcoal-200 bg-white p-3 text-center">
+                  <p className="font-display text-xl font-semibold text-tmgl-charcoal-950 tabular">
                     {(() => {
                       const completed = scorecards.filter((sc) => sc.total_strokes !== null);
                       if (completed.length === 0) return '—';

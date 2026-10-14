@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Trophy, Users, Calendar, BarChart3, Plus, ClipboardCheck } from 'lucide-react';
 import { Container } from '@/components/common/Container';
+import { PageHeader } from '@/components/common/PageHeader';
 import { Card, CardContent } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { StatsCard } from '@/components/common/StatsCard';
@@ -35,10 +36,11 @@ export function OrganizerDashboardPage() {
 
   return (
     <Container className="py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-tmgl-charcoal-900">Organizer Dashboard</h1>
-        <p className="text-tmgl-charcoal-600 mt-2">Manage tournaments, players, and league operations</p>
-      </div>
+      <PageHeader
+        eyebrow="League operations"
+        title="Organizer dashboard"
+        description="Manage tournaments, players and everything else the league runs on."
+      />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatsCard label="Tournaments" value={stats.tournaments} icon={<Trophy className="h-5 w-5" />} />

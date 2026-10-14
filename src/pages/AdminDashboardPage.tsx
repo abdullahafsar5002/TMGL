@@ -230,9 +230,10 @@ export function AdminDashboardPage() {
         <div className="w-10 h-10 rounded-full bg-tmgl-green-100 flex items-center justify-center">
           <Shield className="w-5 h-5 text-tmgl-green-700" />
         </div>
-        <div>
-          <h1 className="text-3xl font-bold text-tmgl-charcoal-900">Admin Dashboard</h1>
-          <p className="text-tmgl-charcoal-600">System-wide overview and management</p>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">System</p>
+          <h1 className="mt-1 font-display text-display-lg text-tmgl-charcoal-950">Admin dashboard</h1>
+          <p className="mt-2 text-sm text-tmgl-charcoal-600">System-wide overview and management</p>
         </div>
       </div>
 
