@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Trophy, Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/common/Button';
 import { env } from '@/config/env';
@@ -49,27 +49,28 @@ export function LoginPage() {
     <div className="min-h-screen bg-tmgl-green-900 flex flex-col items-center justify-center px-4 py-12">
       {/* Brand mark */}
       <div className="mb-8 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-tmgl-green-800 border-2 border-tmgl-gold/60 flex items-center justify-center mx-auto mb-4 shadow-xl">
-          <Trophy className="w-8 h-8 text-tmgl-gold" />
-        </div>
-        <h1 className="text-2xl font-extrabold text-white tracking-wider uppercase">TMGL</h1>
-        <p className="text-tmgl-charcoal-300 text-sm mt-1">Toruk Maktu Golf League</p>
+        <img src="/logo-mark.svg" alt="" className="mx-auto mb-4 h-16 w-16" />
+        <h1 className="text-2xl font-bold uppercase tracking-[0.14em] text-white">TMGL</h1>
+        <p className="mt-1 text-sm text-tmgl-charcoal-300">Toruk Maktu Golf League</p>
       </div>
 
       {/* Card */}
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 sm:p-8">
-        <h2 className="text-xl font-bold text-tmgl-charcoal-900 mb-1">Sign in to your account</h2>
-        <p className="text-sm text-tmgl-charcoal-500 mb-6">
-          Don't have an account?{' '}
-          <Link to="/register" className="text-tmgl-green-700 font-semibold hover:underline">
-            Create one
-          </Link>
+        <h2 className="font-display text-display-md text-tmgl-charcoal-950">Sign in</h2>
+        <p className="mb-5 mt-2 text-sm text-tmgl-charcoal-600">
+          Welcome back. Sign in to enter scores and follow the league.
         </p>
-        <p className="text-sm text-tmgl-charcoal-500 mb-6 -mt-4">
-          <Link to="/forgot-password" className="text-tmgl-green-700 hover:underline">
+        <div className="-mt-3 mb-6 flex items-center justify-between text-sm">
+          <Link to="/forgot-password" className="font-semibold text-tmgl-green-700 hover:underline">
             Forgot password?
           </Link>
-        </p>
+          <span className="text-tmgl-charcoal-500">
+            No account?{' '}
+            <Link to="/register" className="font-semibold text-tmgl-green-700 hover:underline">
+              Create one
+            </Link>
+          </span>
+        </div>
 
         {/* Supabase not configured warning */}
         {!env.isConfigured && (

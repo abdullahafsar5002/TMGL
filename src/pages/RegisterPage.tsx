@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trophy, Mail, Lock, User, AlertCircle, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { Mail, Lock, User, AlertCircle, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/common/Button';
 import { env } from '@/config/env';
@@ -90,19 +90,20 @@ export function RegisterPage() {
     <div className="min-h-screen bg-tmgl-green-900 flex flex-col items-center justify-center px-4 py-12">
       {/* Brand mark */}
       <div className="mb-8 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-tmgl-green-800 border-2 border-tmgl-gold/60 flex items-center justify-center mx-auto mb-4 shadow-xl">
-          <Trophy className="w-8 h-8 text-tmgl-gold" />
-        </div>
-        <h1 className="text-2xl font-extrabold text-white tracking-wider uppercase">TMGL</h1>
-        <p className="text-tmgl-charcoal-300 text-sm mt-1">Toruk Maktu Golf League</p>
+        <img src="/logo-mark.svg" alt="" className="mx-auto mb-4 h-16 w-16" />
+        <h1 className="text-2xl font-bold uppercase tracking-[0.14em] text-white">TMGL</h1>
+        <p className="mt-1 text-sm text-tmgl-charcoal-300">Toruk Maktu Golf League</p>
       </div>
 
       {/* Card */}
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 sm:p-8">
-        <h2 className="text-xl font-bold text-tmgl-charcoal-900 mb-1">Create an account</h2>
-        <p className="text-sm text-tmgl-charcoal-500 mb-6">
+        <h2 className="font-display text-display-md text-tmgl-charcoal-950">Create your account</h2>
+        <p className="mt-2 text-sm text-tmgl-charcoal-600">
+          Join the league to enter scores, track handicaps and follow standings.
+        </p>
+        <p className="mt-4 text-sm text-tmgl-charcoal-600">
           Already have one?{' '}
-          <Link to="/login" className="text-tmgl-green-700 font-semibold hover:underline">
+          <Link to="/login" className="font-semibold text-tmgl-green-700 hover:underline">
             Sign in
           </Link>
         </p>

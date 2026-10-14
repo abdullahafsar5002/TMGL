@@ -74,7 +74,7 @@ export function ResetPasswordPage() {
             <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
               <AlertCircle className="w-6 h-6 text-red-600" />
             </div>
-            <h2 className="text-xl font-bold text-tmgl-charcoal-900 mb-2">Invalid or Expired Link</h2>
+            <h2 className="mb-2 font-display text-display-md text-tmgl-charcoal-950">Invalid or expired link</h2>
             <p className="text-sm text-tmgl-charcoal-600 mb-6">
               This password reset link is invalid or has expired. Please request a new one.
             </p>
@@ -96,7 +96,7 @@ export function ResetPasswordPage() {
               <div className="w-12 h-12 rounded-full bg-tmgl-green-100 flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="w-6 h-6 text-tmgl-green-700" />
               </div>
-              <h2 className="text-xl font-bold text-tmgl-charcoal-900 mb-2">Password Updated</h2>
+              <h2 className="mb-2 font-display text-display-md text-tmgl-charcoal-950">Password updated</h2>
               <p className="text-sm text-tmgl-charcoal-600 mb-6">
                 Your password has been changed successfully.
               </p>
@@ -110,7 +110,7 @@ export function ResetPasswordPage() {
                 <div className="w-12 h-12 rounded-full bg-tmgl-green-100 flex items-center justify-center mx-auto mb-4">
                   <Lock className="w-6 h-6 text-tmgl-green-700" />
                 </div>
-                <h2 className="text-xl font-bold text-tmgl-charcoal-900">Set New Password</h2>
+                <h2 className="font-display text-display-md text-tmgl-charcoal-950">Set new password</h2>
                 <p className="text-sm text-tmgl-charcoal-600 mt-1">
                   Enter your new password below.
                 </p>
