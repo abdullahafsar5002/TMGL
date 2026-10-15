@@ -134,7 +134,7 @@ export default function PracticeHistoryPage() {
                         <div className="text-right">
                           <p className="text-xl font-bold text-tmgl-charcoal-950">{round.gross_score}</p>
                           {round.total_to_par !== null && (
-                            <p className={`text-sm ${round.total_to_par < 0 ? 'text-green-600' : round.total_to_par > 0 ? 'text-red-600' : ''}`}>
+                            <p className={`text-sm ${round.total_to_par < 0 ? 'text-tmgl-green-600' : round.total_to_par > 0 ? 'text-red-600' : ''}`}>
                               {formatToPar(round.total_to_par)}
                             </p>
                           )}

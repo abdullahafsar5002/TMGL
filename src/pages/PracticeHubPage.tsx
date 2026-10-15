@@ -174,7 +174,7 @@ export default function PracticeHubPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Recent Rounds</CardTitle>
-              <Link to="/practice/history" className="text-sm text-green-700 hover:text-green-800">
+              <Link to="/practice/history" className="text-sm text-tmgl-green-700 hover:text-tmgl-green-800">
                 View all
               </Link>
             </div>

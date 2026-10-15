@@ -156,7 +156,7 @@ export default function PracticeDetailPage() {
                         <td className="py-2 px-3 text-center text-tmgl-charcoal-500">{s.par}</td>
                         <td className="py-2 px-3 text-center font-medium">{s.score}</td>
                         <td className={`py-2 px-3 text-center font-medium ${
-                          toPar < 0 ? 'text-green-600' : toPar > 0 ? 'text-red-600' : ''
+                          toPar < 0 ? 'text-tmgl-green-700' : toPar > 0 ? 'text-red-600' : ''
                         }`}>
                           {formatToPar(toPar)}
                         </td>
@@ -177,7 +177,7 @@ export default function PracticeDetailPage() {
                     <td className="py-2 px-3 text-center">{summary.totalPar}</td>
                     <td className="py-2 px-3 text-center">{summary.grossScore}</td>
                     <td className={`py-2 px-3 text-center ${
-                      summary.toPar < 0 ? 'text-green-600' : summary.toPar > 0 ? 'text-red-600' : ''
+                      summary.toPar < 0 ? 'text-tmgl-green-700' : summary.toPar > 0 ? 'text-red-600' : ''
                     }`}>
                       {formatToPar(summary.toPar)}
                     </td>

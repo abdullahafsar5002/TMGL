@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { BackLink } from '@/components/common/BackLink';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Plus, Search, ChevronRight, Loader2, AlertCircle, Inbox } from 'lucide-react';
+import { Plus, Search, ChevronRight, Loader2, AlertCircle, Inbox  } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card, CardHeader, CardTitle } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
@@ -57,10 +57,8 @@ export function SeasonsPage() {
       <BackLink fallbackTo="/dashboard" label="Back" />
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-tmgl-green-800" />
-            Seasons
-          </h1>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">Competition</p>
+        <h1 className="mt-1 font-display text-display-lg text-tmgl-charcoal-950">Seasons</h1>
           <p className="text-sm text-tmgl-charcoal-500 mt-0.5">
             {total} season{total !== 1 ? 's' : ''} total
           </p>

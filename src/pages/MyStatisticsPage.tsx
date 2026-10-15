@@ -183,7 +183,7 @@ export default function MyStatisticsPage() {
             </div>
             <div className="p-3 bg-tmgl-charcoal-50 rounded-lg">
               <p className="text-sm text-tmgl-charcoal-500">Birdies</p>
-              <p className="text-xl font-bold text-green-600">{stats.birdies}</p>
+              <p className="text-xl font-bold text-tmgl-green-600">{stats.birdies}</p>
             </div>
             <div className="p-3 bg-tmgl-charcoal-50 rounded-lg">
               <p className="text-sm text-tmgl-charcoal-500">Pars</p>

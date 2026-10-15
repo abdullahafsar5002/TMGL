@@ -42,9 +42,8 @@ export function MatchesPage() {
   return (
     <Container size="lg" className="space-y-4 py-4">
       <div>
-        <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
-          <Swords className="w-5 h-5 text-tmgl-green-800" /> Matches
-        </h1>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">Competition</p>
+        <h1 className="mt-1 font-display text-display-lg text-tmgl-charcoal-950">Matches</h1>
         <p className="text-sm text-tmgl-charcoal-500 mt-0.5">{total} match{total !== 1 ? 'es' : ''}</p>
       </div>
 

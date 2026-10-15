@@ -144,7 +144,7 @@ export default function PracticeCreatePage() {
                   onClick={() => setRoundType(9)}
                   className={`flex-1 py-3 rounded-lg border-2 font-medium transition-colors ${
                     roundType === 9
-                      ? 'border-green-600 bg-green-50 text-green-700'
+                      ? 'border-tmgl-green-600 bg-tmgl-green-50 text-tmgl-green-700'
                       : 'border-tmgl-charcoal-200 bg-white text-tmgl-charcoal-600 hover:border-tmgl-charcoal-300'
                   }`}
                 >
@@ -155,7 +155,7 @@ export default function PracticeCreatePage() {
                   onClick={() => setRoundType(18)}
                   className={`flex-1 py-3 rounded-lg border-2 font-medium transition-colors ${
                     roundType === 18
-                      ? 'border-green-600 bg-green-50 text-green-700'
+                      ? 'border-tmgl-green-600 bg-tmgl-green-50 text-tmgl-green-700'
                       : 'border-tmgl-charcoal-200 bg-white text-tmgl-charcoal-600 hover:border-tmgl-charcoal-300'
                   }`}
                 >

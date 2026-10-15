@@ -255,7 +255,7 @@ export default function FriendlyMatchScorePage() {
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
       )}
       {success && (
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">{success}</div>
+        <div className="mb-4 p-4 bg-tmgl-green-50 border border-tmgl-green-200 rounded-lg text-tmgl-green-700">{success}</div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -340,7 +340,7 @@ export default function FriendlyMatchScorePage() {
               <div className="flex justify-between">
                 <span className="text-tmgl-charcoal-600">To Par</span>
                 <span className={`font-bold text-xl ${
-                  toPar < 0 ? 'text-green-600' : toPar > 0 ? 'text-red-600' : ''
+                  toPar < 0 ? 'text-tmgl-green-700' : toPar > 0 ? 'text-red-600' : ''
                 }`}>
                   {scoredEntries.length > 0 ? formatToPar(toPar) : '—”'}
                 </span>

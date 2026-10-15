@@ -273,8 +273,8 @@ export default function FriendlyMatchDetailPage() {
                   {players.map(p => (
                     <div key={p.id} className="flex items-center justify-between p-3 bg-tmgl-charcoal-50 rounded-lg">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                          <span className="text-sm font-medium text-green-700">
+                        <div className="w-8 h-8 rounded-full bg-tmgl-green-100 flex items-center justify-center">
+                          <span className="text-sm font-medium text-tmgl-green-700">
                             {p.player?.full_name?.charAt(0) ?? '?'}
                           </span>
                         </div>
@@ -407,8 +407,8 @@ export default function FriendlyMatchDetailPage() {
                     onClick={() => handleInvitePlayer(p.id)}
                     className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-tmgl-charcoal-50 text-left"
                   >
-                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                      <span className="text-sm font-medium text-green-700">{p.full_name.charAt(0)}</span>
+                    <div className="w-8 h-8 rounded-full bg-tmgl-green-100 flex items-center justify-center">
+                      <span className="text-sm font-medium text-tmgl-green-700">{p.full_name.charAt(0)}</span>
                     </div>
                     <span className="font-medium text-tmgl-charcoal-950">{p.full_name}</span>
                   </button>

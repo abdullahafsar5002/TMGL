@@ -274,10 +274,10 @@ export function PlayerDetailPage() {
                   <p className="text-tmgl-charcoal-500 font-medium flex items-center gap-1"><Phone className="w-3.5 h-3.5" /> Phone</p>
                   <p className="text-tmgl-charcoal-900">{player.phone || '\u2014'}</p>
                 </div>
-                <div className="p-3 rounded-lg bg-green-50 border border-green-100">
-                  <p className="text-green-700 font-bold flex items-center gap-1"><Target className="w-3.5 h-3.5" /> Official Handicap</p>
-                  <p className="text-2xl font-black text-green-900">{player.handicap_index ?? 'N/A'}</p>
-                  <div className="flex items-center gap-1 text-[10px] font-semibold text-green-600 mt-1">
+                <div className="p-3 rounded-lg bg-tmgl-green-50 border border-tmgl-green-100">
+                  <p className="text-tmgl-green-700 font-bold flex items-center gap-1"><Target className="w-3.5 h-3.5" /> Official Handicap</p>
+                  <p className="text-2xl font-black text-tmgl-green-900">{player.handicap_index ?? 'N/A'}</p>
+                  <div className="flex items-center gap-1 text-[10px] font-semibold text-tmgl-green-600 mt-1">
                     {handicapTrend === 'down' ? <TrendingDown className="w-3 h-3" /> : null}
                     {handicapTrend === 'down' ? 'Improving' : handicapTrend === 'up' ? 'Rising' : 'Stable'}
                   </div>

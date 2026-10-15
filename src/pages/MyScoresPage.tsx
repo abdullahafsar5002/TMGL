@@ -192,7 +192,7 @@ export default function MyScoresPage() {
                         <>
                           <p className="text-xl font-bold text-tmgl-charcoal-950">{s.score}</p>
                           {s.toPar !== null && (
-                            <p className={`text-sm ${s.toPar < 0 ? 'text-green-600' : s.toPar > 0 ? 'text-red-600' : ''}`}>
+                            <p className={`text-sm ${s.toPar < 0 ? 'text-tmgl-green-700' : s.toPar > 0 ? 'text-red-600' : ''}`}>
                               {formatToPar(s.toPar)}
                             </p>
                           )}
