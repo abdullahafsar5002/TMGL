@@ -79,7 +79,7 @@ function formatDateOnly(value: string | null | undefined): string {
 function competitionDateLabel(tournament: Tournament): string {
   const start = formatDateOnly(tournament.start_date);
   const end = formatDateOnly(tournament.end_date);
-  if (start && end) return start === end ? start : `${start} — ${end}`;
+  if (start && end) return start === end ? start : `${start} —” ${end}`;
   return start || end || formatDateOnly(tournament.event_date);
 }
 
@@ -108,13 +108,13 @@ function StandoutRoundCard({ performance }: { performance: NotableRoundPerforman
         </div>
         <div className="rounded-lg bg-tmgl-charcoal-50 border border-tmgl-charcoal-200 py-2 px-1">
           <p className="text-lg font-bold text-tmgl-charcoal-900 leading-none">
-            {performance.net_score === null ? '—' : performance.net_score}
+            {performance.net_score === null ? '—”' : performance.net_score}
           </p>
           <p className="text-[10px] font-medium text-tmgl-charcoal-500 mt-1 uppercase tracking-wide">Net</p>
         </div>
         <div className="rounded-lg bg-tmgl-charcoal-50 border border-tmgl-charcoal-200 py-2 px-1">
           <p className="text-lg font-bold text-tmgl-charcoal-900 leading-none">
-            {performance.handicap_index === null ? '—' : performance.handicap_index}
+            {performance.handicap_index === null ? '—”' : performance.handicap_index}
           </p>
           <p className="text-[10px] font-medium text-tmgl-charcoal-500 mt-1 uppercase tracking-wide">Handicap</p>
         </div>
@@ -187,7 +187,7 @@ function OfficialStandingsPanel({
                       </span>
                     </td>
                     <td className="px-3 sm:px-4 py-3 text-tmgl-charcoal-600">
-                      {standing.sponsor_name || <span className="text-tmgl-charcoal-400">—</span>}
+                      {standing.sponsor_name || <span className="text-tmgl-charcoal-400">—”</span>}
                     </td>
                     <td className="px-3 sm:px-4 py-3 text-right font-mono text-tmgl-charcoal-900">{standing.combined_gross}</td>
                     <td className="px-3 sm:px-4 py-3 text-right font-mono text-tmgl-charcoal-900">{standing.combined_net}</td>
@@ -567,7 +567,7 @@ export function TournamentDetailPage() {
         ].map((fact) => (
           <div key={fact.label} className="rounded-xl border border-tmgl-charcoal-200 bg-white px-3 py-2.5">
             <dt className="text-[10px] font-semibold uppercase tracking-wide text-tmgl-charcoal-500">{fact.label}</dt>
-            <dd className="text-sm font-medium text-tmgl-charcoal-900 mt-0.5">{fact.value || '—'}</dd>
+            <dd className="text-sm font-medium text-tmgl-charcoal-900 mt-0.5">{fact.value || '—”'}</dd>
           </div>
         ))}
       </dl>
@@ -701,7 +701,7 @@ export function TournamentDetailPage() {
           <h2 className="text-lg font-bold text-tmgl-charcoal-900">Tournament Statistics</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {[
-              { label: 'Rounds', value: rounds.length, color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+              { label: 'Rounds', value: rounds.length, color: 'bg-tmgl-green-50 text-tmgl-green-700 border-tmgl-green-200' },
               { label: 'Matches', value: tournamentMatches.length, color: 'bg-blue-50 text-blue-700 border-blue-200' },
               { label: 'Participants', value: participants.length, color: 'bg-amber-50 text-amber-700 border-amber-200' },
             ].map((stat) => (
@@ -715,7 +715,7 @@ export function TournamentDetailPage() {
             {[
               { label: 'Scheduled', value: tournamentMatches.filter((m) => m.status === 'scheduled').length, color: 'bg-amber-50 text-amber-700 border-amber-200' },
               { label: 'Live', value: tournamentMatches.filter((m) => m.status === 'live').length, color: 'bg-red-50 text-red-700 border-red-200' },
-              { label: 'Completed', value: tournamentMatches.filter((m) => m.status === 'completed').length, color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+              { label: 'Completed', value: tournamentMatches.filter((m) => m.status === 'completed').length, color: 'bg-tmgl-green-50 text-tmgl-green-700 border-tmgl-green-200' },
             ].map((stat) => (
               <div key={stat.label} className={`p-4 rounded-xl border text-center ${stat.color}`}>
                 <p className="text-2xl font-bold">{stat.value}</p>
@@ -733,7 +733,7 @@ export function TournamentDetailPage() {
                 <p className="text-2xl font-bold text-tmgl-charcoal-900">
                   {(() => {
                     const completed = tournamentScorecards.filter((sc) => sc.total_strokes !== null);
-                    if (completed.length === 0) return '—';
+                    if (completed.length === 0) return '—”';
                     return Math.round(completed.reduce((sum, sc) => sum + (sc.total_strokes ?? 0), 0) / completed.length);
                   })()}
                 </p>
@@ -823,7 +823,7 @@ export function TournamentDetailPage() {
                     <select id="edit-tournament-course" value={editCourseId} onChange={(e) => setEditCourseId(e.target.value)}
                       className="w-full px-3 py-2.5 min-h-[44px] rounded-lg border border-tmgl-charcoal-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-tmgl-green-700">
                       <option value="">Select a course</option>
-                      {courses.map((c) => <option key={c.id} value={c.id}>{c.name}{c.location ? ` — ${c.location}` : ''}</option>)}
+                      {courses.map((c) => <option key={c.id} value={c.id}>{c.name}{c.location ? ` —” ${c.location}` : ''}</option>)}
                     </select>
                   </div>
                   <div>

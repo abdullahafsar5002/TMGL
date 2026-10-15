@@ -1,5 +1,5 @@
 /**
- * Phase 3 Service Layer â€” Tournaments, Rounds, Matches, Scorecards, Leaderboard
+ * Phase 3 Service Layer —” Tournaments, Rounds, Matches, Scorecards, Leaderboard
  *
  * All Supabase access is isolated here. Components call these functions
  * instead of writing queries inline.

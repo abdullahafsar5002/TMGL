@@ -4,6 +4,7 @@ import { ROUTES } from '@/router/routes';
 import { Users, Plus, Search } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Container } from '@/components/common/Container';
+import { PageHeader } from '@/components/common/PageHeader';
 import { Card, CardContent } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -68,18 +69,19 @@ export default function FriendlyMatchesPage() {
 
   return (
     <Container className="py-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Friendly Matches</h1>
-          <p className="text-gray-500 mt-1">{matches.length} total matches</p>
-        </div>
-        <Link to={ROUTES.friendlyMatchCreate}>
-          <Button variant="primary">
-            <Plus className="h-4 w-4 mr-2" />
-            New Match
-          </Button>
-        </Link>
-      </div>
+      <PageHeader
+        eyebrow="Head to head"
+        title="Friendly matches"
+        description={`${matches.length} total matches`}
+        actions={
+          <Link to={ROUTES.friendlyMatchCreate}>
+            <Button variant="primary">
+              <Plus className="mr-2 h-4 w-4" />
+              New match
+            </Button>
+          </Link>
+        }
+      />
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
@@ -87,13 +89,13 @@ export default function FriendlyMatchesPage() {
 
       <div className="mb-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-tmgl-charcoal-400" />
           <input
             type="text"
             placeholder="Search matches..."
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
-            className="w-full md:w-80 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+            className="w-full md:w-80 pl-10 pr-4 py-2 border border-tmgl-charcoal-300 rounded-lg focus:ring-2 focus:ring-tmgl-green-700"
           />
         </div>
       </div>
@@ -124,13 +126,13 @@ export default function FriendlyMatchesPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3">
-                          <span className="font-medium text-gray-900">{match.title}</span>
+                          <span className="font-medium text-tmgl-charcoal-950">{match.title}</span>
                           <Badge variant={STATUS_VARIANTS[match.status] ?? 'default'}>
                             {match.status}
                           </Badge>
                           <Badge variant="outline">{getMatchFormatLabel(match.match_format)}</Badge>
                         </div>
-                        <p className="text-sm text-gray-500 mt-1">
+                        <p className="text-sm text-tmgl-charcoal-500 mt-1">
                           {match.round_type}-hole · Created {new Date(match.created_at).toLocaleDateString('en-US', {
                             year: 'numeric', month: 'short', day: 'numeric',
                           })}

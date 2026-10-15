@@ -55,7 +55,7 @@ export default function PracticeDetailPage() {
   if (!round) {
     return (
       <Container className="py-8">
-        <div className="text-center text-gray-500">Practice round not found.</div>
+        <div className="text-center text-tmgl-charcoal-500">Practice round not found.</div>
       </Container>
     );
   }
@@ -75,14 +75,14 @@ export default function PracticeDetailPage() {
   return (
     <Container className="py-8 max-w-4xl">
       <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => navigate(-1)} className="text-gray-500 hover:text-gray-700">
+        <button onClick={() => navigate(-1)} className="text-tmgl-charcoal-500 hover:text-tmgl-charcoal-700">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Practice Round — {round.round_type} Holes
+          <h1 className="text-2xl font-bold text-tmgl-charcoal-950">
+            Practice Round —” {round.round_type} Holes
           </h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-tmgl-charcoal-500 text-sm">
             {new Date(round.created_at).toLocaleDateString('en-US', {
               year: 'numeric', month: 'long', day: 'numeric',
             })}
@@ -109,12 +109,12 @@ export default function PracticeDetailPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatsCard
           label="Gross Score"
-          value={round.gross_score ?? '—'}
+          value={round.gross_score ?? '—”'}
           icon={<Target className="h-5 w-5" />}
         />
         <StatsCard
           label="To Par"
-          value={round.total_to_par !== null ? formatToPar(round.total_to_par) : '—'}
+          value={round.total_to_par !== null ? formatToPar(round.total_to_par) : '—”'}
           icon={<Target className="h-5 w-5" />}
           variant={round.total_to_par !== null && round.total_to_par < 0 ? 'success' : 'warning'}
         />
@@ -124,7 +124,7 @@ export default function PracticeDetailPage() {
         />
         <StatsCard
           label="Avg Putts"
-          value={summary.averagePutts !== null ? summary.averagePutts.toFixed(1) : '—'}
+          value={summary.averagePutts !== null ? summary.averagePutts.toFixed(1) : '—”'}
         />
       </div>
 
@@ -138,13 +138,13 @@ export default function PracticeDetailPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left py-2 px-3 font-medium text-gray-500">Hole</th>
-                    <th className="text-center py-2 px-3 font-medium text-gray-500">Par</th>
-                    <th className="text-center py-2 px-3 font-medium text-gray-500">Score</th>
-                    <th className="text-center py-2 px-3 font-medium text-gray-500">To Par</th>
-                    <th className="text-center py-2 px-3 font-medium text-gray-500">Putts</th>
-                    <th className="text-center py-2 px-3 font-medium text-gray-500">FW</th>
-                    <th className="text-center py-2 px-3 font-medium text-gray-500">GIR</th>
+                    <th className="text-left py-2 px-3 font-medium text-tmgl-charcoal-500">Hole</th>
+                    <th className="text-center py-2 px-3 font-medium text-tmgl-charcoal-500">Par</th>
+                    <th className="text-center py-2 px-3 font-medium text-tmgl-charcoal-500">Score</th>
+                    <th className="text-center py-2 px-3 font-medium text-tmgl-charcoal-500">To Par</th>
+                    <th className="text-center py-2 px-3 font-medium text-tmgl-charcoal-500">Putts</th>
+                    <th className="text-center py-2 px-3 font-medium text-tmgl-charcoal-500">FW</th>
+                    <th className="text-center py-2 px-3 font-medium text-tmgl-charcoal-500">GIR</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -153,19 +153,19 @@ export default function PracticeDetailPage() {
                     return (
                       <tr key={s.id} className="border-b last:border-0">
                         <td className="py-2 px-3 font-medium">{s.hole_number}</td>
-                        <td className="py-2 px-3 text-center text-gray-500">{s.par}</td>
+                        <td className="py-2 px-3 text-center text-tmgl-charcoal-500">{s.par}</td>
                         <td className="py-2 px-3 text-center font-medium">{s.score}</td>
                         <td className={`py-2 px-3 text-center font-medium ${
                           toPar < 0 ? 'text-green-600' : toPar > 0 ? 'text-red-600' : ''
                         }`}>
                           {formatToPar(toPar)}
                         </td>
-                        <td className="py-2 px-3 text-center text-gray-500">{s.putts ?? '—'}</td>
+                        <td className="py-2 px-3 text-center text-tmgl-charcoal-500">{s.putts ?? '—”'}</td>
                         <td className="py-2 px-3 text-center">
-                          {s.fairway_hit === true ? '✓' : s.fairway_hit === false ? '✗' : '—'}
+                          {s.fairway_hit === true ? 'âœ“' : s.fairway_hit === false ? 'âœ—' : '—”'}
                         </td>
                         <td className="py-2 px-3 text-center">
-                          {s.green_in_regulation === true ? '✓' : s.green_in_regulation === false ? '✗' : '—'}
+                          {s.green_in_regulation === true ? 'âœ“' : s.green_in_regulation === false ? 'âœ—' : '—”'}
                         </td>
                       </tr>
                     );
@@ -181,12 +181,12 @@ export default function PracticeDetailPage() {
                     }`}>
                       {formatToPar(summary.toPar)}
                     </td>
-                    <td className="py-2 px-3 text-center">{summary.totalPutts ?? '—'}</td>
+                    <td className="py-2 px-3 text-center">{summary.totalPutts ?? '—”'}</td>
                     <td className="py-2 px-3 text-center">
-                      {summary.fairwayPercentage !== null ? `${summary.fairwayPercentage}%` : '—'}
+                      {summary.fairwayPercentage !== null ? `${summary.fairwayPercentage}%` : '—”'}
                     </td>
                     <td className="py-2 px-3 text-center">
-                      {summary.girPercentage !== null ? `${summary.girPercentage}%` : '—'}
+                      {summary.girPercentage !== null ? `${summary.girPercentage}%` : '—”'}
                     </td>
                   </tr>
                 </tfoot>
@@ -197,7 +197,7 @@ export default function PracticeDetailPage() {
       ) : (
         <Card variant="bordered">
           <CardContent className="p-8 text-center">
-            <p className="text-gray-500">No scores recorded yet.</p>
+            <p className="text-tmgl-charcoal-500">No scores recorded yet.</p>
             {isEditable && (
               <Link to={ROUTES.practiceScore(round.id)} className="mt-4 inline-block">
                 <Button variant="primary" size="sm">Enter Scores</Button>
@@ -213,7 +213,7 @@ export default function PracticeDetailPage() {
             <CardTitle className="text-lg">Notes</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-700 whitespace-pre-wrap">{round.notes}</p>
+            <p className="text-tmgl-charcoal-700 whitespace-pre-wrap">{round.notes}</p>
           </CardContent>
         </Card>
       )}

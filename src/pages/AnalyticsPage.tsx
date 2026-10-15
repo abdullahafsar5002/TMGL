@@ -135,7 +135,7 @@ export function AnalyticsPage() {
                       <p className="text-xs text-tmgl-charcoal-500 mt-0.5">Total Strokes</p>
                     </div>
                     <div className="text-center p-3 rounded-lg border border-tmgl-charcoal-100">
-                      <p className="text-xl font-bold text-tmgl-charcoal-900">{analytics.scorecards.averageStrokes ?? '—'}</p>
+                      <p className="text-xl font-bold text-tmgl-charcoal-900">{analytics.scorecards.averageStrokes ?? '—”'}</p>
                       <p className="text-xs text-tmgl-charcoal-500 mt-0.5">Avg Strokes</p>
                     </div>
                     <div className="text-center p-3 rounded-lg border border-tmgl-charcoal-100">
@@ -153,9 +153,9 @@ export function AnalyticsPage() {
           {/* Quick Links */}
           <DashboardSection title="Detailed Views">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <StatCard label="Players" value={analytics.matches.total > 0 ? 'View' : '—'} icon={Users} path="/players" color="bg-blue-50 text-blue-700 border-blue-200" />
-              <StatCard label="Teams" value={analytics.matches.total > 0 ? 'View' : '—'} icon={Shield} path="/teams" color="bg-amber-50 text-amber-700 border-amber-200" />
-              <StatCard label="Leaderboard" value={analytics.scorecards.completed > 0 ? 'View' : '—'} icon={TrendingUp} path="/leaderboard" color="bg-emerald-50 text-emerald-700 border-emerald-200" />
+              <StatCard label="Players" value={analytics.matches.total > 0 ? 'View' : '—”'} icon={Users} path="/players" color="bg-blue-50 text-blue-700 border-blue-200" />
+              <StatCard label="Teams" value={analytics.matches.total > 0 ? 'View' : '—”'} icon={Shield} path="/teams" color="bg-amber-50 text-amber-700 border-amber-200" />
+              <StatCard label="Leaderboard" value={analytics.scorecards.completed > 0 ? 'View' : '—”'} icon={TrendingUp} path="/leaderboard" color="bg-tmgl-green-50 text-tmgl-green-700 border-tmgl-green-200" />
             </div>
           </DashboardSection>
 

@@ -227,7 +227,7 @@ export default function FriendlyMatchScorePage() {
   if (!match || !matchPlayer) {
     return (
       <Container className="py-8">
-        <div className="text-center text-gray-500">Match not found.</div>
+        <div className="text-center text-tmgl-charcoal-500">Match not found.</div>
       </Container>
     );
   }
@@ -235,14 +235,14 @@ export default function FriendlyMatchScorePage() {
   return (
     <Container className="py-8">
       <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => navigate(-1)} className="text-gray-500 hover:text-gray-700">
+        <button onClick={() => navigate(-1)} className="text-tmgl-charcoal-500 hover:text-tmgl-charcoal-700">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Scorecard — {match.title}
+          <h1 className="text-2xl font-bold text-tmgl-charcoal-950">
+            Scorecard —” {match.title}
           </h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-tmgl-charcoal-500 text-sm">
             {getMatchFormatLabel(match.match_format)} · {match.round_type}-hole
           </p>
         </div>
@@ -271,10 +271,10 @@ export default function FriendlyMatchScorePage() {
                       onClick={() => setActiveHole(h)}
                       className={`w-8 h-8 rounded-full text-sm font-medium transition-colors ${
                         activeHole === h
-                          ? 'bg-green-600 text-white'
+                          ? 'bg-tmgl-green-700 text-white'
                           : entries.find(e => e.hole_number === h)?.score
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                            ? 'bg-tmgl-green-100 text-tmgl-green-700'
+                            : 'bg-tmgl-charcoal-100 text-tmgl-charcoal-500 hover:bg-tmgl-charcoal-200'
                       }`}
                     >
                       {h}
@@ -287,8 +287,8 @@ export default function FriendlyMatchScorePage() {
               {entries.filter(e => e.hole_number === activeHole).map(entry => (
                 <div key={entry.hole_number} className="space-y-4">
                   <div className="flex items-center gap-4 mb-4">
-                    <span className="text-2xl font-bold text-gray-900">Hole {entry.hole_number}</span>
-                    <span className="text-gray-500">Par {entry.par}</span>
+                    <span className="text-2xl font-bold text-tmgl-charcoal-950">Hole {entry.hole_number}</span>
+                    <span className="text-tmgl-charcoal-500">Par {entry.par}</span>
                     {entry.score && (
                       <Badge variant={
                         parseInt(entry.score) < entry.par ? 'success' :
@@ -305,7 +305,7 @@ export default function FriendlyMatchScorePage() {
                   </div>
 
                   <div className="max-w-xs">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Score *</label>
+                    <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Score *</label>
                     <input
                       type="number"
                       min="1"
@@ -313,7 +313,7 @@ export default function FriendlyMatchScorePage() {
                       value={entry.score}
                       onChange={e => updateEntry(entry.hole_number, e.target.value)}
                       disabled={!isEditable}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 disabled:bg-gray-50"
+                      className="w-full border border-tmgl-charcoal-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-tmgl-green-700 disabled:bg-tmgl-charcoal-50"
                       placeholder="Strokes"
                     />
                   </div>
@@ -330,24 +330,24 @@ export default function FriendlyMatchScorePage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-gray-600">Holes Played</span>
+                <span className="text-tmgl-charcoal-600">Holes Played</span>
                 <span className="font-medium">{scoredEntries.length} / {match.round_type}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Total Score</span>
-                <span className="font-bold text-xl">{scoredEntries.length > 0 ? totalScore : '—'}</span>
+                <span className="text-tmgl-charcoal-600">Total Score</span>
+                <span className="font-bold text-xl">{scoredEntries.length > 0 ? totalScore : '—”'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">To Par</span>
+                <span className="text-tmgl-charcoal-600">To Par</span>
                 <span className={`font-bold text-xl ${
                   toPar < 0 ? 'text-green-600' : toPar > 0 ? 'text-red-600' : ''
                 }`}>
-                  {scoredEntries.length > 0 ? formatToPar(toPar) : '—'}
+                  {scoredEntries.length > 0 ? formatToPar(toPar) : '—”'}
                 </span>
               </div>
               {totalStableford !== null && (
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Stableford Points</span>
+                  <span className="text-tmgl-charcoal-600">Stableford Points</span>
                   <span className="font-bold text-xl text-blue-600">{totalStableford}</span>
                 </div>
               )}

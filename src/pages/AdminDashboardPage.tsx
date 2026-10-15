@@ -432,7 +432,7 @@ export function AdminDashboardPage() {
                           {member.full_name || 'Unnamed player'}
                           {member.id === profile?.id && <span className="ml-2 text-xs text-tmgl-gold-700">(you)</span>}
                         </td>
-                        <td className="py-2 text-tmgl-charcoal-600">{member.email || '—'}</td>
+                        <td className="py-2 text-tmgl-charcoal-600">{member.email || '—”'}</td>
                         <td className="py-2">
                           <label className="sr-only" htmlFor={`role-${member.id}`}>Role for {member.full_name || member.id}</label>
                           <select
@@ -498,7 +498,7 @@ export function AdminDashboardPage() {
                         <td className="py-2 font-medium text-tmgl-charcoal-900">{formatPkr(invoice.amount_minor / 100)}</td>
                         <td className="py-2">
                           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            invoice.status === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                            invoice.status === 'paid' ? 'bg-tmgl-green-100 text-tmgl-green-800' : 'bg-amber-100 text-amber-800'
                           }`}>
                             {invoiceStatusLabel(invoice.status)}
                           </span>

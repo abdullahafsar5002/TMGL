@@ -139,8 +139,8 @@ export default function MyScoresPage() {
   return (
     <Container className="py-8">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">My Scores</h1>
-        <p className="text-gray-500 mt-1">All your tournament and practice scores</p>
+        <h1 className="text-3xl font-bold text-tmgl-charcoal-950">My Scores</h1>
+        <p className="text-tmgl-charcoal-500 mt-1">All your tournament and practice scores</p>
       </div>
 
       {error && (
@@ -149,13 +149,13 @@ export default function MyScoresPage() {
 
       <div className="mb-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-tmgl-charcoal-400" />
           <input
             type="text"
             placeholder="Search by course..."
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
-            className="w-full md:w-80 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+            className="w-full md:w-80 pl-10 pr-4 py-2 border border-tmgl-charcoal-300 rounded-lg focus:ring-2 focus:ring-tmgl-green-700"
           />
         </div>
       </div>
@@ -178,9 +178,9 @@ export default function MyScoresPage() {
                         <Badge variant={s.type === 'tournament' ? 'info' : 'default'}>
                           {s.type === 'tournament' ? 'Tournament' : 'Practice'}
                         </Badge>
-                        <span className="font-medium text-gray-900">{s.courseName}</span>
+                        <span className="font-medium text-tmgl-charcoal-950">{s.courseName}</span>
                       </div>
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="text-sm text-tmgl-charcoal-500 mt-1">
                         {new Date(s.date).toLocaleDateString('en-US', {
                           year: 'numeric', month: 'short', day: 'numeric',
                         })}
@@ -190,7 +190,7 @@ export default function MyScoresPage() {
                     <div className="text-right">
                       {s.score !== null ? (
                         <>
-                          <p className="text-xl font-bold text-gray-900">{s.score}</p>
+                          <p className="text-xl font-bold text-tmgl-charcoal-950">{s.score}</p>
                           {s.toPar !== null && (
                             <p className={`text-sm ${s.toPar < 0 ? 'text-green-600' : s.toPar > 0 ? 'text-red-600' : ''}`}>
                               {formatToPar(s.toPar)}
@@ -198,7 +198,7 @@ export default function MyScoresPage() {
                           )}
                         </>
                       ) : (
-                        <p className="text-gray-400">—</p>
+                        <p className="text-tmgl-charcoal-400">—”</p>
                       )}
                     </div>
                   </div>

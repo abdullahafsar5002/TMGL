@@ -211,7 +211,7 @@ export default function FriendlyMatchDetailPage() {
   if (!match) {
     return (
       <Container className="py-8">
-        <div className="text-center text-gray-500">Match not found.</div>
+        <div className="text-center text-tmgl-charcoal-500">Match not found.</div>
       </Container>
     );
   }
@@ -224,12 +224,12 @@ export default function FriendlyMatchDetailPage() {
   return (
     <Container className="py-8 max-w-4xl">
       <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => navigate(-1)} className="text-gray-500 hover:text-gray-700">
+        <button onClick={() => navigate(-1)} className="text-tmgl-charcoal-500 hover:text-tmgl-charcoal-700">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">{match.title}</h1>
-          <p className="text-gray-500 text-sm">
+          <h1 className="text-2xl font-bold text-tmgl-charcoal-950">{match.title}</h1>
+          <p className="text-tmgl-charcoal-500 text-sm">
             {getMatchFormatLabel(match.match_format)} · {match.round_type}-hole
             {match.scheduled_at && ` · Scheduled ${new Date(match.scheduled_at).toLocaleDateString()}`}
           </p>
@@ -246,7 +246,7 @@ export default function FriendlyMatchDetailPage() {
       {match.description && (
         <Card variant="bordered" className="mb-6">
           <CardContent className="p-4">
-            <p className="text-gray-700">{match.description}</p>
+            <p className="text-tmgl-charcoal-700">{match.description}</p>
           </CardContent>
         </Card>
       )}
@@ -267,11 +267,11 @@ export default function FriendlyMatchDetailPage() {
             </CardHeader>
             <CardContent>
               {players.length === 0 ? (
-                <p className="text-gray-500 text-sm">No players invited yet.</p>
+                <p className="text-tmgl-charcoal-500 text-sm">No players invited yet.</p>
               ) : (
                 <div className="space-y-3">
                   {players.map(p => (
-                    <div key={p.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={p.id} className="flex items-center justify-between p-3 bg-tmgl-charcoal-50 rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
                           <span className="text-sm font-medium text-green-700">
@@ -279,14 +279,14 @@ export default function FriendlyMatchDetailPage() {
                           </span>
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900">
+                          <p className="font-medium text-tmgl-charcoal-950">
                             {p.player?.full_name ?? 'Unknown Player'}
                           </p>
                           {p.handicap_index !== null && (
-                            <p className="text-xs text-gray-500">Handicap {p.handicap_index}</p>
+                            <p className="text-xs text-tmgl-charcoal-500">Handicap {p.handicap_index}</p>
                           )}
                           {p.joined_at && (
-                            <p className="text-xs text-gray-500">Joined {new Date(p.joined_at).toLocaleDateString()}</p>
+                            <p className="text-xs text-tmgl-charcoal-500">Joined {new Date(p.joined_at).toLocaleDateString()}</p>
                           )}
                         </div>
                       </div>
@@ -295,7 +295,7 @@ export default function FriendlyMatchDetailPage() {
                           {p.invitation_status}
                         </Badge>
                         {p.score !== null && (
-                          <span className="font-bold text-gray-900">{p.score}</span>
+                          <span className="font-bold text-tmgl-charcoal-950">{p.score}</span>
                         )}
                         {isCreator && match.status === 'in_progress' && p.invitation_status === 'pending' && (
                           <Button variant="ghost" size="sm" onClick={() => handleRemovePlayer(p.player_id)}>
@@ -318,19 +318,19 @@ export default function FriendlyMatchDetailPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-gray-600">Format</span>
+                <span className="text-tmgl-charcoal-600">Format</span>
                 <span className="font-medium">{getMatchFormatLabel(match.match_format)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Holes</span>
+                <span className="text-tmgl-charcoal-600">Holes</span>
                 <span className="font-medium">{match.round_type}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Status</span>
+                <span className="text-tmgl-charcoal-600">Status</span>
                 <Badge variant={STATUS_VARIANTS[match.status] ?? 'default'}>{match.status}</Badge>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Created</span>
+                <span className="text-tmgl-charcoal-600">Created</span>
                 <span className="font-medium text-sm">{new Date(match.created_at).toLocaleDateString()}</span>
               </div>
             </CardContent>
@@ -389,28 +389,28 @@ export default function FriendlyMatchDetailPage() {
       {showInviteDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">Invite Player</h2>
+            <h2 className="text-lg font-bold text-tmgl-charcoal-950 mb-4">Invite Player</h2>
             <input
               type="text"
               placeholder="Search players..."
               value={inviteSearch}
               onChange={e => setInviteSearch(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 focus:ring-2 focus:ring-green-500"
+              className="w-full border border-tmgl-charcoal-300 rounded-lg px-3 py-2 mb-4 focus:ring-2 focus:ring-tmgl-green-700"
             />
             <div className="max-h-60 overflow-y-auto space-y-2">
               {filteredPlayers.length === 0 ? (
-                <p className="text-gray-500 text-sm text-center py-4">No players found.</p>
+                <p className="text-tmgl-charcoal-500 text-sm text-center py-4">No players found.</p>
               ) : (
                 filteredPlayers.map(p => (
                   <button
                     key={p.id}
                     onClick={() => handleInvitePlayer(p.id)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 text-left"
+                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-tmgl-charcoal-50 text-left"
                   >
                     <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
                       <span className="text-sm font-medium text-green-700">{p.full_name.charAt(0)}</span>
                     </div>
-                    <span className="font-medium text-gray-900">{p.full_name}</span>
+                    <span className="font-medium text-tmgl-charcoal-950">{p.full_name}</span>
                   </button>
                 ))
               )}

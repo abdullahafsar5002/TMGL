@@ -72,7 +72,7 @@ export default function AnnouncementDetailPage() {
   if (!announcement) {
     return (
       <Container className="py-8">
-        <div className="text-center text-gray-500">Announcement not found.</div>
+        <div className="text-center text-tmgl-charcoal-500">Announcement not found.</div>
       </Container>
     );
   }
@@ -80,17 +80,17 @@ export default function AnnouncementDetailPage() {
   return (
     <Container className="py-8 max-w-3xl">
       <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => navigate(-1)} className="text-gray-500 hover:text-gray-700">
+        <button onClick={() => navigate(-1)} className="text-tmgl-charcoal-500 hover:text-tmgl-charcoal-700">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-gray-900">{announcement.title}</h1>
+            <h1 className="text-2xl font-bold text-tmgl-charcoal-950">{announcement.title}</h1>
             {!announcement.is_published && (
               <Badge variant="warning">Draft</Badge>
             )}
           </div>
-          <p className="text-gray-500 text-sm">
+          <p className="text-tmgl-charcoal-500 text-sm">
             {new Date(announcement.created_at).toLocaleDateString('en-US', {
               year: 'numeric', month: 'long', day: 'numeric',
             })}
@@ -118,7 +118,7 @@ export default function AnnouncementDetailPage() {
         <CardContent className="p-6">
           <div className="prose prose-green max-w-none">
             {announcement.content.split('\n').map((paragraph, i) => (
-              <p key={i} className="text-gray-700 whitespace-pre-wrap mb-4 last:mb-0">
+              <p key={i} className="text-tmgl-charcoal-700 whitespace-pre-wrap mb-4 last:mb-0">
                 {paragraph}
               </p>
             ))}

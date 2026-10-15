@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Play } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Container } from '@/components/common/Container';
+import { PageHeader } from '@/components/common/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { LoadingState } from '@/components/common/LoadingState';
@@ -99,7 +100,7 @@ export default function PracticeCreatePage() {
 
   return (
     <Container className="py-8 max-w-2xl">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">New Practice Round</h1>
+      <PageHeader eyebrow="Training" title="New practice round" />
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
@@ -122,21 +123,21 @@ export default function PracticeCreatePage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Golf Course *</label>
+              <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Golf Course *</label>
               <select
                 value={courseId}
                 onChange={e => setCourseId(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full border border-tmgl-charcoal-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-tmgl-green-700 focus:border-tmgl-green-700"
               >
                 <option value="">Select a course</option>
                 {courses.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}{c.location ? ` — ${c.location}` : ''}</option>
+                  <option key={c.id} value={c.id}>{c.name}{c.location ? ` —” ${c.location}` : ''}</option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Number of Holes *</label>
+              <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-2">Number of Holes *</label>
               <div className="flex gap-3">
                 <button
                   type="button"
@@ -144,7 +145,7 @@ export default function PracticeCreatePage() {
                   className={`flex-1 py-3 rounded-lg border-2 font-medium transition-colors ${
                     roundType === 9
                       ? 'border-green-600 bg-green-50 text-green-700'
-                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                      : 'border-tmgl-charcoal-200 bg-white text-tmgl-charcoal-600 hover:border-tmgl-charcoal-300'
                   }`}
                 >
                   9 Holes
@@ -155,7 +156,7 @@ export default function PracticeCreatePage() {
                   className={`flex-1 py-3 rounded-lg border-2 font-medium transition-colors ${
                     roundType === 18
                       ? 'border-green-600 bg-green-50 text-green-700'
-                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                      : 'border-tmgl-charcoal-200 bg-white text-tmgl-charcoal-600 hover:border-tmgl-charcoal-300'
                   }`}
                 >
                   18 Holes
@@ -164,11 +165,11 @@ export default function PracticeCreatePage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tee Box (optional)</label>
+              <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Tee Box (optional)</label>
               <select
                 value={teeBox}
                 onChange={e => setTeeBox(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full border border-tmgl-charcoal-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-tmgl-green-700 focus:border-tmgl-green-700"
               >
                 <option value="">Select tee box</option>
                 <option value="red">Red (Forward)</option>
@@ -179,12 +180,12 @@ export default function PracticeCreatePage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+              <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Notes (optional)</label>
               <textarea
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
                 rows={3}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full border border-tmgl-charcoal-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-tmgl-green-700 focus:border-tmgl-green-700"
                 placeholder="Weather conditions, practice focus, etc."
               />
             </div>

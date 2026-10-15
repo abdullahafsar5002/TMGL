@@ -185,14 +185,14 @@ export default function AnnouncementManagePage() {
   if (!isManager) {
     return (
       <Container className="py-8">
-        <div className="text-center text-gray-500">You do not have permission to manage announcements.</div>
+        <div className="text-center text-tmgl-charcoal-500">You do not have permission to manage announcements.</div>
       </Container>
     );
   }
 
   return (
     <Container className="py-8 max-w-2xl">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">
+      <h1 className="text-3xl font-bold text-tmgl-charcoal-950 mb-8">
         {isEditing ? 'Edit Announcement' : 'New Announcement'}
       </h1>
 
@@ -217,28 +217,28 @@ export default function AnnouncementManagePage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+              <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Title *</label>
               <input
                 type="text"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full border border-tmgl-charcoal-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-tmgl-green-700 focus:border-tmgl-green-700"
                 placeholder="Announcement title"
                 maxLength={200}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Content *</label>
+              <label className="block text-sm font-medium text-tmgl-charcoal-700 mb-1">Content *</label>
               <textarea
                 value={content}
                 onChange={e => setContent(e.target.value)}
                 rows={12}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full border border-tmgl-charcoal-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-tmgl-green-700 focus:border-tmgl-green-700"
                 placeholder="Write your announcement here..."
                 maxLength={5000}
               />
-              <p className="text-xs text-gray-400 mt-1">{content.length} / 5000 characters</p>
+              <p className="text-xs text-tmgl-charcoal-400 mt-1">{content.length} / 5000 characters</p>
             </div>
 
             <div className="flex items-center gap-3">
@@ -246,14 +246,14 @@ export default function AnnouncementManagePage() {
                 type="button"
                 onClick={() => setIsPublished(!isPublished)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  isPublished ? 'bg-green-600' : 'bg-gray-300'
+                  isPublished ? 'bg-tmgl-green-700' : 'bg-tmgl-charcoal-300'
                 }`}
               >
                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                   isPublished ? 'translate-x-6' : 'translate-x-1'
                 }`} />
               </button>
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm font-medium text-tmgl-charcoal-700">
                 {isPublished ? 'Published' : 'Draft'}
               </label>
             </div>

@@ -18,7 +18,7 @@ export function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
 
-  // Already authenticated — redirect away
+  // Already authenticated —” redirect away
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
       navigate('/dashboard', { replace: true });
@@ -30,8 +30,8 @@ export function RegisterPage() {
     return (
       <div className="min-h-screen bg-tmgl-green-900 flex flex-col items-center justify-center px-4 py-12">
         <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 sm:p-8 text-center space-y-4">
-          <div className="w-14 h-14 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto">
-            <CheckCircle className="w-7 h-7 text-emerald-600" />
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-tmgl-green-200 bg-tmgl-green-50">
+            <CheckCircle className="w-7 h-7 text-tmgl-green-600" />
           </div>
           <h2 className="text-xl font-bold text-tmgl-charcoal-900">Check your email</h2>
           <p className="text-sm text-tmgl-charcoal-600">
@@ -81,7 +81,7 @@ export function RegisterPage() {
     if (result.requiresConfirmation) {
       setAwaitingConfirmation(true);
     } else {
-      // Auto-confirmed — go straight to dashboard
+      // Auto-confirmed —” go straight to dashboard
       navigate('/dashboard', { replace: true });
     }
   };
@@ -180,7 +180,7 @@ export function RegisterPage() {
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="—¢—¢—¢—¢—¢—¢—¢—¢"
                 required
                 className="w-full pl-10 pr-12 py-3 min-h-[44px] rounded-lg border border-tmgl-charcoal-300 text-sm text-tmgl-charcoal-900 placeholder-tmgl-charcoal-400 focus:outline-none focus:ring-2 focus:ring-tmgl-green-700 focus:border-transparent transition"
               />
@@ -208,7 +208,7 @@ export function RegisterPage() {
                 autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="—¢—¢—¢—¢—¢—¢—¢—¢"
                 required
                 className="w-full pl-10 pr-4 py-3 min-h-[44px] rounded-lg border border-tmgl-charcoal-300 text-sm text-tmgl-charcoal-900 placeholder-tmgl-charcoal-400 focus:outline-none focus:ring-2 focus:ring-tmgl-green-700 focus:border-transparent transition"
               />
@@ -223,7 +223,7 @@ export function RegisterPage() {
             disabled={isSubmitting || authLoading || !env.isConfigured}
             className="mt-2 bg-tmgl-green-800 hover:bg-tmgl-green-700"
           >
-            {isSubmitting ? 'Creating account…' : 'Create account'}
+            {isSubmitting ? 'Creating account—¦' : 'Create account'}
           </Button>
         </form>
 
@@ -234,7 +234,7 @@ export function RegisterPage() {
       </div>
 
       <p className="mt-6 text-xs text-tmgl-charcoal-400 text-center">
-        © {new Date().getFullYear()} Toruk Maktu Golf League
+                  © {new Date().getFullYear()} Toruk Maktu Golf League
       </p>
     </div>
   );

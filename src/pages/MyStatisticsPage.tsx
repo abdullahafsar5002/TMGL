@@ -146,16 +146,16 @@ export default function MyStatisticsPage() {
         <StatsCard label="Rounds Played" value={stats.rounds_played} />
         <StatsCard
           label="Average Score"
-          value={stats.average_score !== null ? Number(stats.average_score).toFixed(1) : '—'}
+          value={stats.average_score !== null ? Number(stats.average_score).toFixed(1) : '—”'}
         />
         <StatsCard
           label="Best Score"
-          value={stats.best_score ?? '—'}
+          value={stats.best_score ?? '—”'}
           variant="gold"
         />
         <StatsCard
           label="Avg To Par"
-          value={stats.average_to_par !== null ? formatToPar(Number(stats.average_to_par)) : '—'}
+          value={stats.average_to_par !== null ? formatToPar(Number(stats.average_to_par)) : '—”'}
           variant={stats.average_to_par !== null && Number(stats.average_to_par) < 0 ? 'success' : 'warning'}
         />
       </div>
@@ -177,42 +177,42 @@ export default function MyStatisticsPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Eagles</p>
+            <div className="p-3 bg-tmgl-charcoal-50 rounded-lg">
+              <p className="text-sm text-tmgl-charcoal-500">Eagles</p>
               <p className="text-xl font-bold text-indigo-600">{stats.eagles}</p>
             </div>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Birdies</p>
+            <div className="p-3 bg-tmgl-charcoal-50 rounded-lg">
+              <p className="text-sm text-tmgl-charcoal-500">Birdies</p>
               <p className="text-xl font-bold text-green-600">{stats.birdies}</p>
             </div>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Pars</p>
+            <div className="p-3 bg-tmgl-charcoal-50 rounded-lg">
+              <p className="text-sm text-tmgl-charcoal-500">Pars</p>
               <p className="text-xl font-bold text-blue-600">{stats.pars}</p>
             </div>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Bogeys</p>
+            <div className="p-3 bg-tmgl-charcoal-50 rounded-lg">
+              <p className="text-sm text-tmgl-charcoal-500">Bogeys</p>
               <p className="text-xl font-bold text-amber-600">{stats.bogeys}</p>
             </div>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Double Bogeys+</p>
+            <div className="p-3 bg-tmgl-charcoal-50 rounded-lg">
+              <p className="text-sm text-tmgl-charcoal-500">Double Bogeys+</p>
               <p className="text-xl font-bold text-red-600">{stats.double_bogeys}</p>
             </div>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Avg Putts</p>
-              <p className="text-xl font-bold text-gray-900">
-                {stats.average_putts !== null ? Number(stats.average_putts).toFixed(1) : '—'}
+            <div className="p-3 bg-tmgl-charcoal-50 rounded-lg">
+              <p className="text-sm text-tmgl-charcoal-500">Avg Putts</p>
+              <p className="text-xl font-bold text-tmgl-charcoal-950">
+                {stats.average_putts !== null ? Number(stats.average_putts).toFixed(1) : '—”'}
               </p>
             </div>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Fairways Hit</p>
-              <p className="text-xl font-bold text-gray-900">
-                {stats.fairways_hit_percentage !== null ? `${Number(stats.fairways_hit_percentage).toFixed(0)}%` : '—'}
+            <div className="p-3 bg-tmgl-charcoal-50 rounded-lg">
+              <p className="text-sm text-tmgl-charcoal-500">Fairways Hit</p>
+              <p className="text-xl font-bold text-tmgl-charcoal-950">
+                {stats.fairways_hit_percentage !== null ? `${Number(stats.fairways_hit_percentage).toFixed(0)}%` : '—”'}
               </p>
             </div>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">GIR</p>
-              <p className="text-xl font-bold text-gray-900">
-                {stats.greens_in_regulation_percentage !== null ? `${Number(stats.greens_in_regulation_percentage).toFixed(0)}%` : '—'}
+            <div className="p-3 bg-tmgl-charcoal-50 rounded-lg">
+              <p className="text-sm text-tmgl-charcoal-500">GIR</p>
+              <p className="text-xl font-bold text-tmgl-charcoal-950">
+                {stats.greens_in_regulation_percentage !== null ? `${Number(stats.greens_in_regulation_percentage).toFixed(0)}%` : '—”'}
               </p>
             </div>
           </div>

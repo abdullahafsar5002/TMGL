@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Play, Clock, BarChart3, History, Target, Plus } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Container } from '@/components/common/Container';
+import { PageHeader } from '@/components/common/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -66,10 +67,11 @@ export default function PracticeHubPage() {
 
   return (
     <Container className="py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Practice Hub</h1>
-        <p className="text-gray-600 mt-2">Track your practice rounds and improve your game</p>
-      </div>
+      <PageHeader
+        eyebrow="Training"
+        title="Practice hub"
+        description="Track your practice rounds and work on your game."
+      />
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
@@ -85,18 +87,18 @@ export default function PracticeHubPage() {
         />
         <StatsCard
           label="Average Score"
-          value={stats?.average_score !== null && stats?.average_score !== undefined ? Number(stats.average_score).toFixed(1) : '—'}
+          value={stats?.average_score !== null && stats?.average_score !== undefined ? Number(stats.average_score).toFixed(1) : '—”'}
           icon={<BarChart3 className="h-5 w-5" />}
         />
         <StatsCard
           label="Best Score"
-          value={stats?.best_score ?? '—'}
+          value={stats?.best_score ?? '—”'}
           icon={<Target className="h-5 w-5" />}
           variant="gold"
         />
         <StatsCard
           label="Avg To Par"
-          value={stats?.average_to_par !== null && stats?.average_to_par !== undefined ? formatToPar(Number(stats.average_to_par)) : '—'}
+          value={stats?.average_to_par !== null && stats?.average_to_par !== undefined ? formatToPar(Number(stats.average_to_par)) : '—”'}
           icon={<BarChart3 className="h-5 w-5" />}
         />
       </div>
@@ -104,7 +106,7 @@ export default function PracticeHubPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <Card variant="bordered">
           <CardContent className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+            <h3 className="text-lg font-semibold text-tmgl-charcoal-950 mb-4">Quick Actions</h3>
             <div className="grid grid-cols-2 gap-3">
               <Link to="/practice/new?holes=9">
                 <Button variant="primary" fullWidth className="h-16 flex-col gap-1">
@@ -152,8 +154,8 @@ export default function PracticeHubPage() {
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium text-gray-900">{round.round_type}-hole round</p>
-                        <p className="text-sm text-gray-500">
+                        <p className="font-medium text-tmgl-charcoal-950">{round.round_type}-hole round</p>
+                        <p className="text-sm text-tmgl-charcoal-500">
                           Started {new Date(round.started_at).toLocaleDateString()}
                         </p>
                       </div>
@@ -183,18 +185,18 @@ export default function PracticeHubPage() {
                 <Link
                   key={round.id}
                   to={`/practice/${round.id}`}
-                  className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="block p-3 bg-tmgl-charcoal-50 rounded-lg hover:bg-tmgl-charcoal-100 transition-colors"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-gray-900">{round.round_type}-hole round</p>
-                      <p className="text-sm text-gray-500">
+                      <p className="font-medium text-tmgl-charcoal-950">{round.round_type}-hole round</p>
+                      <p className="text-sm text-tmgl-charcoal-500">
                         {new Date(round.completed_at ?? round.created_at).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-gray-900">{round.gross_score ?? '—'}</p>
-                      <p className="text-sm text-gray-500">
+                      <p className="font-bold text-tmgl-charcoal-950">{round.gross_score ?? '—”'}</p>
+                      <p className="text-sm text-tmgl-charcoal-500">
                         {round.total_to_par !== null ? formatToPar(round.total_to_par) : ''}
                       </p>
                     </div>
