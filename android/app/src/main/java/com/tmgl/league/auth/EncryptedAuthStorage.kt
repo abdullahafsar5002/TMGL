@@ -20,17 +20,30 @@ data class StoredSession(
 class EncryptedAuthStorage @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    private val masterKey = MasterKey.Builder(context)
-        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-        .build()
+    // Built lazily and defensively. The Android keystore entry becomes
+    // unreadable when the app is reinstalled with a different signature, and
+    // MasterKey.Builder().build() throws in that case. Because this class is
+    // constructor-injected into AuthRepository, DeviceRepository and the scoring
+    // view models, an eager build here took the whole app down at launch. Fall
+    // back to clearing the unreadable store so the user simply signs in again.
+    private val prefs: SharedPreferences by lazy { createPrefs() }
 
-    private val prefs: SharedPreferences = EncryptedSharedPreferences.create(
-        context,
-        "tmgl_secure_auth",
-        masterKey,
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-    )
+    private fun createPrefs(): SharedPreferences = try {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+
+        EncryptedSharedPreferences.create(
+            context,
+            PREFS_NAME,
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    } catch (error: Throwable) {
+        runCatching { context.deleteSharedPreferences(PREFS_NAME) }
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
 
     fun saveSession(
         accessToken: String,
@@ -78,6 +91,7 @@ class EncryptedAuthStorage @Inject constructor(
     fun hasSession(): Boolean = getSession() != null
 
     companion object {
+        private const val PREFS_NAME = "tmgl_secure_auth"
         private const val KEY_ACCESS_TOKEN = "access_token"
         private const val KEY_REFRESH_TOKEN = "refresh_token"
         private const val KEY_USER_ID = "user_id"
