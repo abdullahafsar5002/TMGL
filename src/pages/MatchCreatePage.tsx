@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Swords, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle  } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
@@ -63,8 +63,8 @@ export function MatchCreatePage() {
       <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-sm text-tmgl-charcoal-500 hover:text-tmgl-green-800">
         <ArrowLeft className="w-4 h-4" /> Back
       </button>
-      <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
-        <Swords className="w-5 h-5 text-tmgl-green-800" /> New Match
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">Match</p>
+      <h1 className="mt-1 font-display text-display-lg text-tmgl-charcoal-950">New match
       </h1>
 
       <Card>

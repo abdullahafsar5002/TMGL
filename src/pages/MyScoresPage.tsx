@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { BarChart3, Search } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Container } from '@/components/common/Container';
+import { PageHeader } from '@/components/common/PageHeader';
 import { Card, CardContent } from '@/components/common/Card';
 import { EmptyState } from '@/components/common/EmptyState';
 import { LoadingState } from '@/components/common/LoadingState';
@@ -138,10 +139,7 @@ export default function MyScoresPage() {
 
   return (
     <Container className="py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-tmgl-charcoal-950">My Scores</h1>
-        <p className="text-tmgl-charcoal-500 mt-1">All your tournament and practice scores</p>
-      </div>
+      <PageHeader eyebrow="Your game" title="My scores" description="All your tournament and practice scores." />
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>

@@ -238,10 +238,9 @@ export default function FriendlyMatchScorePage() {
         <button onClick={() => navigate(-1)} className="text-tmgl-charcoal-500 hover:text-tmgl-charcoal-700">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-tmgl-charcoal-950">
-            Scorecard —” {match.title}
-          </h1>
+<div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">Scorecard</p>
+          <h1 className="mt-1 font-display text-display-lg text-tmgl-charcoal-950">{match.title}</h1>
           <p className="text-tmgl-charcoal-500 text-sm">
             {getMatchFormatLabel(match.match_format)} · {match.round_type}-hole
           </p>

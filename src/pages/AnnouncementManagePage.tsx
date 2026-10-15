@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Megaphone } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Container } from '@/components/common/Container';
+import { PageHeader } from '@/components/common/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { LoadingState } from '@/components/common/LoadingState';
@@ -192,9 +193,7 @@ export default function AnnouncementManagePage() {
 
   return (
     <Container className="py-8 max-w-2xl">
-      <h1 className="text-3xl font-bold text-tmgl-charcoal-950 mb-8">
-        {isEditing ? 'Edit Announcement' : 'New Announcement'}
-      </h1>
+      <PageHeader eyebrow="News" title={isEditing ? 'Edit announcement' : 'New announcement'} />
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Shield, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle  } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card, CardContent } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
@@ -75,8 +75,8 @@ export function TeamCreatePage() {
         <button onClick={() => navigate('/teams')} className="text-sm text-tmgl-green-700 hover:underline flex items-center gap-1 mb-1">
           <ArrowLeft className="w-3.5 h-3.5" /> Teams
         </button>
-        <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
-          <Shield className="w-5 h-5 text-tmgl-green-800" /> New Team
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">Team</p>
+      <h1 className="mt-1 font-display text-display-lg text-tmgl-charcoal-950">New team
         </h1>
       </div>
 

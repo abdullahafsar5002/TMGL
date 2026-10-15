@@ -541,12 +541,11 @@ export function TournamentDetailPage() {
         <ArrowLeft className="w-4 h-4" /> Back to Tournaments
       </button>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-tmgl-green-800" /> {tournament.name}
-          </h1>
-          <div className="flex items-center gap-3 mt-1 text-sm text-tmgl-charcoal-500 flex-wrap">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">Tournament</p>
+          <h1 className="mt-1 font-display text-display-lg text-tmgl-charcoal-950">{tournament.name}</h1>
+          <div className="mt-2 flex items-center gap-3 text-sm text-tmgl-charcoal-500 flex-wrap">
             {tournament.event_date && (
               <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {new Date(tournament.event_date).toLocaleDateString()}</span>
             )}
@@ -582,7 +581,7 @@ export function TournamentDetailPage() {
           <Button variant="danger" size="sm" onClick={() => setShowDelete(true)}><Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete</Button>
           {tournament.status === 'live' && (
             <Button variant="primary" size="sm" onClick={handleFinalize} disabled={isFinalizing}
-              className="bg-yellow-600 hover:bg-yellow-500">
+              className="bg-tmgl-gold-600 text-white hover:bg-tmgl-gold-700">
               {isFinalizing ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Trophy className="w-3.5 h-3.5 mr-1.5" />}
               Finalize Tournament
             </Button>
