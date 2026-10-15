@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { MapPin, ArrowLeft, Edit, Trash2, Loader2, AlertCircle, Flag } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Loader2, AlertCircle, Flag  } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
@@ -208,10 +208,8 @@ export function CourseDetailPage() {
           <Link to="/courses" className="text-sm text-tmgl-green-700 hover:underline flex items-center gap-1 mb-1">
             <ArrowLeft className="w-3.5 h-3.5" /> Courses
           </Link>
-          <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-tmgl-green-800" />
-            {isEditing ? 'Edit Course' : course.name}
-          </h1>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">Course</p>
+        <h1 className="mt-1 font-display text-display-lg text-tmgl-charcoal-950">{isEditing ? 'Edit Course' : course.name}</h1>
         </div>
         {canManage && !isEditing && (
           <div className="flex items-center gap-2">

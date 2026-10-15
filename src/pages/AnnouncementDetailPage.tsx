@@ -83,9 +83,10 @@ export default function AnnouncementDetailPage() {
         <button onClick={() => navigate(-1)} className="text-tmgl-charcoal-500 hover:text-tmgl-charcoal-700">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-tmgl-charcoal-950">{announcement.title}</h1>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">Announcement</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <h1 className="font-display text-display-lg text-tmgl-charcoal-950">{announcement.title}</h1>
             {!announcement.is_published && (
               <Badge variant="warning">Draft</Badge>
             )}

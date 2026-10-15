@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { BarChart3, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Container } from '@/components/common/Container';
+import { PageHeader } from '@/components/common/PageHeader';
 import { Button } from '@/components/common/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/common/Card';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -81,7 +82,7 @@ export default function MyStatisticsPage() {
   if (error && !stats) {
     return (
       <Container className="py-8">
-        <h1 className="mb-6 text-3xl font-bold text-tmgl-charcoal-950">My Statistics</h1>
+        <PageHeader eyebrow="Your game" title="My statistics" />
         <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">{error}</div>
       </Container>
     );
@@ -90,13 +91,16 @@ export default function MyStatisticsPage() {
   if (!stats || stats.rounds_played === 0) {
     return (
       <Container className="py-8">
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold text-tmgl-charcoal-950">My Statistics</h1>
-        <Button variant="outline" size="sm" onClick={() => void handleRefresh()} disabled={refreshing || !playerId}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Refreshing...' : 'Refresh statistics'}
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Your game"
+        title="My statistics"
+        actions={
+          <Button variant="outline" size="sm" onClick={() => void handleRefresh()} disabled={refreshing || !playerId}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh statistics'}
+          </Button>
+        }
+      />
         <EmptyState
           icon={BarChart3}
           title="No statistics yet"
@@ -130,13 +134,16 @@ export default function MyStatisticsPage() {
 
   return (
     <Container className="py-8">
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold text-tmgl-charcoal-950">My Statistics</h1>
-        <Button variant="outline" size="sm" onClick={() => void handleRefresh()} disabled={refreshing || !playerId}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Refreshing...' : 'Refresh statistics'}
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Your game"
+        title="My statistics"
+        actions={
+          <Button variant="outline" size="sm" onClick={() => void handleRefresh()} disabled={refreshing || !playerId}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh statistics'}
+          </Button>
+        }
+      />
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
@@ -179,19 +186,19 @@ export default function MyStatisticsPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div className="p-3 bg-tmgl-charcoal-50 rounded-lg">
               <p className="text-sm text-tmgl-charcoal-500">Eagles</p>
-              <p className="text-xl font-bold text-indigo-600">{stats.eagles}</p>
+              <p className="text-xl font-bold text-tmgl-gold-600">{stats.eagles}</p>
             </div>
             <div className="p-3 bg-tmgl-charcoal-50 rounded-lg">
               <p className="text-sm text-tmgl-charcoal-500">Birdies</p>
-              <p className="text-xl font-bold text-tmgl-green-600">{stats.birdies}</p>
+              <p className="text-xl font-bold text-tmgl-green-700">{stats.birdies}</p>
             </div>
             <div className="p-3 bg-tmgl-charcoal-50 rounded-lg">
               <p className="text-sm text-tmgl-charcoal-500">Pars</p>
-              <p className="text-xl font-bold text-blue-600">{stats.pars}</p>
+              <p className="text-xl font-bold text-tmgl-charcoal-600">{stats.pars}</p>
             </div>
             <div className="p-3 bg-tmgl-charcoal-50 rounded-lg">
               <p className="text-sm text-tmgl-charcoal-500">Bogeys</p>
-              <p className="text-xl font-bold text-amber-600">{stats.bogeys}</p>
+              <p className="text-xl font-bold text-tmgl-gold-700">{stats.bogeys}</p>
             </div>
             <div className="p-3 bg-tmgl-charcoal-50 rounded-lg">
               <p className="text-sm text-tmgl-charcoal-500">Double Bogeys+</p>

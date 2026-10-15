@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { Calendar, ArrowLeft, Edit, Trash2, Loader2, AlertCircle, Users, Flag } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Loader2, AlertCircle, Users, Flag  } from 'lucide-react';
 import { Container } from '@/components/common/Container';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
@@ -146,10 +146,8 @@ export function SeasonDetailPage() {
           <Link to="/seasons" className="text-sm text-tmgl-green-700 hover:underline flex items-center gap-1 mb-1">
             <ArrowLeft className="w-3.5 h-3.5" /> Seasons
           </Link>
-          <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-tmgl-green-800" />
-            {isEditing ? 'Edit Season' : season.name}
-          </h1>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">Season</p>
+        <h1 className="mt-1 font-display text-display-lg text-tmgl-charcoal-950">{isEditing ? 'Edit Season' : season.name}</h1>
         </div>
         {canManage && !isEditing && (
           <div className="flex items-center gap-2">

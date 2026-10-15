@@ -78,9 +78,10 @@ export default function PracticeDetailPage() {
         <button onClick={() => navigate(-1)} className="text-tmgl-charcoal-500 hover:text-tmgl-charcoal-700">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-tmgl-charcoal-950">
-            Practice Round —” {round.round_type} Holes
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">Training</p>
+          <h1 className="mt-1 font-display text-display-lg text-tmgl-charcoal-950">
+            Practice round · {round.round_type} holes
           </h1>
           <p className="text-tmgl-charcoal-500 text-sm">
             {new Date(round.created_at).toLocaleDateString('en-US', {

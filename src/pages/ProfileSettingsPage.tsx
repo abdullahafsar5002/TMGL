@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Save, User } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Container } from '@/components/common/Container';
+import { PageHeader } from '@/components/common/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { LoadingState } from '@/components/common/LoadingState';
@@ -87,7 +88,7 @@ export default function ProfileSettingsPage() {
 
   return (
     <Container className="py-8 max-w-2xl">
-      <h1 className="text-3xl font-bold text-tmgl-charcoal-900 mb-8">Profile Settings</h1>
+      <PageHeader eyebrow="Account" title="Profile settings" />
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>

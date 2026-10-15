@@ -64,9 +64,8 @@ export function AnalyticsPage() {
         <ArrowLeft className="w-4 h-4" /> Dashboard
       </button>
 
-      <h1 className="text-xl font-bold text-tmgl-charcoal-900 flex items-center gap-2">
-        <TrendingUp className="w-5 h-5 text-tmgl-green-800" /> League Analytics
-      </h1>
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tmgl-green-700">League analytics</p>
+        <h1 className="mt-1 font-display text-display-lg text-tmgl-charcoal-950">League Analytics</h1>
 
       {!analytics ? (
         <EmptyState icon={TrendingUp} title="No data available" description="Analytics will appear once data is available in the system." />
