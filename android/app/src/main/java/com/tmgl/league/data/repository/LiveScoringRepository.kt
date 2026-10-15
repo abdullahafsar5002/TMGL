@@ -15,7 +15,12 @@ import javax.inject.Singleton
 @Singleton
 class LiveScoringRepository @Inject constructor() {
 
-    private val database = FirebaseDatabase.getInstance()
+    // Resolved on first use rather than in the constructor. This class is a
+    // singleton that gets built while Hilt assembles the graph, and
+    // FirebaseDatabase.getInstance() throws where FirebaseApp is not ready or
+    // Play Services is unavailable, which took the app down at launch instead
+    // of only disabling live scoring.
+    private val database: FirebaseDatabase by lazy { FirebaseDatabase.getInstance() }
 
     fun getLiveScores(roundId: String): Flow<List<ScorecardHole>> = callbackFlow {
         val scoresRef = database.getReference("live_scores/$roundId")
